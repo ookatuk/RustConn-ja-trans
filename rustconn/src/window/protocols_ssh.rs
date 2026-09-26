@@ -1461,24 +1461,7 @@ fn start_ssh_connection_internal(
     notebook.set_output_filter(session_id, conn.postpend.as_ref());
 
     // Apply highlight rules (built-in defaults + global + per-connection)
-    {
-        let (global_rules, include_builtin_defaults) = state
-            .try_borrow()
-            .ok()
-            .map(|s| {
-                (
-                    s.settings().highlight_rules.clone(),
-                    !s.settings().highlight_builtin_defaults_disabled,
-                )
-            })
-            .unwrap_or((Vec::new(), true));
-        notebook.set_highlight_rules(
-            session_id,
-            &global_rules,
-            &conn.highlight_rules,
-            include_builtin_defaults,
-        );
-    }
+    super::protocols::apply_highlight_rules(state, notebook, session_id, &conn.highlight_rules);
 
     // Record connection start in history
     let history_entry_id = if let Ok(mut state_mut) = state.try_borrow_mut() {
@@ -1874,24 +1857,7 @@ pub fn reconnect_ssh_in_place(
     };
 
     // Re-apply highlight rules
-    {
-        let (global_rules, include_builtin_defaults) = state
-            .try_borrow()
-            .ok()
-            .map(|s| {
-                (
-                    s.settings().highlight_rules.clone(),
-                    !s.settings().highlight_builtin_defaults_disabled,
-                )
-            })
-            .unwrap_or((Vec::new(), true));
-        notebook.set_highlight_rules(
-            session_id,
-            &global_rules,
-            &conn.highlight_rules,
-            include_builtin_defaults,
-        );
-    }
+    super::protocols::apply_highlight_rules(state, notebook, session_id, &conn.highlight_rules);
 
     // Re-register the output filter from the connection as it stands now: it is
     // kept across a reconnect, so without this an edit made in between would be

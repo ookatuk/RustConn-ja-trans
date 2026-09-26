@@ -36,6 +36,7 @@ pub use ssh_agent_tab::*;
 pub use terminal_tab::*;
 pub use ui_tab::*;
 
+use crate::dialogs::widgets::highlight_fields;
 use crate::i18n::{i18n, i18n_f};
 
 /// Callback type for settings save
@@ -1869,14 +1870,15 @@ fn build_highlight_rule_row(
     // The pattern is a regular expression, e.g. (?i)\bINFO\b — not a
     // "'INFO'[r,g,b]"-style literal from another tool (issue #343). The colour
     // is set separately below.
-    pattern_row.set_tooltip_text(Some(&i18n(
-        "Regular expression, for example (?i)\\bINFO\\b. Set the colour in the fields below.",
-    )));
+    let pattern_tooltip =
+        i18n("Regular expression, for example (?i)\\bINFO\\b. Set the colour in the fields below.");
+    highlight_fields::show_pattern_validity(&pattern_row, &rule.pattern, &pattern_tooltip);
     {
         let rules_clone = rules.clone();
         let row_weak = row.downgrade();
         pattern_row.connect_changed(move |e| {
             let text = e.text().to_string();
+            highlight_fields::show_pattern_validity(e, &text, &pattern_tooltip);
             if let Some(row) = row_weak.upgrade() {
                 row.set_subtitle(&text);
             }
@@ -1888,58 +1890,46 @@ fn build_highlight_rule_row(
     }
     row.add_row(&pattern_row);
 
+    // Drawn as an underline: the overlay cannot recolour the terminal's text.
     let foreground_row = adw::EntryRow::builder()
-        .title(i18n("Text colour (#RRGGBB)"))
+        .title(highlight_fields::underline_colour_label())
         .build();
-    foreground_row.set_text(rule.foreground_color.as_deref().unwrap_or_default());
-    foreground_row.set_tooltip_text(Some(&i18n(
-        "Hexadecimal colour such as #00AAFF. Leave empty for no text colour.",
-    )));
+    let foreground_text = rule.foreground_color.as_deref().unwrap_or_default();
+    foreground_row.set_text(foreground_text);
+    foreground_row.set_tooltip_text(Some(&highlight_fields::underline_colour_tooltip()));
+    highlight_fields::show_colour_validity(&foreground_row, foreground_text);
     {
         let rules_clone = rules.clone();
         foreground_row.connect_changed(move |e| {
             let text = e.text().to_string();
+            highlight_fields::show_colour_validity(e, &text);
             let mut r = rules_clone.borrow_mut();
             if let Some(rule) = r.iter_mut().find(|r| r.id == rule_id) {
-                rule.foreground_color = normalize_color_input(&text);
+                rule.foreground_color = rustconn_core::highlight::normalize_color_input(&text);
             }
         });
     }
     row.add_row(&foreground_row);
 
     let background_row = adw::EntryRow::builder()
-        .title(i18n("Background colour (#RRGGBB)"))
+        .title(highlight_fields::background_colour_label())
         .build();
-    background_row.set_text(rule.background_color.as_deref().unwrap_or_default());
-    background_row.set_tooltip_text(Some(&i18n(
-        "Hexadecimal colour such as #402020. Leave empty for no background.",
-    )));
+    let background_text = rule.background_color.as_deref().unwrap_or_default();
+    background_row.set_text(background_text);
+    background_row.set_tooltip_text(Some(&highlight_fields::background_colour_tooltip()));
+    highlight_fields::show_colour_validity(&background_row, background_text);
     {
         let rules_clone = rules.clone();
         background_row.connect_changed(move |e| {
             let text = e.text().to_string();
+            highlight_fields::show_colour_validity(e, &text);
             let mut r = rules_clone.borrow_mut();
             if let Some(rule) = r.iter_mut().find(|r| r.id == rule_id) {
-                rule.background_color = normalize_color_input(&text);
+                rule.background_color = rustconn_core::highlight::normalize_color_input(&text);
             }
         });
     }
     row.add_row(&background_row);
 
     row
-}
-
-/// Normalises a hex-colour text field into the stored `Option<String>`.
-///
-/// An empty (or whitespace-only) field clears the colour. Otherwise the trimmed
-/// value is kept verbatim — validation happens at compile time in
-/// [`rustconn_core::highlight::parse_hex_color`], which simply ignores a value
-/// that is not `#RRGGBB`, so a half-typed `#00A` never crashes anything.
-fn normalize_color_input(text: &str) -> Option<String> {
-    let trimmed = text.trim();
-    if trimmed.is_empty() {
-        None
-    } else {
-        Some(trimmed.to_string())
-    }
 }

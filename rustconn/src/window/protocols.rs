@@ -1711,6 +1711,37 @@ fn start_spice_connection_internal(
     None
 }
 
+/// Applies a terminal session's highlight rules: the built-in rules (unless
+/// Settings turned them off), the global rules from Settings, then
+/// `per_conn_rules`.
+///
+/// Every terminal launch and reconnect path comes through here. When this was
+/// seven hand-copied blocks, Zero Trust and Quick Connect sessions were the ones
+/// left without highlighting at all (issue #343).
+pub(crate) fn apply_highlight_rules(
+    state: &SharedAppState,
+    notebook: &SharedNotebook,
+    session_id: Uuid,
+    per_conn_rules: &[rustconn_core::models::HighlightRule],
+) {
+    let (global_rules, include_builtin_defaults) = state
+        .try_borrow()
+        .ok()
+        .map(|s| {
+            (
+                s.settings().highlight_rules.clone(),
+                !s.settings().highlight_builtin_defaults_disabled,
+            )
+        })
+        .unwrap_or((Vec::new(), true));
+    notebook.set_highlight_rules(
+        session_id,
+        &global_rules,
+        per_conn_rules,
+        include_builtin_defaults,
+    );
+}
+
 /// Reconnects an SSH session in-place, reusing the existing terminal tab.
 ///
 /// Instead of closing the old tab and creating a new one (which disrupts
@@ -1752,24 +1783,7 @@ pub fn reconnect_generic_vte_in_place(
     };
 
     // Re-apply highlight rules
-    {
-        let (global_rules, include_builtin_defaults) = state
-            .try_borrow()
-            .ok()
-            .map(|s| {
-                (
-                    s.settings().highlight_rules.clone(),
-                    !s.settings().highlight_builtin_defaults_disabled,
-                )
-            })
-            .unwrap_or((Vec::new(), true));
-        notebook.set_highlight_rules(
-            session_id,
-            &global_rules,
-            &conn.highlight_rules,
-            include_builtin_defaults,
-        );
-    }
+    apply_highlight_rules(state, notebook, session_id, &conn.highlight_rules);
 
     // Re-register the output filter, for the same reason the SSH reconnect path
     // does: the map survives a reconnect (it is keyed by session and cleared only
@@ -2075,24 +2089,7 @@ fn start_telnet_connection_internal(
     }
 
     // Apply highlight rules (built-in defaults + global + per-connection)
-    {
-        let (global_rules, include_builtin_defaults) = state
-            .try_borrow()
-            .ok()
-            .map(|s| {
-                (
-                    s.settings().highlight_rules.clone(),
-                    !s.settings().highlight_builtin_defaults_disabled,
-                )
-            })
-            .unwrap_or((Vec::new(), true));
-        notebook.set_highlight_rules(
-            session_id,
-            &global_rules,
-            &conn.highlight_rules,
-            include_builtin_defaults,
-        );
-    }
+    apply_highlight_rules(state, notebook, session_id, &conn.highlight_rules);
 
     // Record connection start in history
     let history_entry_id = if let Ok(mut state_mut) = state.try_borrow_mut() {
@@ -2359,6 +2356,10 @@ pub fn start_zerotrust_connection(
     // spawn, which is what reads it.
     notebook.set_output_filter(session_id, conn.postpend.as_ref());
 
+    // Apply highlight rules (built-in defaults + global + per-connection). A
+    // reconnect already did this; the first connect did not (issue #343).
+    apply_highlight_rules(state, notebook, session_id, &conn.highlight_rules);
+
     // Record connection start in history
     let history_entry_id = if let Ok(mut state_mut) = state.try_borrow_mut() {
         Some(state_mut.record_connection_start(conn, conn.username.as_deref()))
@@ -2489,24 +2490,7 @@ pub fn start_serial_connection(
     notebook.set_output_filter(session_id, conn.postpend.as_ref());
 
     // Apply highlight rules (built-in defaults + global + per-connection)
-    {
-        let (global_rules, include_builtin_defaults) = state
-            .try_borrow()
-            .ok()
-            .map(|s| {
-                (
-                    s.settings().highlight_rules.clone(),
-                    !s.settings().highlight_builtin_defaults_disabled,
-                )
-            })
-            .unwrap_or((Vec::new(), true));
-        notebook.set_highlight_rules(
-            session_id,
-            &global_rules,
-            &conn.highlight_rules,
-            include_builtin_defaults,
-        );
-    }
+    apply_highlight_rules(state, notebook, session_id, &conn.highlight_rules);
 
     // Record connection start in history
     let history_entry_id = if let Ok(mut state_mut) = state.try_borrow_mut() {
@@ -2691,24 +2675,7 @@ pub fn start_kubernetes_connection(
     notebook.set_output_filter(session_id, conn.postpend.as_ref());
 
     // Apply highlight rules (built-in defaults + global + per-connection)
-    {
-        let (global_rules, include_builtin_defaults) = state
-            .try_borrow()
-            .ok()
-            .map(|s| {
-                (
-                    s.settings().highlight_rules.clone(),
-                    !s.settings().highlight_builtin_defaults_disabled,
-                )
-            })
-            .unwrap_or((Vec::new(), true));
-        notebook.set_highlight_rules(
-            session_id,
-            &global_rules,
-            &conn.highlight_rules,
-            include_builtin_defaults,
-        );
-    }
+    apply_highlight_rules(state, notebook, session_id, &conn.highlight_rules);
 
     // Record connection start in history
     let history_entry_id = if let Ok(mut state_mut) = state.try_borrow_mut() {
@@ -2960,24 +2927,7 @@ fn start_mosh_connection_internal(
     }
 
     // Apply highlight rules (built-in defaults + global + per-connection)
-    {
-        let (global_rules, include_builtin_defaults) = state
-            .try_borrow()
-            .ok()
-            .map(|s| {
-                (
-                    s.settings().highlight_rules.clone(),
-                    !s.settings().highlight_builtin_defaults_disabled,
-                )
-            })
-            .unwrap_or((Vec::new(), true));
-        notebook.set_highlight_rules(
-            session_id,
-            &global_rules,
-            &conn.highlight_rules,
-            include_builtin_defaults,
-        );
-    }
+    apply_highlight_rules(state, notebook, session_id, &conn.highlight_rules);
 
     // Record connection start in history
     let history_entry_id = if let Ok(mut state_mut) = state.try_borrow_mut() {

@@ -31,22 +31,8 @@ use uuid::Uuid;
 
 use super::{ConnectionDialog, klid_to_dropdown_index};
 use crate::dialogs::connection::ssh;
+use crate::dialogs::widgets::highlight_fields;
 use crate::i18n::{i18n, i18n_f};
-
-/// Normalises a hex-colour entry into the stored `Option<String>`.
-///
-/// An empty (or whitespace-only) field clears the colour. A non-empty value is
-/// trimmed and kept verbatim; validation is deferred to compile time in
-/// [`rustconn_core::highlight::parse_hex_color`], which ignores anything that is
-/// not `#RRGGBB`, so a half-typed value never panics.
-fn normalize_hex_color(text: &str) -> Option<String> {
-    let trimmed = text.trim();
-    if trimmed.is_empty() {
-        None
-    } else {
-        Some(trimmed.to_string())
-    }
-}
 
 impl ConnectionDialog {
     /// Sets up the file chooser button for SSH key selection using portal
@@ -863,22 +849,25 @@ impl ConnectionDialog {
         // Pattern entry
         let rules_for_pattern = highlight_rules.clone();
         let pattern_id = rule_id;
+        let pattern_tooltip = hl_row.pattern_tooltip.clone();
         hl_row.pattern_entry.connect_changed(move |entry| {
             let text = entry.text().to_string();
+            highlight_fields::show_pattern_validity(entry, &text, &pattern_tooltip);
             let mut rules = rules_for_pattern.borrow_mut();
             if let Some(r) = rules.iter_mut().find(|r| r.id == pattern_id) {
                 r.pattern = text;
             }
         });
 
-        // Foreground colour entry
+        // Foreground (underline) colour entry
         let rules_for_fg = highlight_rules.clone();
         let fg_id = rule_id;
         hl_row.foreground_entry.connect_changed(move |entry| {
             let text = entry.text().to_string();
+            highlight_fields::show_colour_validity(entry, &text);
             let mut rules = rules_for_fg.borrow_mut();
             if let Some(r) = rules.iter_mut().find(|r| r.id == fg_id) {
-                r.foreground_color = normalize_hex_color(&text);
+                r.foreground_color = rustconn_core::highlight::normalize_color_input(&text);
             }
         });
 
@@ -887,9 +876,10 @@ impl ConnectionDialog {
         let bg_id = rule_id;
         hl_row.background_entry.connect_changed(move |entry| {
             let text = entry.text().to_string();
+            highlight_fields::show_colour_validity(entry, &text);
             let mut rules = rules_for_bg.borrow_mut();
             if let Some(r) = rules.iter_mut().find(|r| r.id == bg_id) {
-                r.background_color = normalize_hex_color(&text);
+                r.background_color = rustconn_core::highlight::normalize_color_input(&text);
             }
         });
 

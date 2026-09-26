@@ -25,7 +25,14 @@ pub type Rgb = (f64, f64, f64);
 #[must_use]
 pub fn parse_hex_color(hex: &str) -> Option<Rgb> {
     let hex = hex.strip_prefix('#')?;
-    if hex.len() != 6 {
+    // Check every byte before slicing. `len()` counts bytes, so a six-byte value
+    // can hold a multi-byte character — `#0а0ff` with a Cyrillic `а` — and
+    // `&hex[0..2]` would then split that character and panic. The value comes
+    // straight from a rule editor's text field, and it is compiled on every
+    // terminal session start, so that panic took the whole application down
+    // (issue #343). `from_str_radix` also accepts a leading `+`, which let
+    // `#+f+f+f` through as a colour.
+    if hex.len() != 6 || !hex.bytes().all(|b| b.is_ascii_hexdigit()) {
         return None;
     }
     let r = u8::from_str_radix(&hex[0..2], 16).ok()?;
@@ -38,9 +45,57 @@ pub fn parse_hex_color(hex: &str) -> Option<Rgb> {
     ))
 }
 
+/// Normalises the text of a rule editor's colour field into the stored value.
+///
+/// Surrounding whitespace is dropped and an empty field means "no colour"
+/// (`None`). Anything else is kept verbatim, valid or not, so a value the user is
+/// still typing survives a save and reopens as typed; [`is_valid_color_input`]
+/// is what the editor uses to flag it.
+#[must_use]
+pub fn normalize_color_input(text: &str) -> Option<String> {
+    let trimmed = text.trim();
+    if trimmed.is_empty() {
+        None
+    } else {
+        Some(trimmed.to_string())
+    }
+}
+
+/// Checks a rule pattern with the regex engine [`CompiledHighlightRules::compile`] uses.
+///
+/// An invalid pattern is skipped at compile time with nothing but a log line, so
+/// the rule editors call this to flag it while the user types. An empty pattern
+/// compiles; the editors treat it as not filled in yet.
+///
+/// # Errors
+///
+/// Returns the regex engine's error when `pattern` does not compile.
+pub fn validate_pattern(pattern: &str) -> Result<(), regex::Error> {
+    Regex::new(pattern).map(|_| ())
+}
+
+/// Whether a rule editor's colour field holds something usable.
+///
+/// An empty field is valid (it means "no colour"); otherwise the trimmed text
+/// must be a `#RRGGBB` value that [`parse_hex_color`] accepts. A rule with an
+/// invalid colour still matches, it just draws nothing for that colour, so the
+/// editor has to say so — silently drawing nothing is how issue #343 started.
+#[must_use]
+pub fn is_valid_color_input(text: &str) -> bool {
+    let trimmed = text.trim();
+    trimmed.is_empty() || parse_hex_color(trimmed).is_some()
+}
+
 // ---------------------------------------------------------------------------
 // Terminal column geometry
 // ---------------------------------------------------------------------------
+
+/// Distance between VTE's default tab stops, in cells.
+///
+/// VTE sets a tab stop every eight columns and a program only moves them with
+/// the rarely used HTS/TBC escape sequences, so eight is what a tab in ordinary
+/// output means.
+const TAB_STOP_WIDTH: usize = 8;
 
 /// Returns the number of terminal cells a character occupies: 0, 1, or 2.
 ///
@@ -97,20 +152,34 @@ fn char_cell_width(c: char) -> usize {
 
 /// Converts a byte offset within `line` to its terminal column (0-based).
 ///
-/// Sums the [`char_cell_width`] of every character before `byte_offset`, so the
-/// result is the cell the character at that offset starts in — the value the
-/// overlay multiplies by the cell width to place a highlight rectangle. A byte
-/// offset past the end of the line clamps to the line's total column width.
+/// Walks every character before `byte_offset`, so the result is the cell the
+/// character at that offset starts in — the value the overlay multiplies by the
+/// cell width to place a highlight rectangle. A byte offset past the end of the
+/// line clamps to the line's total column width.
 ///
-/// Wide characters count as two columns and combining marks as zero, unlike a
-/// plain `chars().count()`, which is why a match after a CJK glyph is no longer
-/// drawn half a cell off (issue #343).
+/// Wide characters count as two columns and combining marks as zero (see
+/// [`char_cell_width`]), unlike a plain `chars().count()`, which is why a match
+/// after a CJK glyph is no longer drawn half a cell off (issue #343).
+///
+/// A tab advances to the next tab stop. VTE keeps a tab written at the end of a
+/// line as a single `'\t'` cell spanning up to that stop, and its text export
+/// returns that `'\t'` once, so counting it as one column put every match after
+/// a tab — `grep` over indented code, a Java stack trace's `\tat` — up to seven
+/// cells too far left.
 #[must_use]
 pub fn byte_offset_to_column(line: &str, byte_offset: usize) -> usize {
-    line.char_indices()
-        .take_while(|(idx, _)| *idx < byte_offset)
-        .map(|(_, c)| char_cell_width(c))
-        .sum()
+    let mut column = 0;
+    for (idx, c) in line.char_indices() {
+        if byte_offset <= idx {
+            break;
+        }
+        column = if c == '\t' {
+            (column / TAB_STOP_WIDTH + 1) * TAB_STOP_WIDTH
+        } else {
+            column + char_cell_width(c)
+        };
+    }
+    column
 }
 
 // ---------------------------------------------------------------------------
@@ -379,7 +448,20 @@ pub fn builtin_defaults() -> Vec<HighlightRule> {
 
 #[cfg(test)]
 mod tests {
-    use super::{byte_offset_to_column, parse_hex_color};
+    use super::{
+        byte_offset_to_column, is_valid_color_input, normalize_color_input, parse_hex_color,
+        validate_pattern,
+    };
+
+    #[test]
+    fn validate_pattern_accepts_what_compile_accepts() {
+        assert!(validate_pattern(r"(?i)\bINFO\b").is_ok());
+        assert!(validate_pattern("").is_ok());
+        assert!(validate_pattern("ERROR(").is_err());
+        // The literal other tools use is not a regex error, it just matches
+        // nothing useful — the colour field is where it goes wrong.
+        assert!(validate_pattern("'INFO'").is_ok());
+    }
 
     #[test]
     fn parse_hex_color_valid_colors() {
@@ -409,6 +491,48 @@ mod tests {
         assert_eq!(parse_hex_color("#GGHHII"), None); // invalid hex chars
         assert_eq!(parse_hex_color(""), None); // empty
         assert_eq!(parse_hex_color("#"), None); // only hash
+    }
+
+    /// Six bytes are not six hex digits: a Cyrillic `а` is two bytes, so
+    /// `#0а0ff` passed the length check and then panicked on a slice that split
+    /// the character (issue #343). It must be rejected, not crash.
+    #[test]
+    fn parse_hex_color_rejects_multibyte_input_without_panicking() {
+        assert_eq!(parse_hex_color("#0а0ff"), None);
+        assert_eq!(parse_hex_color("#ффф"), None);
+        assert_eq!(parse_hex_color("#€000"), None);
+    }
+
+    /// `u8::from_str_radix` accepts a leading `+`, which used to let `#+f+f+f`
+    /// through as `#0F0F0F`.
+    #[test]
+    fn parse_hex_color_rejects_signs() {
+        assert_eq!(parse_hex_color("#+f+f+f"), None);
+        assert_eq!(parse_hex_color("#-f-f-f"), None);
+    }
+
+    #[test]
+    fn normalize_color_input_trims_and_treats_blank_as_none() {
+        assert_eq!(normalize_color_input(""), None);
+        assert_eq!(normalize_color_input("   "), None);
+        assert_eq!(
+            normalize_color_input("  #00AAFF "),
+            Some("#00AAFF".to_string())
+        );
+        // An unfinished value is kept as typed; validity is a separate question.
+        assert_eq!(normalize_color_input("#00A"), Some("#00A".to_string()));
+    }
+
+    #[test]
+    fn is_valid_color_input_accepts_blank_and_hex_only() {
+        assert!(is_valid_color_input(""));
+        assert!(is_valid_color_input("  "));
+        assert!(is_valid_color_input("#00aaFF"));
+        assert!(is_valid_color_input(" #00AAFF "));
+        assert!(!is_valid_color_input("#00A"));
+        assert!(!is_valid_color_input("00AAFF"));
+        assert!(!is_valid_color_input("[0,0,255]"));
+        assert!(!is_valid_color_input("#0а0ff"));
     }
 
     #[test]
@@ -452,5 +576,26 @@ mod tests {
     #[test]
     fn byte_offset_to_column_empty_line() {
         assert_eq!(byte_offset_to_column("", 0), 0);
+    }
+
+    /// VTE returns a tab as one `'\t'` that spans to the next tab stop, so the
+    /// column after it is the next multiple of eight, not one more.
+    #[test]
+    fn byte_offset_to_column_tab_advances_to_next_stop() {
+        let line = "\tat Foo.bar";
+        assert_eq!(byte_offset_to_column(line, 0), 0);
+        assert_eq!(byte_offset_to_column(line, 1), 8); // "at" starts at the first stop
+
+        let line = "ab\tERROR";
+        assert_eq!(byte_offset_to_column(line, 2), 2); // the tab itself
+        assert_eq!(byte_offset_to_column(line, 3), 8); // "ERROR" after it
+
+        // A tab that starts on a stop still moves a full stop further.
+        let line = "12345678\tx";
+        assert_eq!(byte_offset_to_column(line, 9), 16);
+
+        // Consecutive tabs, and a wide character before a tab.
+        assert_eq!(byte_offset_to_column("\t\tx", 2), 16);
+        assert_eq!(byte_offset_to_column("世\tx", 4), 8);
     }
 }

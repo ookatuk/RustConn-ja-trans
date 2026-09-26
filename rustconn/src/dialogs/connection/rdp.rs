@@ -427,11 +427,22 @@ pub(super) fn create_rdp_options() -> (
         .build();
     features_group.add(&rdp_smart_sizing_check);
 
-    // Reconnect on Resize — force full reconnect instead of Display Control
+    // Smart sizing overrides dynamic resolution (FreeRDP refuses the pair), so
+    // the Dynamic resolution switch has no effect while it is on — show that
+    // instead of leaving both looking active (issue #341). Fired again by the
+    // populate path's `set_active`, so an edited connection starts out right.
+    let dynamic_for_smart = rdp_dynamic_resolution_check.clone();
+    rdp_smart_sizing_check.connect_active_notify(move |smart| {
+        dynamic_for_smart.set_sensitive(!smart.is_active());
+    });
+
+    // Reconnect on Resize — force full reconnect instead of Display Control.
+    // Read only by the embedded client's resize handling; the external client
+    // has Dynamic resolution and Smart sizing above instead (issue #341).
     let rdp_reconnect_on_resize_check = adw::SwitchRow::builder()
         .title(i18n("Reconnect on Resize"))
         .subtitle(i18n(
-            "Full reconnect instead of dynamic resize (for legacy servers or fixed resolution)",
+            "Full reconnect instead of dynamic resize (Embedded client). For legacy servers or fixed resolution",
         ))
         .active(false)
         .build();

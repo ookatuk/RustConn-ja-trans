@@ -145,6 +145,16 @@ impl RdpFileExporter {
         if matches!(rdp.external_display_mode, RdpDisplayMode::AllMonitors) {
             let _ = writeln!(output, "use multimon:i:1");
         }
+
+        // Sizing (issue #341). Smart sizing wins over dynamic resolution in
+        // RustConn, as FreeRDP refuses the pair, so the file states the
+        // combination that is actually used rather than both switches.
+        let _ = writeln!(output, "smart sizing:i:{}", i32::from(rdp.smart_sizing));
+        let _ = writeln!(
+            output,
+            "dynamic resolution:i:{}",
+            i32::from(rdp.dynamic_resolution && !rdp.smart_sizing)
+        );
     }
 
     /// Writes performance-related settings.
@@ -570,6 +580,32 @@ mod tests {
 
         assert!(content.contains("desktopwidth:i:1920"));
         assert!(content.contains("desktopheight:i:1080"));
+    }
+
+    /// Defaults: dynamic resolution on, smart sizing off.
+    #[test]
+    fn default_sizing_is_exported() {
+        let conn = make_rdp_connection("Default", "server.example.com", 3389);
+        let content = RdpFileExporter::export_to_rdp_content(&conn).unwrap();
+
+        assert!(content.contains("smart sizing:i:0"));
+        assert!(content.contains("dynamic resolution:i:1"));
+    }
+
+    /// With both switches on smart sizing wins in RustConn, and the file says so
+    /// instead of claiming both (issue #341).
+    #[test]
+    fn smart_sizing_is_exported_as_the_combination_in_use() {
+        let mut conn = make_rdp_connection("Legacy", "w2k8r2.corp", 3389);
+        if let ProtocolConfig::Rdp(ref mut rdp) = conn.protocol_config {
+            rdp.smart_sizing = true;
+            rdp.dynamic_resolution = true;
+        }
+
+        let content = RdpFileExporter::export_to_rdp_content(&conn).unwrap();
+
+        assert!(content.contains("smart sizing:i:1"));
+        assert!(content.contains("dynamic resolution:i:0"));
     }
 
     #[test]

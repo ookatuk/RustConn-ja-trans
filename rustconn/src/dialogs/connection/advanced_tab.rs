@@ -13,6 +13,7 @@ use libadwaita as adw;
 use rustconn_core::activity_monitor::MonitorMode;
 use rustconn_core::wol::{DEFAULT_BROADCAST_ADDRESS, DEFAULT_WOL_PORT, DEFAULT_WOL_WAIT_SECONDS};
 
+use crate::dialogs::widgets::highlight_fields;
 use crate::i18n::i18n;
 
 /// Creates the Advanced tab combining Terminal Theme, Monitoring, Recording,
@@ -822,7 +823,9 @@ pub(super) struct HighlightRuleRow {
     pub name_entry: Entry,
     /// Entry for regex pattern
     pub pattern_entry: Entry,
-    /// Entry for the foreground (text) colour, `#RRGGBB`
+    /// Tooltip the pattern entry shows while its pattern is valid
+    pub pattern_tooltip: String,
+    /// Entry for the foreground colour, `#RRGGBB`, drawn as an underline
     pub foreground_entry: Entry,
     /// Entry for the background colour, `#RRGGBB`
     pub background_entry: Entry,
@@ -854,52 +857,67 @@ pub(super) fn create_highlight_rule_row(
         .width_chars(12)
         .tooltip_text(i18n("Rule name"))
         .build();
+    name_entry.update_property(&[gtk4::accessible::Property::Label(&i18n("Rule name"))]);
     if let Some(r) = rule {
         name_entry.set_text(&r.name);
     }
 
+    let pattern_tooltip = i18n(
+        "Regular expression, for example (?i)\\bINFO\\b. Set the colour in the fields to the right.",
+    );
     let pattern_entry = Entry::builder()
         .placeholder_text(i18n("Pattern (regex)"))
         .hexpand(true)
-        .tooltip_text(i18n(
-            "Regular expression, for example (?i)\\bINFO\\b. Set the colour in the fields to the right.",
-        ))
+        .tooltip_text(pattern_tooltip.as_str())
         .build();
+    pattern_entry.update_property(&[gtk4::accessible::Property::Label(&i18n("Pattern (regex)"))]);
     if let Some(r) = rule {
         pattern_entry.set_text(&r.pattern);
     }
+    highlight_fields::show_pattern_validity(
+        &pattern_entry,
+        rule.map_or("", |r| r.pattern.as_str()),
+        &pattern_tooltip,
+    );
 
+    // The foreground colour is drawn as an underline: the overlay cannot
+    // recolour the terminal's text (issue #343). The placeholders are short
+    // words so they fit the entry; the format is in the tooltip, and the full
+    // label goes to screen readers.
     let foreground_entry = Entry::builder()
-        .placeholder_text(i18n("Text #RRGGBB"))
-        .width_chars(9)
-        .tooltip_text(i18n(
-            "Text colour as a hex value such as #00AAFF. Leave empty for none.",
-        ))
+        .placeholder_text(i18n("Underline"))
+        .width_chars(10)
+        .tooltip_text(highlight_fields::underline_colour_tooltip())
         .build();
-    if let Some(r) = rule
-        && let Some(fg) = r.foreground_color.as_deref()
-    {
-        foreground_entry.set_text(fg);
-    }
+    foreground_entry.update_property(&[gtk4::accessible::Property::Label(
+        &highlight_fields::underline_colour_label(),
+    )]);
+    let foreground_text = rule
+        .and_then(|r| r.foreground_color.as_deref())
+        .unwrap_or_default();
+    foreground_entry.set_text(foreground_text);
+    highlight_fields::show_colour_validity(&foreground_entry, foreground_text);
 
     let background_entry = Entry::builder()
-        .placeholder_text(i18n("Bg #RRGGBB"))
-        .width_chars(9)
-        .tooltip_text(i18n(
-            "Background colour as a hex value such as #402020. Leave empty for none.",
-        ))
+        .placeholder_text(i18n("Background"))
+        .width_chars(10)
+        .tooltip_text(highlight_fields::background_colour_tooltip())
         .build();
-    if let Some(r) = rule
-        && let Some(bg) = r.background_color.as_deref()
-    {
-        background_entry.set_text(bg);
-    }
+    background_entry.update_property(&[gtk4::accessible::Property::Label(
+        &highlight_fields::background_colour_label(),
+    )]);
+    let background_text = rule
+        .and_then(|r| r.background_color.as_deref())
+        .unwrap_or_default();
+    background_entry.set_text(background_text);
+    highlight_fields::show_colour_validity(&background_entry, background_text);
 
     let enabled_check = CheckButton::builder()
         .active(rule.is_none_or(|r| r.enabled))
         .tooltip_text(i18n("Enable rule"))
         .valign(gtk4::Align::Center)
         .build();
+    enabled_check.update_property(&[gtk4::accessible::Property::Label(&i18n("Enable rule"))]);
 
     let delete_button = Button::builder()
         .icon_name("user-trash-symbolic")
@@ -925,6 +943,7 @@ pub(super) fn create_highlight_rule_row(
         id,
         name_entry,
         pattern_entry,
+        pattern_tooltip,
         foreground_entry,
         background_entry,
         enabled_check,

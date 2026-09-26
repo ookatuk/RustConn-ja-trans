@@ -251,6 +251,20 @@ parts:
       # runtime ships Python; under snap we must stage it explicitly.
       - python3
       - python3-venv
+      # FreeRDP's X11 client (`xfreerdp3`), the external RDP client for what the
+      # embedded IronRDP client cannot do: the legacy RDP security layer and
+      # TLS-only servers (e.g. Windows 2008 R2), RemoteApp, audio left on the
+      # remote machine, RD Gateway, and the external client's Smart sizing and
+      # Dynamic resolution switches (issues #341, #342). Without it those
+      # connections had nowhere to fall back to in the snap. The X11 client
+      # rather than wlfreerdp3, which upstream deprecated (#340), or the SDL
+      # client, which noble does not package: it runs through XWayland on a
+      # Wayland session and it is the client RemoteApp needs. The launcher finds
+      # it in $SNAP/usr/bin. Its dependencies are plain noble libraries (X11,
+      # Kerberos, ICU, CUPS, PulseAudio, libusb, FUSE, Opus); the one GTK-stack
+      # library it links, libcairo, is already dropped by the `prime:` block
+      # below in favour of the platform's copy.
+      - freerdp3-x11
     prime:
       # Drop the GTK4/GLib/rendering stack dragged in by libvte's dependencies.
       # All of these are provided by the gnome-46-2404 platform; staging a second

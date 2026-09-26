@@ -7,12 +7,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **The Snap bundles FreeRDP's X11 client for external RDP (issue #342)** — the snap had no external RDP client at all, so everything the embedded IronRDP client cannot do simply failed there: the legacy RDP security layer and TLS-only servers (e.g. Windows 2008 R2), RemoteApp, audio left playing on the remote computer, RD Gateway, and the External client mode with its Smart sizing and Dynamic resolution switches.
+The snap now stages `xfreerdp3` from Ubuntu's `freerdp3-x11` package (FreeRDP 3.31), and RustConn finds it inside the snap like any other bundled client.
+It is the X11 client because upstream deprecated `wlfreerdp3` (issue #340), Ubuntu 24.04 packages no SDL client, and RemoteApp needs an X11 client; it runs through XWayland on a Wayland session.
+Its dependencies are plain Ubuntu 24.04 libraries, and the one GTK-stack library it links, libcairo, keeps coming from the GNOME platform as before.
+
 ### Fixed
 - **Terminal highlight was drawn in the wrong place, and a text colour looked like a background fill (issue #343)** — the coloured-highlight overlay sits on a transparent layer above VTE and worked out each cell's size by dividing its own width and height by the column and row count, which assumes the terminal fills its widget edge to edge.
 It does not: VTE rounds every cell to a whole number of pixels and does not fill the widget edge to edge, and the overlay also spans a scrollbar that is not part of the terminal, so the highlight drifted further from the text the further along a line or down the screen the match sat.
-The overlay now uses VTE's real `char_width()`/`char_height()` and anchors the grid to VTE's own position within the overlay (via `compute_bounds`), which excludes the scrollbar and does not assume the grid is centred, so a highlight tracks its match.
+The overlay now uses VTE's real `char_width()`/`char_height()` and anchors the grid to the top-left of VTE's content box, which excludes the scrollbar, does not assume the grid is centred, and — unlike VTE's border box — accounts for VTE's one-pixel padding.
+That origin was measured rather than assumed: rendering a full-block character in VTE 0.84 to a texture puts its first pixel exactly there.
 Byte offsets are converted to columns with a new `byte_offset_to_column` helper in `rustconn-core` that counts an East-Asian wide character as two cells and a combining mark as none, fixing a half-cell drift after CJK text that the previous `chars().count()` caused.
+It also advances a tab to the next tab stop: VTE keeps a tab written at the end of a line as a single cell spanning up to that stop, so every match after a tab — `grep` over indented code, a Java stack trace's `\tat` — was drawn up to seven cells too far left.
 Separately, a **text colour** (foreground rule) was shown as a translucent wash over the whole cell, which reads as a background tint — a user who set a red text colour saw a red background instead; a foreground rule is now a thick underline in the chosen colour, leaving the solid cell fill to background rules only, so the two rule kinds are no longer confused.
+- **Typing a non-ASCII character into a highlight colour field crashed RustConn on every terminal connection (issue #343)** — the `#RRGGBB` parser checked the length in bytes and then sliced by byte position, so a six-byte value holding a multi-byte character — `#0а0ff` with a Cyrillic `а`, an easy slip on a Ukrainian layout — split that character and panicked.
+The rules are compiled when a terminal session starts, so once such a value was saved, every SSH, Telnet, Serial, Kubernetes or Mosh connection took the application down until the rule was edited.
+The parser now rejects anything that is not six ASCII hex digits; this also stops `#+f+f+f` from being accepted as a colour.
+- **Highlights disappeared after moving a session, and piled up after a reconnect (issue #343)** — the drawing layer was attached to the overlay that hosted the terminal when the rules were first applied, and never followed it.
+Moving the session to a detached window, into a split pane or back out of one wraps the terminal in a different overlay, so highlights vanished (in a split pane they never appeared).
+Replacing the rules — every reconnect — dropped only the bookkeeping, leaving the old layer, its signal handlers and its hover regexes in place, so each reconnect stacked another layer and background tints grew darker every time.
+The layer now re-homes itself on whatever overlay hosts the terminal whenever the terminal is shown, removes its layer, handlers and regexes when it is replaced, and also repaints when a font change or zoom resizes the cells.
+- **Highlight settings reached only new sessions, and Zero Trust and Quick Connect sessions had no highlighting at all (issue #343)** — saving Settings did not touch open terminals, so turning the built-in ERROR/WARNING/CRITICAL/FATAL rules off or editing a global rule changed nothing on screen until a reconnect; open sessions are now updated on save.
+The rules were applied by seven hand-copied blocks, one per protocol, and a Zero Trust session only received them on reconnect, while Quick Connect sessions never did; every terminal connection now goes through one function that applies the built-in, global and per-connection rules.
+- **The highlight rule editors accepted any pattern or colour without a word, and called the underline a text colour (issue #343)** — an invalid regular expression or a colour that is not `#RRGGBB` was stored and then drew nothing, which is how the report began; both editors now outline such a field in red, and hovering over an invalid pattern shows the regex engine's explanation.
+The **Text colour** field is now **Underline colour**, since the layer cannot recolour the terminal's own glyphs and never did; its tooltip points to an **Output Filter** such as ChromaTerm for recolouring the text itself.
+In the per-connection editor the colour fields read **Underline** and **Background** instead of the abbreviated "Bg", and every field in the row now has an accessible label.
+- **A hand-written `/smart-sizing` custom argument still made the external RDP client exit (issue #341)** — the reporter's own route to smart sizing, typing `/smart-sizing` into Custom arguments, still collided with the `/dynamic-resolution` that RustConn sends by default, and FreeRDP refused the pair with `Command line parsing failed at 'smart-sizing'`, in the external client and in the embedded wlfreerdp one alike.
+Smart sizing now wins wherever it comes from: a custom `/smart-sizing` or `/smart-sizing:WIDTHxHEIGHT` suppresses the default `/dynamic-resolution`, and a custom `dynamic-resolution` argument is dropped with a warning while smart sizing is on.
+RustConn also sends the switch in its documented form, `/smart-sizing`, instead of `+smart-sizing`; the 0.22.5 note that FreeRDP 3 rejects the bare `/smart-sizing` was wrong — FreeRDP 3.31 accepts it, and what it rejects is the combination with dynamic resolution.
+- **"Reconnect on Resize" did not say it only affects the embedded RDP client, and both sizing switches could look active at once (issue #341)** — the reporter reached for Reconnect on Resize to control an external FreeRDP session, which never reads it; its subtitle now says "Embedded client".
+Dynamic resolution is greyed out while Smart sizing is on, since smart sizing overrides it.
+- **Importing and exporting `.rdp` files ignored smart sizing and dynamic resolution (issue #341)** — a profile for a legacy server carries `smart sizing:i:1` and often `dynamic resolution:i:0`, and both were dropped on import, so the connection opened unreadably small on a HiDPI display; they are now imported, and exported as the combination RustConn actually uses.
+- **The FreeRDP client reported as installed could differ from the one that was launched (issue #340)** — the client detection and the launcher kept separate candidate lists, which disagreed on where `wlfreerdp` and `xfreerdp3` go and ignored the X11-first order used on an X11 session; both now walk one list per session type in `rustconn-core`.
+
+### Documentation
+- **Snap, install and user-guide corrections for the sandboxed builds and highlighting (issues #341, #342, #343)** — `docs/SNAP.md` and `docs/INSTALL.md` describe the bundled `xfreerdp3`, state that SPICE is not available in the snap (the previous "needs a host `remote-viewer`" was not something strict confinement allows), and replace the claim that the viewers need host display access a snap cannot grant.
+`docs/INSTALL.md` lists the FreeRDP detection order for both Wayland and X11 sessions.
+The user guide's highlighting section now shows the real built-in patterns, the built-in switch, what the underline and background colours do, how invalid fields are flagged, and which sessions are highlighted; the RDP section covers a custom `/smart-sizing` and says which client Reconnect on Resize belongs to.
 
 ## [0.22.6] - 2026-09-25
 

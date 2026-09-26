@@ -23,16 +23,17 @@ mod zerotrust;
 
 pub use cli::{format_command_message, format_connection_message};
 pub use detection::{
-    ClientDetectionResult, ClientInfo, ZeroTrustDetectionResult, available_vnc_viewers,
-    detect_aws_cli, detect_azure_cli, detect_boundary, detect_cloudflared, detect_gcloud_cli,
-    detect_hoop, detect_kubectl, detect_mosh, detect_oci_cli, detect_picocom, detect_rdp_client,
-    detect_spice_client, detect_ssh_client, detect_tailscale, detect_teleport,
-    detect_telnet_client, detect_vnc_client, detect_vnc_viewer_name, detect_vnc_viewer_path,
-    detect_waypipe, resolve_vnc_viewer,
+    ClientDetectionResult, ClientInfo, FREERDP_WAYLAND_FIRST, FREERDP_X11_FIRST,
+    ZeroTrustDetectionResult, available_vnc_viewers, detect_aws_cli, detect_azure_cli,
+    detect_boundary, detect_cloudflared, detect_gcloud_cli, detect_hoop, detect_kubectl,
+    detect_mosh, detect_oci_cli, detect_picocom, detect_rdp_client, detect_spice_client,
+    detect_ssh_client, detect_tailscale, detect_teleport, detect_telnet_client, detect_vnc_client,
+    detect_vnc_viewer_name, detect_vnc_viewer_path, detect_waypipe, freerdp_launch_order,
+    is_wayland_session, resolve_vnc_viewer,
 };
 pub use freerdp::{
-    FreeRdpConfig, build_freerdp_args, contains_freerdp_secret_field, extract_geometry_from_args,
-    freerdp_secret_field_takes_following_value, has_decorations_flag,
+    FreeRdpConfig, FreeRdpSizing, build_freerdp_args, contains_freerdp_secret_field,
+    extract_geometry_from_args, freerdp_secret_field_takes_following_value, has_decorations_flag,
     is_freerdp_shell_or_proxy_arg,
 };
 pub use icons::{

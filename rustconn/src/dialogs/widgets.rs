@@ -478,6 +478,79 @@ impl SwitchRowBuilder {
     }
 }
 
+/// Shared text and field feedback for the two highlight rule editors.
+///
+/// The global editor in Settings and the per-connection one in the connection
+/// editor used to accept anything silently: an invalid pattern or colour was
+/// stored and then drew nothing, with no sign of why (issue #343). Both now
+/// mark such a field with the `error` style class. The value itself is still
+/// stored as typed, so nothing is lost mid-edit.
+pub mod highlight_fields {
+    use gtk4::prelude::*;
+
+    use crate::i18n::i18n;
+
+    /// Label of the underline (foreground) colour field.
+    ///
+    /// The overlay cannot recolour the terminal's glyphs, so the foreground
+    /// colour is drawn as an underline. It used to be labelled "Text colour",
+    /// which promised something the terminal never did (issue #343).
+    #[must_use]
+    pub fn underline_colour_label() -> String {
+        i18n("Underline colour (#RRGGBB)")
+    }
+
+    /// Label of the background colour field.
+    #[must_use]
+    pub fn background_colour_label() -> String {
+        i18n("Background colour (#RRGGBB)")
+    }
+
+    /// Tooltip of the underline (foreground) colour field.
+    #[must_use]
+    pub fn underline_colour_tooltip() -> String {
+        i18n(
+            "Hexadecimal colour such as #00AAFF, drawn as an underline under the match. Leave empty for none. To recolour the text itself, give the connection an Output Filter such as ChromaTerm.",
+        )
+    }
+
+    /// Tooltip of the background colour field.
+    #[must_use]
+    pub fn background_colour_tooltip() -> String {
+        i18n("Hexadecimal colour such as #402020. Leave empty for no background.")
+    }
+
+    /// Marks a colour field invalid unless its text is empty or `#RRGGBB`.
+    pub fn show_colour_validity(field: &impl IsA<gtk4::Widget>, text: &str) {
+        set_invalid(field, !rustconn_core::highlight::is_valid_color_input(text));
+    }
+
+    /// Marks a pattern field invalid when its text is not a regular expression.
+    ///
+    /// An invalid pattern's tooltip becomes the regex engine's own message,
+    /// which names the problem; a valid one gets `tooltip` back.
+    pub fn show_pattern_validity(field: &impl IsA<gtk4::Widget>, text: &str, tooltip: &str) {
+        match rustconn_core::highlight::validate_pattern(text) {
+            Ok(()) => {
+                set_invalid(field, false);
+                field.set_tooltip_text(Some(tooltip));
+            }
+            Err(error) => {
+                set_invalid(field, true);
+                field.set_tooltip_text(Some(&error.to_string()));
+            }
+        }
+    }
+
+    fn set_invalid(field: &impl IsA<gtk4::Widget>, invalid: bool) {
+        if invalid {
+            field.add_css_class("error");
+        } else {
+            field.remove_css_class("error");
+        }
+    }
+}
+
 /// Marker function for xgettext to discover dialog header button labels.
 /// These strings are used indirectly via `dialog_header()` and would otherwise
 /// be invisible to the POT extraction tool.

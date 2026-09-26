@@ -89,9 +89,9 @@ The snap includes all core protocol clients — no separate installation needed:
 | Protocol | Implementation | Notes |
 |----------|----------------|-------|
 | SSH | VTE terminal | Always embedded |
-| RDP | IronRDP | Embedded only — no external FreeRDP fallback in the snap |
+| RDP | IronRDP + bundled FreeRDP (`xfreerdp3`) | Embedded by default; the bundled X11 FreeRDP client is the external client and the fallback (see below) |
 | VNC | vnc-rs | Embedded only — no external TigerVNC fallback in the snap |
-| SPICE | remote-viewer | Needs a host `remote-viewer`/`virt-viewer`; not bundled or downloadable |
+| SPICE | — | Not available in the snap: no viewer is bundled, and strict confinement cannot start the host's `remote-viewer` |
 | Telnet | Bundled inetutils | VTE terminal session |
 | Serial | Bundled picocom | VTE terminal session; requires `serial-port` interface |
 | Kubernetes | Components kubectl | Requires `kube-credentials` |
@@ -119,10 +119,28 @@ demand via the Components dialog (Menu → Components) inside the sandbox. CLIs 
 into `$SNAP_USER_DATA/cli/` and are available for connections automatically — no host
 access is required.
 
-RDP and VNC do not appear here: the snap uses the embedded IronRDP and vnc-rs clients
-and does not download an external FreeRDP or TigerVNC fallback (those viewers need
-host display access that a strictly-confined snap cannot grant). The Components dialog
-therefore shows only the sandbox-compatible CLIs below.
+Protocol viewers do not appear here. FreeRDP publishes no pre-built Linux binaries
+and the TigerVNC download is marked as not working in a sandbox, so neither is a
+downloadable component. RDP instead has FreeRDP's X11 client bundled in the snap
+(below); VNC uses the embedded vnc-rs client only.
+
+### External RDP client (bundled FreeRDP)
+
+*New in 0.22.7.* The snap ships `xfreerdp3` from Ubuntu's `freerdp3-x11` package.
+RustConn finds it inside the snap, so it is used for everything the embedded IronRDP
+client cannot do:
+
+- the legacy RDP security layer and TLS-only servers (e.g. Windows 2008 R2)
+- RemoteApp
+- audio left playing on the remote computer
+- RD Gateway
+- connections set to the External client mode, including **Smart sizing** and
+  **Dynamic resolution**
+
+It is the X11 client — it runs through XWayland on a Wayland session. The Wayland
+client (`wlfreerdp3`) is deprecated upstream and Ubuntu 24.04 has no SDL client, so
+neither is bundled. Before 0.22.7 the snap had no external RDP client at all, and
+those connections could not be made.
 
 ### Available CLIs
 
@@ -246,7 +264,8 @@ snap connections rustconn
 | Security | High (strict) | High (sandbox) | Medium |
 | Setup | Manual interfaces | Automatic | None needed |
 | SSH/RDP/VNC | Embedded | Embedded | Embedded |
-| SPICE | External (remote-viewer) | External (remote-viewer) | External (remote-viewer) |
+| External RDP client | Bundled `xfreerdp3` | Bundled `sdl-freerdp` | Host FreeRDP |
+| SPICE | Not available | External (host remote-viewer) | External (remote-viewer) |
 | SSH agent | Not available (no snapd interface) | Host agent via `ssh-auth` socket | Host agent |
 | Telnet | Bundled | Bundled | Host CLI |
 | Serial | Bundled | Bundled | Host CLI |
@@ -257,9 +276,9 @@ snap connections rustconn
 | CLI downloads | Components dialog | Components dialog | — |
 
 **Flatpak Components** — Flatpak users can download additional CLI tools (Zero Trust,
-password managers, kubectl) directly within the sandbox via Menu → Components. The
-Flatpak bundles the SDL3 FreeRDP client for the external RDP fallback; the snap does
-not (its RDP path is the embedded IronRDP client).
+password managers, kubectl) directly within the sandbox via Menu → Components. Both
+sandboxed builds bundle a FreeRDP client for the external RDP path: the Flatpak the
+SDL3 client, the snap the X11 client (`xfreerdp3`).
 See [User Guide — Flatpak Components](USER_GUIDE.md#flatpak-components) for details.
 
 **Recommendation:**

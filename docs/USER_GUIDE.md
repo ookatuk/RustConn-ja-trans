@@ -1105,15 +1105,24 @@ every resize.
   not. On such a server the session stays at its fixed resolution and, on a HiDPI
   display, ends up small and hard to read.
 - **Smart sizing** *(off by default)* scales the remote framebuffer to fit the
-  window (`+smart-sizing`) instead of changing the server's resolution, so a
+  window (`/smart-sizing`) instead of changing the server's resolution, so a
   fixed-resolution session from a legacy server can be resized. The two are
-  mutually exclusive in FreeRDP; when both are on, smart sizing wins and dynamic
-  resolution is not sent.
+  mutually exclusive in FreeRDP; when both are on, smart sizing wins, dynamic
+  resolution is not sent, and the Dynamic resolution switch is greyed out.
 
-For a legacy server that opens too small on a HiDPI display, turn Dynamic
-resolution off and Smart sizing on. From the CLI: `--rdp-no-dynamic-resolution`
-and `--rdp-smart-sizing` on `add`; `--rdp-dynamic-resolution BOOL` and
-`--rdp-smart-sizing BOOL` on `update`.
+For a legacy server that opens too small on a HiDPI display, turn Smart sizing
+on. From the CLI: `--rdp-no-dynamic-resolution` and `--rdp-smart-sizing` on
+`add`; `--rdp-dynamic-resolution BOOL` and `--rdp-smart-sizing BOOL` on `update`.
+
+A `/smart-sizing` (or `/smart-sizing:WIDTHxHEIGHT`) typed into **Custom
+arguments** counts as well: RustConn then leaves `/dynamic-resolution` out
+instead of sending the pair FreeRDP refuses, and drops a custom
+`/dynamic-resolution` while smart sizing is on. *Changed in 0.22.7* — until then
+a custom `/smart-sizing` made the client exit with `Command line parsing failed`.
+
+"Reconnect on Resize" in the same group belongs to the embedded client (see
+[Dynamic Resolution on Resize](#dynamic-resolution-on-resize)); an external
+FreeRDP session ignores it.
 
 #### Choosing the FreeRDP Client
 
@@ -1201,7 +1210,7 @@ When you resize the RustConn window, the embedded RDP session automatically adju
 
 2. **Automatic reconnect fallback** — if the server does not support the Display Control Channel (common on Windows Server 2008/2012/2016 without the RDSH role, or older RDP configurations), RustConn automatically performs a brief reconnect with the new resolution. This avoids distorted scaling where the remote desktop is stretched or squished to fit the new window size.
 
-**"Reconnect on Resize" option** (Connection Dialog → Protocol → Features):
+**"Reconnect on Resize" option** (Connection Dialog → Protocol → Features; embedded client only — for an external FreeRDP session use Dynamic resolution and Smart sizing, see [Resizing on Legacy Servers](#resizing-on-legacy-servers--dynamic-resolution-and-smart-sizing)):
 
 | Setting | Behavior |
 |---------|----------|
@@ -2116,24 +2125,29 @@ Edit connection → **Advanced** tab → **Activity Monitor** section.
 
 ### Text Highlighting Rules
 
-Define regex-based patterns to highlight matching text in terminal output with custom colors. Rules can be global (apply to all connections) or per-connection.
+Define regex-based patterns to mark matching text in terminal output with a coloured underline, a tinted background, or both. Rules can be global or per-connection. Global rules apply to every terminal connection — SSH, Telnet, Serial, Kubernetes, Mosh, Zero Trust and Quick Connect; the local shell and the mc file browser are not highlighted.
 
 **Built-in Defaults:**
 
 | Rule | Pattern | Colors |
 |------|---------|--------|
-| ERROR | `ERROR` | Red foreground |
-| WARNING | `WARNING` | Yellow foreground |
-| CRITICAL/FATAL | `CRITICAL\|FATAL` | Red background |
+| ERROR | `(?i)\bERROR\b` | Red underline |
+| WARNING | `(?i)\bWARNING\b` | Yellow underline |
+| CRITICAL | `(?i)\bCRITICAL\b` | Red background |
+| FATAL | `(?i)\bFATAL\b` | Red background |
+
+Turn the built-ins off with **Highlight ERROR, WARNING, CRITICAL and FATAL** in the same Settings group; only your own rules are then applied.
 
 **Configure Global Rules:**
-1. **Settings → Terminal** → **Highlighting Rules** section
+1. **Settings → Terminal** → **Highlight Rules** group
 2. Click **Add Rule**
-3. Enter rule name, regex pattern, and choose foreground/background colors
-4. Toggle **Enabled** to activate/deactivate individual rules
+3. Enter a rule name, a regex pattern, and an underline and/or background colour
+4. Toggle the rule's switch to enable or disable it
+
+Changes in Settings apply to open sessions as soon as they are saved (*changed in 0.22.7*; before that only sessions started afterwards picked them up).
 
 **Configure Per-connection Rules:**
-1. Edit connection → **Advanced** tab → **Highlighting Rules** section
+1. Edit connection → **Advanced** tab → **Highlight Rules**
 2. Add rules that apply only to this connection
 3. Per-connection rules take priority over global rules
 
@@ -2142,12 +2156,14 @@ Define regex-based patterns to highlight matching text in terminal output with c
 | Property | Description |
 |----------|-------------|
 | Name | Display name for the rule |
-| Pattern | Regular expression (Rust regex syntax) |
-| Foreground Color | Text color in `#RRGGBB` format (optional) |
-| Background Color | Background color in `#RRGGBB` format (optional) |
+| Pattern | Regular expression (Rust regex syntax), e.g. `(?i)\bINFO\b` — not a `'INFO'[r,g,b]` literal from another tool |
+| Underline colour | Colour of the underline drawn under the match, `#RRGGBB` (optional) |
+| Background colour | Colour that tints the cells behind the match, `#RRGGBB` (optional) |
 | Enabled | Toggle rule on/off |
 
-Invalid regex patterns are rejected with an error message during validation.
+A pattern that is not a valid regular expression, or a colour that is not `#RRGGBB`, is outlined in red while you type; hover over a red pattern to see what is wrong with it. Such a rule is kept as typed but draws nothing for the invalid part.
+
+**Why an underline and not coloured text:** the highlight layer is drawn on top of the terminal and cannot change the colour of the terminal's own text. To recolour the text itself, give the connection an **Output Filter** (connection editor → Automation) such as ChromaTerm, which rewrites the output before the terminal shows it.
 
 **Note:** Lines containing only whitespace are not processed by the highlight overlay. This prevents stale highlights from appearing after the `clear` command erases the terminal screen. Highlight rules that intentionally match whitespace-only patterns will not render.
 
@@ -4021,7 +4037,7 @@ RustConn opens the KeePass database directly by file (`.kdbx`); it does not use 
 
 1. Check IronRDP/vnc-rs features enabled
 2. For external: verify FreeRDP/TigerVNC installed
-3. Flatpak: FreeRDP (SDL3) is bundled; VNC uses the embedded vnc-rs client (an external TigerVNC needs host display access and is not downloadable in the sandbox)
+3. Flatpak: FreeRDP (SDL3) is bundled; Snap: FreeRDP's X11 client (`xfreerdp3`) is bundled (since 0.22.7). In both, VNC uses the embedded vnc-rs client (an external TigerVNC needs host display access and is not downloadable in the sandbox)
 4. HiDPI: use Scale Override in connection dialog
 5. Clipboard not syncing: ensure "Clipboard" is enabled in RDP settings
 6. RDP Gateway: IronRDP doesn't support RD Gateway; falls back to external FreeRDP

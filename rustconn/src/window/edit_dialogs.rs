@@ -529,6 +529,7 @@ struct QuickConnectParams {
 /// Starts a quick Telnet connection
 fn start_quick_telnet(
     notebook: &SharedNotebook,
+    state: Option<&SharedAppState>,
     params: &QuickConnectParams,
     terminal_settings: &rustconn_core::config::TerminalSettings,
 ) {
@@ -541,6 +542,11 @@ fn start_quick_telnet(
         None,
         &[],
     );
+    // A quick connection has no rules of its own, but the built-in and global
+    // rules apply to it like to any other connection (issue #343).
+    if let Some(state) = state {
+        super::protocols::apply_highlight_rules(state, notebook, session_id, &[]);
+    }
     notebook.spawn_telnet(
         session_id,
         &params.host,
@@ -554,6 +560,7 @@ fn start_quick_telnet(
 /// Starts a quick SSH connection
 fn start_quick_ssh(
     notebook: &SharedNotebook,
+    state: Option<&SharedAppState>,
     params: &QuickConnectParams,
     terminal_settings: &rustconn_core::config::TerminalSettings,
 ) {
@@ -566,6 +573,10 @@ fn start_quick_ssh(
         None,
         &[],
     );
+    // Built-in and global highlight rules, as for any connection (issue #343).
+    if let Some(state) = state {
+        super::protocols::apply_highlight_rules(state, notebook, session_id, &[]);
+    }
     notebook.spawn_ssh(
         session_id,
         &params.host,
@@ -1061,12 +1072,13 @@ pub fn show_quick_connect_dialog_with_state(
             password,
         };
 
+        let state = state_for_connect.as_ref();
         match protocol_idx {
-            0 => start_quick_ssh(&notebook, &params, &terminal_settings),
+            0 => start_quick_ssh(&notebook, state, &params, &terminal_settings),
             1 => start_quick_rdp(&notebook, &split_view, &sidebar, &params),
             2 => start_quick_vnc(&notebook, &split_view, &sidebar, &params),
-            3 => start_quick_telnet(&notebook, &params, &terminal_settings),
-            _ => start_quick_ssh(&notebook, &params, &terminal_settings),
+            3 => start_quick_telnet(&notebook, state, &params, &terminal_settings),
+            _ => start_quick_ssh(&notebook, state, &params, &terminal_settings),
         }
 
         window_clone.close();
