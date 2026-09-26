@@ -647,8 +647,9 @@ fn fail_download(active_stage: &mut ActiveStage, stream_id: u32) {
 /// Turns a "Save N Files" request into a CLIPRDR File Contents *Request* PDU via
 /// [`CliprdrClient::request_file_contents`]. A `request_size` request asks for
 /// the file size (`FileContentsFlags::SIZE`, fixed 8-byte reply, position 0);
-/// otherwise it asks for a byte range (`FileContentsFlags::RANGE`). The reply is
-/// delivered asynchronously to `on_file_contents_response`, not here.
+/// otherwise it asks for a byte range (`FileContentsFlags::RANGE`), trimmed to
+/// the bytes the server's file list says remain. The reply is delivered
+/// asynchronously to `on_file_contents_response`, not here.
 async fn handle_download_file_contents<W: FramedWrite>(
     active_stage: &mut ActiveStage,
     writer: &mut W,
@@ -658,6 +659,38 @@ async fn handle_download_file_contents<W: FramedWrite>(
     offset: u64,
     length: u32,
 ) {
+    // IronRDP refuses a RANGE reaching past the end of the file as the server's
+    // file list describes it, and a zero-length one outright. Trim the slice to
+    // what remains; when nothing does, report the end the way a server would
+    // rather than send a request that cannot go out.
+    let length = if request_size {
+        length
+    } else {
+        let backend = active_stage
+            .get_svc_processor_mut::<CliprdrClient>()
+            .and_then(|cliprdr| {
+                cliprdr.downcast_backend_mut::<super::super::clipboard::RustConnClipboardBackend>()
+            });
+        match backend {
+            Some(backend) => {
+                let trimmed = backend.range_request_length(file_index, offset, length);
+                if trimmed == 0 {
+                    tracing::debug!(
+                        protocol = "rdp",
+                        stream_id,
+                        offset,
+                        "Nothing left to download; ending the file"
+                    );
+                    backend.emit_end_of_file(stream_id);
+                    return;
+                }
+                trimmed
+            }
+            // No channel: the lookup below reports it.
+            None => length,
+        }
+    };
+
     let Some(request) = build_download_request(stream_id, file_index, request_size, offset, length)
     else {
         tracing::warn!(

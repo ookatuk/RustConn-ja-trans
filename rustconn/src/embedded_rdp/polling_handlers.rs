@@ -186,6 +186,15 @@ pub(super) fn handle_clipboard_file_list(
     ctx: &FileTransferContext<'_>,
     files: Vec<rustconn_core::rdp_client::ClipboardFileInfo>,
 ) {
+    // An empty list is the backend withdrawing the offer: the remote clipboard
+    // changed to something that is not files, which happens on every remote
+    // text copy. Hide the button but leave the transfer state alone, so a batch
+    // still downloading can settle and report; the next real list replaces it.
+    if files.is_empty() {
+        tracing::debug!(protocol = "rdp", "Remote clipboard no longer offers files");
+        ctx.save_files_button.set_visible(false);
+        return;
+    }
     tracing::info!(
         protocol = "rdp",
         file_count = files.len(),
