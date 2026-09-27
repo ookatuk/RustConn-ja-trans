@@ -526,7 +526,15 @@ mod tests {
 
     #[test]
     fn hex_channels_refuse_wrong_lengths_and_non_hex() {
-        for digits in ["", "FFF", "FFFFF", "FFFFFFF", "FFFFFFFFF", "GGGGGG", "#FFFFFF"] {
+        for digits in [
+            "",
+            "FFF",
+            "FFFFF",
+            "FFFFFFF",
+            "FFFFFFFFF",
+            "GGGGGG",
+            "#FFFFFF",
+        ] {
             assert_eq!(parse_hex_channels(digits), None, "{digits:?}");
         }
     }

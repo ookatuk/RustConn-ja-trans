@@ -783,8 +783,7 @@ pub(super) fn create_advanced_tab() -> (
 /// anything, so it uses the shared parser that refuses a multi-byte character
 /// instead of panicking on it (issue #343).
 pub(super) fn hex_to_rgba(hex: &str) -> Option<gtk4::gdk::RGBA> {
-    let [r, g, b, a] =
-        rustconn_core::terminal_themes::parse_hex_channels(hex.strip_prefix('#')?)?;
+    let [r, g, b, a] = rustconn_core::terminal_themes::parse_hex_channels(hex.strip_prefix('#')?)?;
     Some(gtk4::gdk::RGBA::new(
         f32::from(r) / 255.0,
         f32::from(g) / 255.0,

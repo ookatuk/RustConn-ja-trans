@@ -578,7 +578,10 @@ pub mod highlight_fields {
             super::show_colour_validity(&entry, "#00AAFF");
             assert!(!entry.has_css_class("error"));
             super::show_colour_validity(&entry, "");
-            assert!(!entry.has_css_class("error"), "an empty field means no colour");
+            assert!(
+                !entry.has_css_class("error"),
+                "an empty field means no colour"
+            );
         }
     }
 }

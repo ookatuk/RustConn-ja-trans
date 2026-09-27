@@ -463,8 +463,7 @@ fn setup_font_with_settings(terminal: &Terminal, settings: &TerminalSettings) {
 /// runs on every terminal start, so it uses the shared parser that refuses a
 /// multi-byte character instead of panicking on it (issue #343).
 fn hex_to_rgba(hex: &str) -> Option<gdk::RGBA> {
-    let [r, g, b, a] =
-        rustconn_core::terminal_themes::parse_hex_channels(hex.strip_prefix('#')?)?;
+    let [r, g, b, a] = rustconn_core::terminal_themes::parse_hex_channels(hex.strip_prefix('#')?)?;
     Some(gdk::RGBA::new(
         f32::from(r) / 255.0,
         f32::from(g) / 255.0,
