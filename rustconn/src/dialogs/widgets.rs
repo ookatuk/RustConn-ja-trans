@@ -542,11 +542,43 @@ pub mod highlight_fields {
         }
     }
 
+    /// Marks `field` invalid or valid, for the eye and for assistive technology.
+    ///
+    /// The red outline alone tells a screen reader nothing, and the HIG asks
+    /// that no information be carried by colour only, so the accessible
+    /// `invalid` state follows the `error` style class.
     fn set_invalid(field: &impl IsA<gtk4::Widget>, invalid: bool) {
+        let widget = field.upcast_ref::<gtk4::Widget>();
         if invalid {
-            field.add_css_class("error");
+            widget.add_css_class("error");
+            widget.update_state(&[gtk4::accessible::State::Invalid(
+                gtk4::AccessibleInvalidState::True,
+            )]);
         } else {
-            field.remove_css_class("error");
+            widget.remove_css_class("error");
+            widget.reset_state(gtk4::AccessibleState::Invalid);
+        }
+    }
+
+    #[cfg(test)]
+    mod tests {
+        /// The style class and the accessible state are set and cleared
+        /// together; a field corrected by the user must lose both.
+        #[test]
+        #[ignore = "initialises GTK: needs a display and its own process; run alone with `cargo test -p rustconn --bin rustconn -- --ignored --exact <this test path>`"]
+        fn an_invalid_colour_is_flagged_and_a_corrected_one_is_cleared() {
+            use gtk4::prelude::*;
+
+            if gtk4::init().is_err() {
+                return;
+            }
+            let entry = gtk4::Entry::new();
+            super::show_colour_validity(&entry, "#0а0ff");
+            assert!(entry.has_css_class("error"));
+            super::show_colour_validity(&entry, "#00AAFF");
+            assert!(!entry.has_css_class("error"));
+            super::show_colour_validity(&entry, "");
+            assert!(!entry.has_css_class("error"), "an empty field means no colour");
         }
     }
 }
