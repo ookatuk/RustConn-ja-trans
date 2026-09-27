@@ -46,6 +46,12 @@ The backend now requests the file list, matched by name, whenever the server off
 Reaching the button exposed a second fault in the download: IronRDP refuses a RANGE request that runs past the file size in that list, and files are pulled in 1 MiB slices, so the only slice of a file under 1 MiB, and the last slice of any larger one, would have been refused before it went out; slices are now trimmed to the bytes that remain, and a zero-byte file completes without a request.
 A new remote copy of anything other than files now withdraws the button instead of leaving it offering files the server no longer holds, and a refused clipboard request no longer blanks the local clipboard.
 
+### Security
+- **"Save N Files" could create a hidden file chosen by the RDP server, such as `.bash_profile`, in the folder the user picked (issue #74)** — the names in a remote clipboard's file list come from the server, and RustConn already cut them down to one path component and never overwrote an existing file, but it kept a leading dot.
+A malicious or compromised server could offer `.bash_profile` or `.zshenv` among ordinary files, and saving into the home folder left a hidden file that the next login shell runs; the button shows only how many files there are, never their names.
+The path became reachable in this release, now that the file list is fetched at all.
+Leading dots are now stripped, as a browser does for a download, and control and bidirectional-override characters are removed from the name, since they change what a file manager shows — `U+202E` makes `fdp.exe` read as `exe.pdf`.
+
 ### Documentation
 - **Snap, install and user-guide corrections for the sandboxed builds and highlighting (issues #341, #342, #343)** — `docs/SNAP.md` and `docs/INSTALL.md` describe the bundled `xfreerdp3`, state that SPICE is not available in the snap (the previous "needs a host `remote-viewer`" was not something strict confinement allows), and replace the claim that the viewers need host display access a snap cannot grant.
 `docs/INSTALL.md` lists the FreeRDP detection order for both Wayland and X11 sessions.

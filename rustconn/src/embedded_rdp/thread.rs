@@ -419,13 +419,40 @@ impl ClipboardFileTransfer {
 /// this code does not walk a directory hierarchy). Returns `None` for anything
 /// with no usable component left: empty, whitespace, `.`, `..`, or a name
 /// carrying an interior NUL.
+///
+/// Leading dots are stripped as well, the way a browser treats a download. The
+/// name is the server's and the user never sees it — the button shows only a
+/// count — so `.bash_profile` or `.zshenv` would land in the chosen folder as a
+/// hidden file that the next login shell runs; `create_new` only refuses to
+/// *overwrite* one that exists. Control and bidirectional-override characters
+/// are dropped too, since they change what a file manager shows without being
+/// visible themselves: `"\u{202E}fdp.exe"` reads as `exe.pdf`.
 #[cfg(feature = "rdp-embedded")]
 fn sanitized_file_name(raw: &str) -> Option<String> {
-    let last = raw.rsplit(['/', '\\']).next()?.trim();
-    if last.is_empty() || last == "." || last == ".." || last.contains('\0') {
+    let last = raw.rsplit(['/', '\\']).next()?;
+    if last.contains('\0') {
         return None;
     }
-    Some(last.to_string())
+    let visible: String = last.chars().filter(|&c| !is_hidden_name_char(c)).collect();
+    // Dots and whitespace together, so `. .profile` cannot leave a dot behind.
+    let name = visible
+        .trim_start_matches(|c: char| c == '.' || c.is_whitespace())
+        .trim_end();
+    if name.is_empty() {
+        return None;
+    }
+    Some(name.to_string())
+}
+
+/// Whether `c` changes how a filename displays without being visible in it: the
+/// C0 and C1 controls, DEL, and the Unicode bidirectional formatting characters.
+#[cfg(feature = "rdp-embedded")]
+fn is_hidden_name_char(c: char) -> bool {
+    c.is_control()
+        || matches!(
+            c,
+            '\u{061C}' | '\u{200E}' | '\u{200F}' | '\u{202A}'..='\u{202E}' | '\u{2066}'..='\u{2069}'
+        )
 }
 
 /// Creates `name` inside `dir` without ever overwriting an existing file.
@@ -1175,9 +1202,59 @@ mod tests {
         );
     }
 
+    /// The name is the server's and the user never sees it, so a leading dot
+    /// would plant a hidden file — `.bash_profile`, `.zshenv` — that the next
+    /// login shell runs. `create_new` only refuses to overwrite one.
+    #[test]
+    fn a_leading_dot_is_stripped_so_no_hidden_file_is_created() {
+        for (raw, expected) in [
+            (".bash_profile", "bash_profile"),
+            (r"..\..\.zshenv", "zshenv"),
+            ("...hidden", "hidden"),
+            (" . .profile", "profile"),
+            ("report.v2.txt", "report.v2.txt"),
+        ] {
+            assert_eq!(
+                super::sanitized_file_name(raw).as_deref(),
+                Some(expected),
+                "{raw:?}"
+            );
+        }
+    }
+
+    /// Control and bidirectional-override characters change what a file
+    /// manager shows without being visible: `U+202E` makes `fdp.exe` read as
+    /// `exe.pdf`.
+    #[test]
+    fn control_and_bidi_characters_are_removed() {
+        for (raw, expected) in [
+            ("\u{202E}fdp.exe", "fdp.exe"),
+            ("in\u{2066}voice\u{2069}.pdf", "invoice.pdf"),
+            ("line\nbreak.txt", "linebreak.txt"),
+            ("tab\there\u{7f}.log", "tabhere.log"),
+        ] {
+            assert_eq!(
+                super::sanitized_file_name(raw).as_deref(),
+                Some(expected),
+                "{raw:?}"
+            );
+        }
+    }
+
     #[test]
     fn names_with_no_usable_component_are_refused() {
-        for raw in ["", "   ", ".", "..", "a/b/", "with\0nul", "sub/.."] {
+        for raw in [
+            "",
+            "   ",
+            ".",
+            "..",
+            "...",
+            ". .",
+            "\u{202E}",
+            "a/b/",
+            "with\0nul",
+            "sub/..",
+        ] {
             assert!(
                 super::sanitized_file_name(raw).is_none(),
                 "{raw:?} must be refused"
@@ -1220,6 +1297,17 @@ mod tests {
         let path = t.save_download(sid).expect("the write succeeds");
         assert_eq!(path, dir.path().join("notes.txt"));
         assert_eq!(std::fs::read(&path).expect("readable"), b"data");
+    }
+
+    /// End to end: a server offering `.bash_profile` gets a visible file.
+    #[test]
+    fn a_server_dotfile_is_saved_as_a_visible_file() {
+        let dir = tempfile::tempdir().expect("temp dir");
+        let (t, sid) = completed_download_named(dir.path(), ".bash_profile");
+
+        let path = t.save_download(sid).expect("the write succeeds");
+        assert_eq!(path, dir.path().join("bash_profile"));
+        assert!(!dir.path().join(".bash_profile").exists());
     }
 
     /// The security case: an absolute name from the server must not escape the
