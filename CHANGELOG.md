@@ -5,7 +5,7 @@ All notable changes to RustConn will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.22.7] - 2026-09-27
 
 ### Added
 - **The Snap bundles FreeRDP's X11 client for external RDP (issue #342)** — the snap had no external RDP client at all, so everything the embedded IronRDP client cannot do simply failed there: the legacy RDP security layer and TLS-only servers (e.g. Windows 2008 R2), RemoteApp, audio left playing on the remote computer, an RD Gateway whose target listens on a port other than 3389 (the embedded client tunnels the usual case through the gateway itself), and the External client mode with its Smart sizing and Dynamic resolution switches.
@@ -73,6 +73,12 @@ The Snap Store description no longer promises a TigerVNC fallback or SPICE, neit
 The docs no longer say that RD Gateway needs the external client: the embedded client tunnels through the gateway itself, and only a gateway target on a port other than 3389 goes to FreeRDP.
 The user guide's External Window notes still listed the FreeRDP clients in the order used before 0.22.5, `wlfreerdp3` first; they now give the Wayland and X11 orders and name the snap's bundled client.
 The user guide's highlighting section now shows the real built-in patterns, the built-in switch, what the underline and background colours do, how invalid fields are flagged, and which sessions are highlighted; the RDP section covers a custom `/smart-sizing` and says which client Reconnect on Resize belongs to.
+
+### Dependencies
+- **FreeRDP (Flatpak) 3.31.1 → 3.32.0 — a security release** — upstream lists 62 security advisories against [3.32.0](https://github.com/FreeRDP/FreeRDP/releases/tag/3.32.0), most of them hardening against protocol violations from a malicious server, and the client now honours an explicitly disabled smart sizing or multi-monitor option on its command line.
+Only the Flatpak and Flathub builds bundle FreeRDP; the deb and RPM depend on the distribution's copy, and the snap stages Ubuntu's `freerdp3-x11`, which Ubuntu patches on its own schedule.
+The `sha256` was taken from upstream's own published checksum beside the tarball and matches the archive as downloaded.
+No Cargo dependency had a compatible update, and `cargo deny check advisories` is clean.
 
 ## [0.22.6] - 2026-09-25
 
