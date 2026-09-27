@@ -50,6 +50,14 @@ use crate::i18n::i18n;
 use crate::sidebar_ui;
 use crate::smart_folder_ui::SmartFoldersSidebar;
 
+/// The ID of the virtual "Favorites" group shown at the top of the tree.
+///
+/// Not a real group: it has no `ConnectionGroup` behind it and its ID is this
+/// literal rather than a UUID. Anything that resolves a group by parsing the ID
+/// must account for it, and rows *inside* it are the same connections shown a
+/// second time (their real place carries the star emblem instead).
+pub const PINNED_GROUP_ID: &str = "__pinned__";
+
 /// Sidebar widget for connection tree display
 #[expect(dead_code, reason = "Many fields kept for GTK widget lifecycle")]
 pub struct ConnectionSidebar {

@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: rustconn 0.22.7\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-09-27 17:45+0300\n"
+"POT-Creation-Date: 2026-09-27 21:31+0300\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -18,7 +18,7 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 
 #: rustconn/src/alert.rs:15 rustconn/src/alert.rs:54 rustconn/src/alert.rs:64
-#: rustconn/src/app.rs:1805 rustconn/src/toast.rs:246
+#: rustconn/src/app.rs:1841 rustconn/src/toast.rs:246
 msgid "OK"
 msgstr ""
 
@@ -93,20 +93,20 @@ msgstr ""
 msgid "Settings"
 msgstr ""
 
-#: rustconn/src/app.rs:1391
+#: rustconn/src/app.rs:1427
 msgid ""
 "{} is selected, but the system keyring is not accessible. Run: sudo snap "
 "connect rustconn:password-manager-service — or open Settings, then Secrets, "
 "to choose another backend."
 msgstr ""
 
-#: rustconn/src/app.rs:1396
+#: rustconn/src/app.rs:1432
 msgid ""
 "{} is selected, but it cannot store passwords yet: {}. Open Settings, then "
 "Secrets."
 msgstr ""
 
-#: rustconn/src/app.rs:1701
+#: rustconn/src/app.rs:1737
 msgid ""
 "Modern connection manager for Linux with a GTK4/Wayland-native interface. "
 "Manage SSH, RDP, VNC, SPICE, Telnet, Serial, Kubernetes, and Zero Trust "
@@ -114,35 +114,35 @@ msgid ""
 msgstr ""
 
 #. Translators: Replace this with your name and language, e.g. "John Doe (German)"
-#: rustconn/src/app.rs:1737
+#: rustconn/src/app.rs:1773
 msgid "translator-credits"
 msgstr ""
 
-#: rustconn/src/app.rs:1744
+#: rustconn/src/app.rs:1780
 msgid "User Guide"
 msgstr ""
 
-#: rustconn/src/app.rs:1748
+#: rustconn/src/app.rs:1784
 msgid "Installation"
 msgstr ""
 
-#: rustconn/src/app.rs:1752
+#: rustconn/src/app.rs:1788
 msgid "Releases"
 msgstr ""
 
-#: rustconn/src/app.rs:1756
+#: rustconn/src/app.rs:1792
 msgid "Changelog"
 msgstr ""
 
-#: rustconn/src/app.rs:1766
+#: rustconn/src/app.rs:1802
 msgid "Special Thanks"
 msgstr ""
 
-#: rustconn/src/app.rs:1781
+#: rustconn/src/app.rs:1817
 msgid "Made in Ukraine"
 msgstr ""
 
-#: rustconn/src/app.rs:1782
+#: rustconn/src/app.rs:1818
 msgid "All contributors and supporters"
 msgstr ""
 
@@ -7341,8 +7341,8 @@ msgstr ""
 #: rustconn/src/dialogs/settings/ui_tab.rs:437
 #: rustconn/src/dialogs/settings/ui_tab.rs:722
 #: rustconn/src/dialogs/shortcuts.rs:168
-#: rustconn/src/split_view/adapter.rs:1519 rustconn/src/tray.rs:229
-#: rustconn/src/tray.rs:587 rustconn/src/window/ui.rs:276
+#: rustconn/src/split_view/adapter.rs:1519 rustconn/src/tray.rs:258
+#: rustconn/src/tray.rs:645 rustconn/src/window/ui.rs:276
 msgid "Local Shell"
 msgstr ""
 
@@ -7772,8 +7772,8 @@ msgstr ""
 msgid "View"
 msgstr ""
 
-#: rustconn/src/dialogs/shortcuts.rs:154 rustconn/src/tray.rs:258
-#: rustconn/src/tray.rs:600 rustconn/src/window/ui.rs:355
+#: rustconn/src/dialogs/shortcuts.rs:154 rustconn/src/tray.rs:287
+#: rustconn/src/tray.rs:658 rustconn/src/window/ui.rs:355
 msgid "Quit"
 msgstr ""
 
@@ -9939,39 +9939,39 @@ msgstr ""
 msgid "Filter by {} protocol"
 msgstr ""
 
-#: rustconn/src/sidebar/mod.rs:143
+#: rustconn/src/sidebar/mod.rs:151
 msgid "Search… (? for help)"
 msgstr ""
 
-#: rustconn/src/sidebar/mod.rs:147
+#: rustconn/src/sidebar/mod.rs:155
 msgid "Search connections"
 msgstr ""
 
-#: rustconn/src/sidebar/mod.rs:155
+#: rustconn/src/sidebar/mod.rs:163
 msgid "Search pending…"
 msgstr ""
 
-#: rustconn/src/sidebar/mod.rs:162 rustconn/src/sidebar/mod.rs:165
+#: rustconn/src/sidebar/mod.rs:170 rustconn/src/sidebar/mod.rs:173
 msgid "Search syntax help"
 msgstr ""
 
-#: rustconn/src/sidebar/mod.rs:181 rustconn/src/sidebar/mod.rs:185
+#: rustconn/src/sidebar/mod.rs:189 rustconn/src/sidebar/mod.rs:193
 msgid "Toggle protocol filters"
 msgstr ""
 
-#: rustconn/src/sidebar/mod.rs:624
+#: rustconn/src/sidebar/mod.rs:632
 msgid "Connection list"
 msgstr ""
 
-#: rustconn/src/sidebar/mod.rs:1929
+#: rustconn/src/sidebar/mod.rs:1937
 msgid "Open Password Vault (Active)"
 msgstr ""
 
-#: rustconn/src/sidebar/mod.rs:1934
+#: rustconn/src/sidebar/mod.rs:1942
 msgid "Password Vault Not Found"
 msgstr ""
 
-#: rustconn/src/sidebar/mod.rs:1937
+#: rustconn/src/sidebar/mod.rs:1945
 msgid "Password Vault Disabled"
 msgstr ""
 
@@ -10597,35 +10597,40 @@ msgstr ""
 msgid "Retry"
 msgstr ""
 
-#: rustconn/src/tray.rs:146
+#: rustconn/src/tray.rs:149
 msgid "{} active session(s)"
 msgstr ""
 
-#: rustconn/src/tray.rs:152
+#: rustconn/src/tray.rs:155
 msgid "No active sessions"
 msgstr ""
 
-#: rustconn/src/tray.rs:185 rustconn/src/tray.rs:528
+#: rustconn/src/tray.rs:189 rustconn/src/tray.rs:566
 msgid "Hide Window"
 msgstr ""
 
-#: rustconn/src/tray.rs:187 rustconn/src/tray.rs:530
+#: rustconn/src/tray.rs:191 rustconn/src/tray.rs:568
 msgid "Show Window"
 msgstr ""
 
-#: rustconn/src/tray.rs:214 rustconn/src/tray.rs:546
+#: rustconn/src/tray.rs:220 rustconn/src/tray.rs:585
+#: rustconn/src/window/sorting.rs:194
+msgid "Favorites"
+msgstr ""
+
+#: rustconn/src/tray.rs:243 rustconn/src/tray.rs:604
 msgid "Recent Connections"
 msgstr ""
 
-#: rustconn/src/tray.rs:222 rustconn/src/tray.rs:581
+#: rustconn/src/tray.rs:251 rustconn/src/tray.rs:639
 msgid "Quick Connect…"
 msgstr ""
 
-#: rustconn/src/tray.rs:238 rustconn/src/tray.rs:565
+#: rustconn/src/tray.rs:267 rustconn/src/tray.rs:623
 msgid "{} Active Session(s)"
 msgstr ""
 
-#: rustconn/src/tray.rs:251 rustconn/src/tray.rs:594
+#: rustconn/src/tray.rs:280 rustconn/src/tray.rs:652
 #: rustconn/src/window/ui.rs:354
 msgid "About RustConn"
 msgstr ""
@@ -12038,16 +12043,12 @@ msgstr ""
 msgid "Enter Variable Values"
 msgstr ""
 
-#: rustconn/src/window/sorting.rs:191
-msgid "Favorites"
-msgstr ""
-
-#: rustconn/src/window/sorting.rs:468 rustconn/src/window/sorting.rs:489
+#: rustconn/src/window/sorting.rs:471 rustconn/src/window/sorting.rs:492
 msgid ""
 "Imported folders are managed by sync and their structure cannot be changed"
 msgstr ""
 
-#: rustconn/src/window/sorting.rs:500
+#: rustconn/src/window/sorting.rs:503
 msgid "Cannot move a folder into one of its own subfolders"
 msgstr ""
 

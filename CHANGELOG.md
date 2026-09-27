@@ -22,6 +22,9 @@ The submenu appears only once at least one connection is pinned, mirroring how R
 The entry now reads "Add to Favorites" or "Remove from Favorites" depending on whether the connection is already pinned, matching the "Favorites" group the pinned connection appears in.
 - **A favorite connection now shows a star at its normal place in the tree, not only inside the Favorites group (issue #344)** — the sidebar row already carried a `starred-symbolic` emblem that binds to the connection's pinned state, but with pinning silently discarded (see the fix above) it never had a pinned connection to show it for.
 With pinning working, a favorite is now marked wherever it appears in the tree, so its status is visible without scrolling to the Favorites group; the emblem also carries an accessible label, and its tooltip and label now read "Favorite" to match the rest of the feature's wording.
+The star emblem is deliberately suppressed on the rows *inside* the Favorites group, where every entry is a favorite by definition and repeating it would only add visual noise.
+- **The Favorites group now has its own icon (issue #344)** — it used the plain folder icon, so it was indistinguishable from an ordinary, uncustomised group.
+It now shows a ⭐ glyph, setting the synthetic group apart from real folders at a glance.
 
 ## [0.22.7] - 2026-09-27
 
