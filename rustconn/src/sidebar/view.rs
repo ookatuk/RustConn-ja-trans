@@ -128,6 +128,8 @@ pub fn show_context_menu_for_connection_item(
     // Whether this connection has an active external-viewer session (issue
     // #209): gates the Disconnect / Stop tracking items (R5.1).
     let has_external_session = item.external_session();
+    // Drives the favorite menu label between "Add to" and "Remove from".
+    let is_pinned = item.is_pinned();
 
     tracing::debug!(
         name = %item.name(),
@@ -135,6 +137,7 @@ pub fn show_context_menu_for_connection_item(
         is_group,
         is_connected,
         has_external_session,
+        is_pinned,
         "Showing sidebar context menu"
     );
 
@@ -147,6 +150,7 @@ pub fn show_context_menu_for_connection_item(
         is_connected,
         is_recording,
         has_external_session,
+        is_pinned,
         &item.sync_mode(),
         item.is_root_group(),
         item.has_dynamic_folder(),

@@ -280,6 +280,7 @@ pub fn show_context_menu_for_item(
     is_connected: bool,
     is_recording: bool,
     has_external_session: bool,
+    is_pinned: bool,
     sync_mode: &str,
     is_root_group: bool,
     has_dynamic_folder: bool,
@@ -343,7 +344,14 @@ pub fn show_context_menu_for_item(
             ));
         }
         items.push(ContextMenuItem::action(&i18n("Connect"), "connect"));
-        items.push(ContextMenuItem::action(&i18n("Pin / Unpin"), "toggle-pin"));
+        // Favorite toggle. The label names the resulting state so the user knows
+        // what the click does; the action itself (`toggle-pin`) is unchanged.
+        let favorite_label = if is_pinned {
+            i18n("Remove from Favorites")
+        } else {
+            i18n("Add to Favorites")
+        };
+        items.push(ContextMenuItem::action(&favorite_label, "toggle-pin"));
         // § Organisation
         items.push(ContextMenuItem::Separator);
         items.push(ContextMenuItem::action(&i18n("Rename"), "rename-item"));
