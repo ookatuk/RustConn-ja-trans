@@ -306,19 +306,18 @@ pub fn toggle_pin_selected(state: &SharedAppState, sidebar: &SharedSidebar) {
     };
 
     if let Ok(mut state_mut) = state.try_borrow_mut() {
-        let Some(mut conn) = state_mut.get_connection(id).cloned() else {
-            return;
-        };
-        conn.toggle_pin();
-        tracing::info!(
-            connection_id = %id,
-            is_pinned = conn.is_pinned,
-            "Connection pin state toggled"
-        );
-        if let Err(e) = state_mut.update_connection(id, conn) {
+        if let Err(e) = state_mut.toggle_pin(id) {
             tracing::error!(%e, "Failed to update pin state");
             return;
         }
+        // Log the persisted state, read back after the write, so the log
+        // reflects reality rather than a clone that was never stored.
+        let is_pinned = state_mut.get_connection(id).is_some_and(|c| c.is_pinned);
+        tracing::info!(
+            connection_id = %id,
+            is_pinned,
+            "Connection pin state toggled"
+        );
     }
 
     // Rebuild sidebar to reflect pin changes

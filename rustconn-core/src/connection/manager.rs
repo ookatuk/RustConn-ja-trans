@@ -371,6 +371,77 @@ impl ConnectionManager {
         Ok(())
     }
 
+    /// Sets the pinned (favorite) state of a connection and persists it.
+    ///
+    /// This is the dedicated write path for pinning. It exists separately from
+    /// [`update_connection`](Self::update_connection), which deliberately
+    /// preserves `is_pinned`/`pin_order` so that editing an unrelated field via
+    /// the connection dialog cannot clear the favorite — a preservation that
+    /// would otherwise discard the very change this method makes.
+    ///
+    /// When pinning, `order` positions the connection among favorites (lower
+    /// first). When unpinning, `order` is ignored and `pin_order` is reset to 0.
+    ///
+    /// `is_pinned`/`pin_order` are local-only fields, so this does not trigger a
+    /// sync export.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ConfigError::Validation`] if no connection has the given ID, or
+    /// a persistence error if saving fails.
+    pub fn set_pin(&mut self, id: Uuid, pinned: bool, order: i32) -> ConfigResult<()> {
+        let connection = self
+            .connections
+            .get_mut(&id)
+            .ok_or_else(|| ConfigError::Validation {
+                field: "id".to_string(),
+                reason: format!("Connection with ID {id} not found"),
+            })?;
+        connection.set_pinned(pinned, order);
+        self.persist_connections()?;
+        Ok(())
+    }
+
+    /// Toggles the pinned (favorite) state of a connection and persists it.
+    ///
+    /// See [`set_pin`](Self::set_pin) for why pinning does not go through
+    /// [`update_connection`](Self::update_connection). When pinning, the
+    /// connection is appended after existing favorites via `pin_order`; when
+    /// unpinning, `pin_order` is reset to 0.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ConfigError::Validation`] if no connection has the given ID, or
+    /// a persistence error if saving fails.
+    pub fn toggle_pin(&mut self, id: Uuid) -> ConfigResult<()> {
+        let currently_pinned = self
+            .connections
+            .get(&id)
+            .ok_or_else(|| ConfigError::Validation {
+                field: "id".to_string(),
+                reason: format!("Connection with ID {id} not found"),
+            })?
+            .is_pinned;
+        let order = if currently_pinned {
+            0
+        } else {
+            self.next_pin_order()
+        };
+        self.set_pin(id, !currently_pinned, order)
+    }
+
+    /// Computes `max(pin_order) + 1` among pinned connections, or `0` if none.
+    ///
+    /// New favorites append to the end of the list rather than colliding at 0.
+    fn next_pin_order(&self) -> i32 {
+        self.connections
+            .values()
+            .filter(|c| c.is_pinned)
+            .map(|c| c.pin_order)
+            .max()
+            .map_or(0, |max| max.saturating_add(1))
+    }
+
     /// Deletes a connection by ID (moves to trash)
     ///
     /// # Errors
@@ -2454,6 +2525,109 @@ mod tests {
         assert!(
             content.contains("Debounced Connection"),
             "Should persist after flush"
+        );
+    }
+
+    /// Regression: pinning through the dedicated path is visible afterwards.
+    ///
+    /// The bug was that pinning went through `update_connection`, whose
+    /// preservation block reset `is_pinned` to the old value, so the Favorites
+    /// group never appeared. `toggle_pin` must actually flip and persist it.
+    #[tokio::test]
+    async fn toggle_pin_is_visible_in_the_connection_list() {
+        let (mut manager, _temp) = create_test_manager();
+
+        let id = manager
+            .create_connection(
+                "Pinnable".to_string(),
+                "example.com".to_string(),
+                22,
+                ProtocolConfig::Ssh(SshConfig::default()),
+            )
+            .unwrap();
+        assert!(!manager.get_connection(id).unwrap().is_pinned);
+
+        manager.toggle_pin(id).unwrap();
+        assert!(
+            manager.get_connection(id).unwrap().is_pinned,
+            "toggle_pin must set is_pinned so the Favorites group renders"
+        );
+        assert!(
+            manager.list_connections().iter().any(|c| c.is_pinned),
+            "a pinned connection must appear in the list the sidebar filters"
+        );
+
+        manager.toggle_pin(id).unwrap();
+        let conn = manager.get_connection(id).unwrap();
+        assert!(!conn.is_pinned, "toggling again must unpin");
+        assert_eq!(conn.pin_order, 0, "unpinning resets pin_order");
+    }
+
+    /// Editing an unrelated field must not clear the favorite.
+    ///
+    /// This is why `update_connection` preserves `is_pinned` and pinning has its
+    /// own path: the two requirements coexist rather than fight.
+    #[tokio::test]
+    async fn update_connection_preserves_pin_state() {
+        let (mut manager, _temp) = create_test_manager();
+
+        let id = manager
+            .create_connection(
+                "Edited".to_string(),
+                "example.com".to_string(),
+                22,
+                ProtocolConfig::Ssh(SshConfig::default()),
+            )
+            .unwrap();
+        manager.toggle_pin(id).unwrap();
+        assert!(manager.get_connection(id).unwrap().is_pinned);
+
+        // Simulate the edit dialog: it does not expose pin state, so the
+        // Connection it submits has is_pinned == false by default.
+        let mut edited = manager.get_connection(id).unwrap().clone();
+        edited.is_pinned = false;
+        edited.pin_order = 0;
+        edited.host = "renamed.example.com".to_string();
+        manager.update_connection(id, edited).unwrap();
+
+        let conn = manager.get_connection(id).unwrap();
+        assert_eq!(conn.host, "renamed.example.com", "the edit must apply");
+        assert!(
+            conn.is_pinned,
+            "editing an unrelated field must not clear the favorite"
+        );
+    }
+
+    /// New favorites append after existing ones rather than colliding at 0.
+    #[tokio::test]
+    async fn toggle_pin_assigns_increasing_pin_order() {
+        let (mut manager, _temp) = create_test_manager();
+
+        let first = manager
+            .create_connection(
+                "First".to_string(),
+                "a.example.com".to_string(),
+                22,
+                ProtocolConfig::Ssh(SshConfig::default()),
+            )
+            .unwrap();
+        let second = manager
+            .create_connection(
+                "Second".to_string(),
+                "b.example.com".to_string(),
+                22,
+                ProtocolConfig::Ssh(SshConfig::default()),
+            )
+            .unwrap();
+
+        manager.toggle_pin(first).unwrap();
+        manager.toggle_pin(second).unwrap();
+
+        let first_order = manager.get_connection(first).unwrap().pin_order;
+        let second_order = manager.get_connection(second).unwrap().pin_order;
+        assert!(
+            first_order < second_order,
+            "the second favorite must sort after the first ({first_order} < {second_order})"
         );
     }
 }

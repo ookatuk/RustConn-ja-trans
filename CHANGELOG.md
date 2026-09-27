@@ -5,6 +5,13 @@ All notable changes to RustConn will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+- **Pinning a connection as a favorite did nothing (issue #344)** — the "Pin / Unpin" context-menu action set the favorite flag on a throwaway clone and then saved it through `update_connection`, whose "preserve fields the edit dialog does not expose" block immediately overwrote `is_pinned` and `pin_order` with the old stored values, so the change never reached storage.
+The Favorites group in the sidebar is only drawn when at least one connection is pinned, so it never appeared, and the `is_pinned=true` log line was reading the discarded clone rather than the saved connection.
+Pinning now goes through a dedicated `ConnectionManager::set_pin`/`toggle_pin` path that mutates the stored connection in place, leaving `update_connection`'s preservation intact for the edit dialog, so editing an unrelated field still cannot clear a favorite.
+
 ## [0.22.7] - 2026-09-27
 
 ### Added
