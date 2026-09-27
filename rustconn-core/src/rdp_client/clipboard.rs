@@ -136,6 +136,17 @@ pub struct RustConnClipboardBackend {
     /// `IronRDP` refuses a RANGE request that reaches past the size it parsed from
     /// the same list — see [`Self::range_request_length`].
     remote_file_sizes: Vec<Option<u64>>,
+    /// Format Data Requests asked for the current format list and not answered.
+    outstanding_requests: u32,
+    /// Replies still due for requests made for a superseded format list.
+    ///
+    /// A Format Data Response names no format; CLIPRDR matches it to the
+    /// requests in the order they were sent. When the server announces a new
+    /// format list, `IronRDP` forgets what it was asked, so a late reply to the
+    /// old file-list request reached `on_format_data_response` as an ordinary
+    /// reply and was decoded as text — binary descriptor bytes put on the local
+    /// clipboard. Replies are dropped while this is non-zero.
+    stale_replies: u32,
 }
 
 impl_as_any!(RustConnClipboardBackend);
@@ -155,6 +166,8 @@ impl RustConnClipboardBackend {
             remote_file_list_format: None,
             file_list_after_text: false,
             remote_file_sizes: Vec::new(),
+            outstanding_requests: 0,
+            stale_replies: 0,
         }
     }
 
@@ -283,8 +296,38 @@ impl RustConnClipboardBackend {
     /// asked for.
     fn request_remote_format(&mut self, format: ClipboardFormatId) {
         self.pending_paste_format = Some(format);
+        self.outstanding_requests = self.outstanding_requests.saturating_add(1);
         self.proxy
             .send_clipboard_message(ClipboardMessage::SendInitiatePaste(format));
+    }
+
+    /// Records that a Format Data Request this backend asked for never went out.
+    ///
+    /// The session loop calls it when `initiate_paste` or the write fails. No
+    /// reply will come, so the request must not be counted as outstanding —
+    /// otherwise the next format list would expect a stale reply and drop a
+    /// genuine one. A file list that was to follow a failed text request is
+    /// asked for now, since its turn would never come.
+    pub fn paste_request_not_sent(&mut self) {
+        self.outstanding_requests = self.outstanding_requests.saturating_sub(1);
+        self.pending_paste_format = None;
+        if std::mem::take(&mut self.file_list_after_text)
+            && let Some(format) = self.remote_file_list_format
+        {
+            self.request_remote_format(format);
+        }
+    }
+
+    /// Consumes the next reply's slot, returning `false` when it answers a
+    /// request made for a superseded format list and must be dropped.
+    fn take_reply_slot(&mut self) -> bool {
+        if 0 < self.stale_replies {
+            self.stale_replies -= 1;
+            debug!("Dropping a clipboard reply to a request for a superseded format list");
+            return false;
+        }
+        self.outstanding_requests = self.outstanding_requests.saturating_sub(1);
+        true
     }
 
     /// Returns the server's negotiated capabilities
@@ -408,6 +451,12 @@ impl CliprdrBackend for RustConnClipboardBackend {
         // once their descriptor arrives, in `on_remote_file_list`.
         self.remote_file_sizes.clear();
         self.file_list_after_text = false;
+        // Whatever was asked for the previous list is still owed a reply, which
+        // must not be read as an answer about this one.
+        self.stale_replies = self
+            .stale_replies
+            .saturating_add(std::mem::take(&mut self.outstanding_requests));
+        self.pending_paste_format = None;
         self.remote_file_list_format = available_formats
             .iter()
             .find(|f| f.name.as_ref() == Some(&ClipboardFormatName::FILE_LIST))
@@ -480,6 +529,9 @@ impl CliprdrBackend for RustConnClipboardBackend {
     }
 
     fn on_format_data_response(&mut self, response: FormatDataResponse<'_>) {
+        if !self.take_reply_slot() {
+            return;
+        }
         let data = response.data();
         let format_id = self.pending_paste_format.take();
         debug!(
@@ -563,7 +615,11 @@ impl CliprdrBackend for RustConnClipboardBackend {
     fn on_remote_file_list(&mut self, files: &[FileDescriptor], _clip_data_id: Option<u32>) {
         // IronRDP parsed the reply to our file-list request itself (and sanitised
         // the names), so `on_format_data_response` never sees it. The request is
-        // settled here instead.
+        // settled here instead — unless the reply answers a superseded list,
+        // whose files the server no longer holds.
+        if !self.take_reply_slot() {
+            return;
+        }
         self.pending_paste_format = None;
 
         // A new file list supersedes the previous batch. A size expectation still
@@ -1171,6 +1227,119 @@ mod tests {
         let events = session::drain(&rx);
         assert!(session::texts(&events).is_empty());
         assert!(session::offered(&events).is_empty());
+    }
+
+    /// A refused text request carries no data. Decoding its empty payload as
+    /// text used to blank the local clipboard.
+    #[test]
+    fn a_refused_text_request_leaves_the_local_clipboard_alone() {
+        let (mut cliprdr, rx) = session::ready_client();
+
+        session::announce(
+            &mut cliprdr,
+            &[ClipboardFormat::new(ClipboardFormatId::CF_UNICODETEXT)],
+        );
+        session::fetch(&mut cliprdr, ClipboardFormatId::CF_UNICODETEXT.value());
+        session::drain(&rx);
+        session::feed(
+            &mut cliprdr,
+            &ironrdp::cliprdr::pdu::ClipboardPdu::FormatDataResponse(
+                FormatDataResponse::new_error(),
+            ),
+        );
+
+        assert!(session::texts(&session::drain(&rx)).is_empty());
+    }
+
+    /// The remote clipboard changes while the file-list request is in flight.
+    /// IronRDP forgets the request on the new format list and hands the late
+    /// reply over as an ordinary one, which was decoded as text: descriptor
+    /// bytes on the local clipboard.
+    #[test]
+    fn a_late_reply_for_a_superseded_list_is_not_read_as_text() {
+        let (mut cliprdr, rx) = session::ready_client();
+
+        session::announce(&mut cliprdr, &session::file_copy_formats());
+        session::fetch(&mut cliprdr, session::FILE_LIST_ID);
+        // An image copy: neither text nor files, so nothing new is asked for.
+        session::announce(
+            &mut cliprdr,
+            &[ClipboardFormat::new(ClipboardFormatId::new(8))],
+        );
+        session::drain(&rx);
+        session::reply_file_list(
+            &mut cliprdr,
+            vec![FileDescriptor::new("serverBak.py").with_file_size(5_000)],
+        );
+
+        let events = session::drain(&rx);
+        assert!(
+            session::texts(&events).is_empty(),
+            "no descriptor bytes on the local clipboard"
+        );
+        assert!(
+            session::offered(&events).is_empty(),
+            "the files are no longer on offer"
+        );
+    }
+
+    /// CLIPRDR answers in request order, so after a stale reply is dropped the
+    /// reply for the current list is still decoded.
+    #[test]
+    fn the_current_reply_still_arrives_after_a_stale_one() {
+        let (mut cliprdr, rx) = session::ready_client();
+        let text = [ClipboardFormat::new(ClipboardFormatId::CF_UNICODETEXT)];
+
+        session::announce(&mut cliprdr, &text);
+        session::fetch(&mut cliprdr, ClipboardFormatId::CF_UNICODETEXT.value());
+        session::announce(&mut cliprdr, &text);
+        session::fetch(&mut cliprdr, ClipboardFormatId::CF_UNICODETEXT.value());
+        session::drain(&rx);
+        for reply in ["old", "new"] {
+            session::feed(
+                &mut cliprdr,
+                &ironrdp::cliprdr::pdu::ClipboardPdu::FormatDataResponse(
+                    FormatDataResponse::new_unicode_string(reply),
+                ),
+            );
+        }
+
+        assert_eq!(
+            session::texts(&session::drain(&rx)),
+            vec!["new".to_string()]
+        );
+    }
+
+    /// A text request that never reached the server gets no reply. The file
+    /// list that was to follow it is asked for at once, and the next reply is
+    /// not taken for a stale one.
+    #[test]
+    fn a_text_request_that_never_went_out_still_leads_to_the_file_list() {
+        let (mut cliprdr, rx) = session::ready_client();
+
+        let mut formats = session::file_copy_formats();
+        formats.push(ClipboardFormat::new(ClipboardFormatId::CF_UNICODETEXT));
+        session::announce(&mut cliprdr, &formats);
+        assert_eq!(
+            session::requested(&session::drain(&rx)),
+            vec![ClipboardFormatId::CF_UNICODETEXT.value()]
+        );
+
+        cliprdr
+            .downcast_backend_mut::<RustConnClipboardBackend>()
+            .expect("backend")
+            .paste_request_not_sent();
+        assert_eq!(
+            session::requested(&session::drain(&rx)),
+            vec![session::FILE_LIST_ID]
+        );
+
+        session::fetch(&mut cliprdr, session::FILE_LIST_ID);
+        session::reply_file_list(
+            &mut cliprdr,
+            vec![FileDescriptor::new("serverBak.py").with_file_size(5_000)],
+        );
+        assert_eq!(session::offered(&session::drain(&rx)).len(), 1);
     }
 
     /// IronRDP refuses a RANGE reaching past the file size it parsed, and the

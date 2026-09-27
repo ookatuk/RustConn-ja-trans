@@ -1533,8 +1533,7 @@ impl EmbeddedRdpWidget {
         let save_btn = button.clone();
 
         button.connect_clicked(move |_| {
-            let files = file_transfer.borrow().available_files.clone();
-            if files.is_empty() {
+            if file_transfer.borrow().available_files.is_empty() {
                 return;
             }
 
@@ -1550,7 +1549,6 @@ impl EmbeddedRdpWidget {
             let _on_complete_clone = on_complete.clone();
             let status_label_clone = status_label.clone();
             let save_btn_clone = save_btn.clone();
-            let files_clone = files.clone();
 
             dialog.select_folder(
                 None::<&gtk4::Window>,
@@ -1559,45 +1557,48 @@ impl EmbeddedRdpWidget {
                     if let Ok(folder) = result
                         && let Some(path) = folder.path()
                     {
-                        // Arm the run. `begin_batch` also clears the previous
-                        // run's downloads and its save-failure tally, which
-                        // setting the fields by hand did not: a second click on
-                        // the same file list never re-announces it, so the old
-                        // failures were counted again in the new summary.
-                        {
+                        // Arm the run over the list offered now, not the one
+                        // offered when the button was pressed: the remote
+                        // clipboard can change while the dialog is open, and a
+                        // stale count left the batch unable to settle.
+                        // `begin_batch` also clears the previous run's downloads
+                        // and its save-failure tally, which setting the fields by
+                        // hand did not: a second click on the same file list
+                        // never re-announces it, so the old failures were
+                        // counted again in the new summary.
+                        let first = {
                             let mut transfer = file_transfer_clone.borrow_mut();
-                            transfer.begin_batch(path.clone(), files_clone.len());
-                        }
+                            if transfer.begin_batch(path.clone()) == 0 {
+                                None
+                            } else {
+                                transfer.start_next_download()
+                            }
+                        };
+                        let Some((stream_id, file_index)) = first else {
+                            tracing::info!(
+                                protocol = "rdp",
+                                "The remote clipboard no longer offers files; nothing to save"
+                            );
+                            return;
+                        };
 
                         // Disable button during transfer
                         save_btn_clone.set_sensitive(false);
                         save_btn_clone.set_label(&i18n("Downloading…"));
 
-                        // Request file contents for each file
+                        // One file at a time. This asks for the first file's
+                        // size; its first data range follows the size reply (see
+                        // handle_clipboard_file_size), each further range the
+                        // previous chunk, and the next file starts when this
+                        // one has settled.
                         if let Some(ref sender) = *ironrdp_tx_clone.borrow() {
-                            for (idx, file) in files_clone.iter().enumerate() {
-                                let stream_id = {
-                                    let mut transfer = file_transfer_clone.borrow_mut();
-                                    transfer.start_download(idx as u32)
-                                };
-
-                                if let Some(sid) = stream_id {
-                                    // Ask only for the size here. The first data
-                                    // range is sent once the size arrives (see
-                                    // handle_clipboard_file_size), and each further
-                                    // range follows the previous chunk, so a file
-                                    // larger than one response is pulled in full
-                                    // instead of being truncated by a single
-                                    // all-at-once request.
-                                    let _ = sender.send(RdpClientCommand::RequestFileContents {
-                                        stream_id: sid,
-                                        file_index: file.index,
-                                        request_size: true,
-                                        offset: 0,
-                                        length: 0,
-                                    });
-                                }
-                            }
+                            let _ = sender.send(RdpClientCommand::RequestFileContents {
+                                stream_id,
+                                file_index,
+                                request_size: true,
+                                offset: 0,
+                                length: 0,
+                            });
                         }
 
                         // Show progress

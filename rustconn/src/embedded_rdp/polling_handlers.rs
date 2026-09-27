@@ -188,11 +188,17 @@ pub(super) fn handle_clipboard_file_list(
 ) {
     // An empty list is the backend withdrawing the offer: the remote clipboard
     // changed to something that is not files, which happens on every remote
-    // text copy. Hide the button but leave the transfer state alone, so a batch
-    // still downloading can settle and report; the next real list replaces it.
+    // text copy. Hide the button and withdraw the offer. A file already in
+    // flight may finish, but nothing new is asked for, since the server now
+    // answers from a different clipboard (see `withdraw_offer`); the next real
+    // list replaces the offer.
     if files.is_empty() {
         tracing::debug!(protocol = "rdp", "Remote clipboard no longer offers files");
+        ctx.file_transfer.borrow_mut().withdraw_offer();
         ctx.save_files_button.set_visible(false);
+        // The files the batch had not started are settled now; with none in
+        // flight either, this is what reports the batch.
+        finish_batch_if_settled(ctx);
         return;
     }
     tracing::info!(
@@ -243,6 +249,35 @@ pub(super) fn handle_clipboard_file_list(
     }
 }
 
+/// Starts the batch's next file, or reports the batch once none is left.
+///
+/// A batch fetches one file at a time, so whatever settles a file — its save,
+/// a refusal, the size cap — hands over to the next one here.
+fn start_next_or_finish(ctx: &FileTransferContext<'_>) {
+    let next = ctx.file_transfer.borrow_mut().start_next_download();
+    match next {
+        Some((stream_id, file_index)) => send_size_request(ctx, stream_id, file_index),
+        None => finish_batch_if_settled(ctx),
+    }
+}
+
+/// Sends the SIZE File Contents request that starts a download.
+///
+/// The first data range follows the size reply (see
+/// [`handle_clipboard_file_size`]), so a file larger than one response is
+/// pulled in full instead of being cut short by a single all-at-once request.
+fn send_size_request(ctx: &FileTransferContext<'_>, stream_id: u32, file_index: u32) {
+    if let Some(ref sender) = *ctx.ironrdp_tx.borrow() {
+        let _ = sender.send(RdpClientCommand::RequestFileContents {
+            stream_id,
+            file_index,
+            request_size: true,
+            offset: 0,
+            length: 0,
+        });
+    }
+}
+
 /// Sends a RANGE File Contents request for the next chunk of a download.
 fn send_range_request(ctx: &FileTransferContext<'_>, stream_id: u32, file_index: u32, offset: u64) {
     if let Some(ref sender) = *ctx.ironrdp_tx.borrow() {
@@ -263,6 +298,22 @@ fn send_range_request(ctx: &FileTransferContext<'_>, stream_id: u32, file_index:
 /// [`handle_clipboard_file_contents`] as chunks arrive.
 pub(super) fn handle_clipboard_file_size(ctx: &FileTransferContext<'_>, stream_id: u32, size: u64) {
     tracing::debug!(protocol = "rdp", stream_id, size, "Clipboard file size");
+    // Over the cap: settle it now rather than fetch it up to the cap and drop it.
+    let oversized = ctx
+        .file_transfer
+        .borrow_mut()
+        .refuse_if_oversized(stream_id, size);
+    if oversized {
+        tracing::warn!(
+            protocol = "rdp",
+            stream_id,
+            size,
+            limit_bytes = super::thread::MAX_DOWNLOAD_BYTES,
+            "Clipboard file is over the download limit; skipping it"
+        );
+        start_next_or_finish(ctx);
+        return;
+    }
     let file_index = {
         let mut transfer = ctx.file_transfer.borrow_mut();
         transfer.update_size(stream_id, size);
@@ -341,7 +392,7 @@ pub(super) fn handle_clipboard_file_contents(
                 limit_bytes = super::thread::MAX_DOWNLOAD_BYTES,
                 "Clipboard file exceeded the download limit; skipping it"
             );
-            finish_batch_if_settled(ctx);
+            start_next_or_finish(ctx);
             return;
         }
         super::thread::ChunkOutcome::Unknown => return,
@@ -359,7 +410,7 @@ pub(super) fn handle_clipboard_file_contents(
     // would keep the `Ref` alive inside the arms and the `borrow_mut()` below
     // would panic with `RefCell already borrowed` — on precisely the disk-full
     // path this reporting exists for.
-    let save_result = ctx.file_transfer.borrow().save_download(stream_id);
+    let save_result = ctx.file_transfer.borrow_mut().save_download(stream_id);
     match save_result {
         Ok(path) => {
             tracing::info!(protocol = "rdp", path = %path.display(), "Saved clipboard file");
@@ -370,7 +421,7 @@ pub(super) fn handle_clipboard_file_contents(
         }
     }
 
-    finish_batch_if_settled(ctx);
+    start_next_or_finish(ctx);
 }
 
 /// Reports the batch result once every file is settled, and frees the button.
@@ -443,12 +494,19 @@ pub(super) fn handle_clipboard_file_error(ctx: &FileTransferContext<'_>, stream_
         "Server refused a clipboard file; skipping it"
     );
 
-    // The refusal is now counted, so this may have settled the last file. The
-    // button and the status line are left to the shared summary rather than
-    // being reset here: resetting them per refusal freed the button while other
-    // files were still downloading, and each refusal overwrote the status line
-    // with a transient message that the final summary then overwrote again.
-    finish_batch_if_settled(ctx);
+    // The refusal is now counted, so the batch moves on to its next file, or
+    // this settled the last one. The button and the status line are left to the
+    // shared summary rather than being reset here: resetting them per refusal
+    // freed the button while other files were still downloading, and each
+    // refusal overwrote the status line with a transient message that the final
+    // summary then overwrote again. An error for a stream that is not tracked —
+    // a duplicate, or one from a superseded batch — must not start a file, or
+    // two would be in flight at once.
+    if removed {
+        start_next_or_finish(ctx);
+    } else {
+        finish_batch_if_settled(ctx);
+    }
 }
 
 /// Handles an RTT measurement reported by the server's Auto-Detect sequence.
