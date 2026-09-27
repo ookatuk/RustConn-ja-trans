@@ -133,7 +133,8 @@ client cannot do:
 - the legacy RDP security layer and TLS-only servers (e.g. Windows 2008 R2)
 - RemoteApp
 - audio left playing on the remote computer
-- RD Gateway
+- an RD Gateway whose target listens on a port other than 3389 (the embedded client
+  tunnels the usual case through the gateway itself)
 - connections set to the External client mode, including **Smart sizing** and
   **Dynamic resolution**
 

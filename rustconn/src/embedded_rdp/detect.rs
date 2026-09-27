@@ -381,7 +381,8 @@ pub fn detect_best_freerdp_for_remoteapp() -> Option<String> {
 
 /// Every FreeRDP client binary RustConn knows how to launch, newest-first.
 ///
-/// The superset of the platform-ordered candidate lists above, used to populate
+/// The superset of the session-ordered launch lists that
+/// `rustconn_core::protocol::freerdp_launch_order` returns, used to populate
 /// the connection editor's "FreeRDP client" dropdown. `wlfreerdp`/`wlfreerdp3`
 /// are deprecated upstream (issue #340) but still offered, since some setups
 /// only ship them.

@@ -156,7 +156,8 @@ fn char_cell_width(c: char) -> usize {
 ///
 /// Wide characters count as two columns and combining marks as zero (see
 /// [`char_cell_width`]), unlike a plain `chars().count()`, which is why a match
-/// after a CJK glyph is no longer drawn half a cell off (issue #343).
+/// after a CJK glyph is no longer drawn a cell further left for every wide
+/// character before it (issue #343).
 ///
 /// A tab advances to the next tab stop. VTE keeps a tab written at the end of a
 /// line as a single `'\t'` cell spanning up to that stop, and its text export

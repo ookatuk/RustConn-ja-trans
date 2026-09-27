@@ -150,7 +150,8 @@ sudo snap connect rustconn:kube-credentials
 External CLIs (Zero Trust providers, password managers, kubectl) are downloaded on
 demand via the Components dialog (Menu → Components) inside the sandbox. RDP uses the
 embedded IronRDP client, with the bundled `xfreerdp3` for External mode and for what
-IronRDP cannot do (legacy RDP security layer, RemoteApp, RD Gateway). VNC uses the
+IronRDP cannot do (legacy RDP security layer, RemoteApp, an RD Gateway target on a
+port other than 3389). VNC uses the
 embedded vnc-rs client only. SPICE is not available in the snap: no viewer is bundled,
 and strict confinement cannot start the host's `remote-viewer`.
 
@@ -430,7 +431,8 @@ for the full list.
 ### Optional Protocol Clients
 
 RustConn uses embedded Rust implementations for RDP and VNC by default.
-External clients serve as fallbacks when the embedded client fails (e.g., RD Gateway).
+External clients serve as fallbacks when the embedded client fails (e.g., an RD Gateway
+target on a port other than 3389).
 SPICE always uses an external viewer (remote-viewer / virt-viewer).
 
 FreeRDP detection priority:

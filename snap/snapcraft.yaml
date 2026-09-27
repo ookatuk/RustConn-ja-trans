@@ -11,9 +11,8 @@ description: |
 
   Supported protocols (embedded Rust implementations):
   - SSH with a built-in VTE terminal, split view, and scrollbar
-  - RDP via IronRDP (embedded, with a FreeRDP fallback)
-  - VNC via vnc-rs (embedded, with a TigerVNC fallback)
-  - SPICE via an external viewer (remote-viewer / virt-viewer)
+  - RDP via IronRDP (embedded), with a bundled FreeRDP client for external mode
+  - VNC via vnc-rs (embedded)
   - MOSH with predict mode and a UDP port range
   - Telnet, Serial consoles (RS-232/USB), and Kubernetes pod shells
   - Managed access gateways for the major cloud providers
@@ -48,9 +47,11 @@ description: |
   - Wake-on-LAN with auto-connect
 
   Note: This snap uses strict confinement with embedded protocol clients
-  (SSH, RDP via IronRDP, VNC via vnc-rs) bundled in the snap. Optional
-  helper CLIs are downloaded on demand into the snap's writable user data and
-  run inside the sandbox — no host access is required.
+  (SSH, RDP via IronRDP, VNC via vnc-rs) and FreeRDP's X11 client bundled in
+  the snap. Optional helper CLIs are downloaded on demand into the snap's
+  writable user data and run inside the sandbox — no host access is required.
+  SPICE is not available in the snap: no viewer is bundled, and strict
+  confinement cannot start one from the host.
 
   Web connections open in your system browser or a browser command of your
   choice; the in-tab WebKitGTK browser is available in the Flatpak and

@@ -247,7 +247,7 @@ impl FreeRdpConfig {
         self
     }
 
-    /// Enables or disables framebuffer scaling to the window (`+smart-sizing`)
+    /// Enables or disables framebuffer scaling to the window (`/smart-sizing`)
     #[must_use]
     pub const fn with_smart_sizing(mut self, enabled: bool) -> Self {
         self.smart_sizing = enabled;

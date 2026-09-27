@@ -2295,7 +2295,7 @@ pub struct RdpConfig {
     #[serde(default = "default_true")]
     pub dynamic_resolution: bool,
 
-    /// Scale the remote framebuffer to the external window (`+smart-sizing`).
+    /// Scale the remote framebuffer to the external window (`/smart-sizing`).
     ///
     /// Default: false. Makes a fixed-resolution session from a legacy server
     /// resizable by scaling its content, so it stays readable on a HiDPI

@@ -4040,7 +4040,7 @@ RustConn opens the KeePass database directly by file (`.kdbx`); it does not use 
 3. Flatpak: FreeRDP (SDL3) is bundled; Snap: FreeRDP's X11 client (`xfreerdp3`) is bundled (since 0.22.7). In both, VNC uses the embedded vnc-rs client (an external TigerVNC needs host display access and is not downloadable in the sandbox)
 4. HiDPI: use Scale Override in connection dialog
 5. Clipboard not syncing: ensure "Clipboard" is enabled in RDP settings
-6. RDP Gateway: IronRDP doesn't support RD Gateway; falls back to external FreeRDP
+6. RD Gateway: the embedded IronRDP client tunnels through the gateway itself; only a target on a port other than 3389 falls back to external FreeRDP
 
 ### Session Restore Issues
 
