@@ -256,6 +256,32 @@ pub fn freerdp_launch_order() -> &'static [&'static str] {
     }
 }
 
+/// Picks the FreeRDP client for a launch outside the GUI: the connection's
+/// pinned client when it is installed, otherwise the first installed one in
+/// [`freerdp_launch_order`].
+///
+/// The GUI launcher resolves the same way and also probes a Flatpak host. A
+/// pinned client that is not installed is skipped with a warning, as it is
+/// there. `None` when no FreeRDP client is installed at all.
+#[must_use]
+pub fn resolve_freerdp_client(pinned: Option<&str>) -> Option<String> {
+    if let Some(name) = pinned.map(str::trim).filter(|name| !name.is_empty()) {
+        if crate::which::is_available(name) {
+            return Some(name.to_string());
+        }
+        tracing::warn!(
+            protocol = "rdp",
+            client = %name,
+            "Configured FreeRDP client is not available — falling back to auto-detection"
+        );
+    }
+    freerdp_launch_order()
+        .iter()
+        .copied()
+        .find(|binary| crate::which::is_available(binary))
+        .map(str::to_string)
+}
+
 /// Display name and minimum version for a FreeRDP client binary.
 ///
 /// The `3`-suffixed binaries and the SDL client only ship with FreeRDP 3. The
@@ -940,6 +966,29 @@ mod tests {
         assert_eq!(freerdp_generation("xfreerdp3").0, "FreeRDP 3");
         assert_eq!(freerdp_generation("wlfreerdp").0, "FreeRDP 2");
         assert_eq!(freerdp_generation("xfreerdp").0, "FreeRDP 2");
+    }
+
+    /// The pinned client wins when it is installed; `sh` stands in for one,
+    /// since no FreeRDP is guaranteed on a test machine.
+    #[test]
+    fn a_pinned_installed_client_is_used() {
+        assert_eq!(resolve_freerdp_client(Some(" sh ")).as_deref(), Some("sh"));
+    }
+
+    /// A pinned client that is not installed falls back to the shared launch
+    /// order, never to the pinned name.
+    #[test]
+    fn a_missing_pinned_client_falls_back_to_the_launch_order() {
+        let resolved = resolve_freerdp_client(Some("no-such-freerdp-client"));
+        assert!(
+            resolved
+                .as_deref()
+                .is_none_or(|binary| freerdp_launch_order().contains(&binary))
+        );
+        assert_eq!(
+            resolve_freerdp_client(Some("  ")),
+            resolve_freerdp_client(None)
+        );
     }
 
     #[test]

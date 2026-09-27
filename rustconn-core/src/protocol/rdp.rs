@@ -83,8 +83,18 @@ impl Protocol for RdpProtocol {
     }
 
     fn build_command(&self, connection: &Connection) -> Option<Vec<String>> {
-        // Default binary for CLI compatibility; GUI overrides via detect_best_freerdp()
-        self.build_command_with_binary("xfreerdp", connection)
+        // The launch order the GUI uses and the connection's pinned client. This
+        // used to name `xfreerdp` outright, which a system with only FreeRDP 3 —
+        // Debian and Ubuntu's `freerdp3-x11`, and the snap, which bundles
+        // `xfreerdp3` — does not have, so `rustconn-cli connect` failed there.
+        // With no client installed the unsuffixed name stays, so the error still
+        // names something to install.
+        let pinned = Self::get_rdp_config(connection)
+            .ok()
+            .and_then(|rdp| rdp.freerdp_client_override.as_deref());
+        let binary = super::detection::resolve_freerdp_client(pinned)
+            .unwrap_or_else(|| "xfreerdp".to_string());
+        self.build_command_with_binary(&binary, connection)
     }
 }
 
@@ -157,21 +167,24 @@ impl RdpProtocol {
                     folder.local_path.display()
                 ));
             }
-            let mut drop_next_value = false;
-            for arg in &rdp_config.custom_args {
-                if drop_next_value {
-                    drop_next_value = false;
-                    continue;
-                }
-                if super::freerdp::contains_freerdp_secret_field(arg)
-                    || super::freerdp::is_freerdp_shell_or_proxy_arg(arg)
-                {
-                    drop_next_value = super::freerdp::is_standalone_freerdp_blocked_field(arg);
-                    tracing::warn!("Blocked dangerous RDP custom arg");
-                    continue;
-                }
-                args.push(arg.clone());
+            // Sizing and custom arguments go through the same rules as every
+            // other FreeRDP launch: smart sizing wins over dynamic resolution,
+            // which FreeRDP refuses beside it (issue #341), and a custom argument
+            // carrying a secret field or selecting a shell or proxy is dropped.
+            // This builder used to ignore both switches and keep its own copy of
+            // the argument filter.
+            let sizing = super::freerdp::FreeRdpSizing::resolve(
+                rdp_config.dynamic_resolution,
+                rdp_config.smart_sizing,
+                &rdp_config.custom_args,
+            );
+            if let Some(flag) = sizing.flag {
+                args.push(flag.to_string());
             }
+            args.extend(super::freerdp::filter_extra_args(
+                &rdp_config.custom_args,
+                sizing,
+            ));
         }
 
         Some(args)
@@ -270,6 +283,54 @@ mod tests {
         };
         let connection = create_rdp_connection(config);
         assert!(protocol.validate_connection(&connection).is_ok());
+    }
+
+    fn count_option(args: &[String], name: &str) -> usize {
+        args.iter()
+            .filter(|arg| arg.trim_start_matches(['/', '+', '-']).starts_with(name))
+            .count()
+    }
+
+    fn cli_args(config: RdpConfig) -> Vec<String> {
+        RdpProtocol::build_args(&create_rdp_connection(config)).expect("RDP arguments")
+    }
+
+    /// The CLI builder ignored both sizing switches; it now resolves them like
+    /// every other FreeRDP launch (issue #341).
+    #[test]
+    fn build_args_carries_the_sizing_switches() {
+        let default = cli_args(RdpConfig::default());
+        assert_eq!(count_option(&default, "dynamic-resolution"), 1);
+        assert_eq!(count_option(&default, "smart-sizing"), 0);
+
+        let smart = cli_args(RdpConfig {
+            smart_sizing: true,
+            ..RdpConfig::default()
+        });
+        assert!(smart.contains(&"/smart-sizing".to_string()));
+        assert_eq!(count_option(&smart, "dynamic-resolution"), 0);
+
+        let off = cli_args(RdpConfig {
+            dynamic_resolution: false,
+            ..RdpConfig::default()
+        });
+        assert_eq!(count_option(&off, "dynamic-resolution"), 0);
+    }
+
+    /// A custom `/smart-sizing` must not go out beside `/dynamic-resolution`,
+    /// the pair FreeRDP refuses.
+    #[test]
+    fn build_args_lets_a_custom_smart_sizing_win() {
+        let args = cli_args(RdpConfig {
+            custom_args: vec![
+                "/smart-sizing:1920x1080".to_string(),
+                "/dynamic-resolution".to_string(),
+            ],
+            ..RdpConfig::default()
+        });
+        assert_eq!(count_option(&args, "dynamic-resolution"), 0);
+        assert!(args.contains(&"/smart-sizing:1920x1080".to_string()));
+        assert_eq!(count_option(&args, "smart-sizing"), 1);
     }
 }
 

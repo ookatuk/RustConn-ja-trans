@@ -1873,7 +1873,7 @@ The **Display Mode** setting in the connection dialog (Advanced tab → Window M
 |------|-------------|-------------|
 | **Embedded** (default) | IronRDP widget in a notebook tab | vnc-rs widget in a notebook tab |
 | **Fullscreen** | Maximizes the main window | Maximizes the main window |
-| **External Window** | Launches `xfreerdp` in a separate window | Launches external VNC viewer (TigerVNC/vncviewer) in a separate window |
+| **External Window** | Launches FreeRDP in a separate window | Launches external VNC viewer (TigerVNC/vncviewer) in a separate window |
 
 **Configure:**
 1. Edit connection → **Advanced** tab → **Window Mode** section
@@ -1883,7 +1883,7 @@ The **Display Mode** setting in the connection dialog (Advanced tab → Window M
 **Notes:**
 - Fullscreen mode maximizes the RustConn window, not the remote desktop. Use F11 to toggle true fullscreen of the entire application.
 - External Window mode for VNC requires an external VNC viewer installed (TigerVNC, vncviewer, gvncviewer, or similar). If no viewer is found, a toast notification shows the install hint.
-- External Window mode for RDP uses FreeRDP. In the Flatpak build, FreeRDP (SDL3 client) is bundled — no separate installation needed. On native installs, RustConn auto-detects available FreeRDP variants in priority order: `wlfreerdp3` > `wlfreerdp` > `sdl-freerdp3` > `sdl-freerdp` > `xfreerdp3` > `xfreerdp`.
+- External Window mode for RDP uses FreeRDP. The Flatpak bundles the SDL3 client and the snap the X11 client (`xfreerdp3`) — no separate installation needed. On native installs, RustConn auto-detects the installed FreeRDP clients in priority order: on a Wayland session `sdl-freerdp3` > `sdl-freerdp` > `wlfreerdp3` > `wlfreerdp` > `xfreerdp3` > `xfreerdp`, on an X11 session the `xfreerdp*` clients first. `rustconn-cli connect` uses the same order and the connection's pinned client.
 - The VNC protocol tab also has its own **Client Mode** (Embedded/External) setting. When Display Mode is set to External Window, it takes precedence over the protocol-level Client Mode.
 
 **External-session tracking:** an external-viewer session gets no notebook tab. Instead it is surfaced in the sidebar with a window emblem next to the connected status, and its right-click menu adds **Disconnect** (closes a RustConn-owned viewer such as TigerVNC/FreeRDP/remote-viewer) and **Stop tracking** (deregisters without closing the viewer). Owned viewers are closed automatically when you quit RustConn. Detaching viewers that RustConn cannot control (Remmina, KRDC, Vinagre) keep running independently: if you close such a viewer window yourself, the sidebar keeps showing the session as connected until you select **Stop tracking**. A double-click on a connection that already runs in an external window shows an "Already running in an external window" hint instead of opening a duplicate — use **Open new session** to force a second one.
