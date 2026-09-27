@@ -6,7 +6,7 @@
 #
 
 Name:           rustconn
-Version:        0.22.7
+Version:        0.22.8
 Release:        0
 # rpmlint caps Summary at 79 characters (summary-too-long, badness 200); the
 # protocol list belongs in %description, which has room for all of it. Kept in
@@ -389,6 +389,12 @@ done
 %{_datadir}/icons/hicolor/*/apps/io.github.totoshko88.RustConn.*
 
 %changelog
+* Sun Sep 27 2026 Anton Isaiev <totoshko88@gmail.com> - 0.22.8-0
+- Version bump to 0.22.8
+- Fixed: pinning a connection as a favorite now persists so the Favorites group appears (issue #344)
+- Added: favorite connections are reachable from the system tray via a Favorites submenu (issue #344)
+- Changed: the favorite toggle is named "Add to Favorites" / "Remove from Favorites", a favorite shows a star at its real place, and the Favorites group has its own star icon (issue #344)
+
 * Sun Sep 27 2026 Anton Isaiev <totoshko88@gmail.com> - 0.22.7-0
 - Version bump to 0.22.7
 - Added: the Snap bundles FreeRDP's X11 client (xfreerdp3) for external RDP, RemoteApp and legacy servers (issue #342)

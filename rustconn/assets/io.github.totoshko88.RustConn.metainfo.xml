@@ -140,6 +140,16 @@
     <control>touch</control>
   </supports>
   <releases>
+    <release version="0.22.8" date="2026-09-27">
+      <description>
+        <p>Version 0.22.8 - favorites fixes and system-tray favorites:</p>
+        <ul>
+          <li>Fixed: pinning a connection as a favorite now persists, so the Favorites group appears in the sidebar (issue #344)</li>
+          <li>Added: favorite connections are reachable from the system tray via a Favorites submenu, shown above Recent and only when non-empty (issue #344)</li>
+          <li>Changed: the sidebar context menu names the favorite toggle "Add to Favorites" / "Remove from Favorites", a favorite shows a star at its real place in the tree, and the Favorites group has its own star icon (issue #344)</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.22.7" date="2026-09-27">
       <description>
         <p>Version 0.22.7 - terminal highlight, RDP sizing and clipboard fixes, FreeRDP in the Snap:</p>
