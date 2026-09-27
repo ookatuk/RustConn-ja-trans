@@ -96,56 +96,196 @@ const TAB_STOP_WIDTH: usize = 8;
 
 /// Returns the number of terminal cells a character occupies: 0, 1, or 2.
 ///
-/// A VTE terminal lays text out on a fixed grid where each cell is one
-/// [`char_width`](https://gnome.pages.gitlab.gnome.org) wide. A combining mark
-/// adds nothing to the cell it decorates (width 0), most characters take one
-/// cell, and East-Asian wide / fullwidth characters take two. The overlay that
-/// draws highlight rectangles must count in these cells, not in `char`s, or a
-/// rectangle drawn after a wide character lands half a cell too far left.
+/// A VTE terminal lays text out on a fixed grid, and VTE sizes each character
+/// with glib: `g_unichar_iszerowidth` makes it zero cells and
+/// `g_unichar_iswide` — East-Asian Width W or F — two; everything else takes
+/// one. The overlay that draws highlight rectangles has to count the same
+/// cells, not `char`s, or a rectangle after a wide character lands a whole cell
+/// too far left for every such character before it.
 ///
-/// This is a pragmatic approximation of Unicode UAX#11, covering the ranges that
-/// actually appear in terminal output (CJK, Hangul, kana, fullwidth forms, the
-/// main emoji block and common combining blocks) without pulling in a
-/// Unicode-width table crate. Emoji are treated as width 2, matching how most
-/// terminals render them. A multi-scalar emoji sequence (ZWJ or regional-
-/// indicator pairs) is counted per scalar, and rarer wide blocks are missed, so
-/// a highlight over such a glyph can still be off by a cell — the documented
-/// limit.
+/// The wide set is exact: [`WIDE_RANGES`] is every W and F range of Unicode's
+/// `EastAsianWidth.txt`, so the `✅` and `❌` that build and test tools print
+/// count two cells, as VTE draws them. The zero-width set covers the combining
+/// blocks, variation selectors, tags and format characters that terminal
+/// output carries — `⚠️` is U+26A0 followed by the variation selector U+FE0F,
+/// one cell in VTE — but not the combining marks of every script, so a line of,
+/// say, Devanagari can still put a highlight a cell off; that is the documented
+/// limit. A multi-scalar emoji sequence is counted per scalar, as VTE counts it.
 #[must_use]
 fn char_cell_width(c: char) -> usize {
-    let cp = c as u32;
+    let cp = u32::from(c);
     // Combining marks and zero-width characters occupy no cell of their own.
     let is_zero_width = matches!(cp,
-        0x0300..=0x036F   // Combining Diacritical Marks
-        | 0x1AB0..=0x1AFF // Combining Diacritical Marks Extended
-        | 0x1DC0..=0x1DFF // Combining Diacritical Marks Supplement
-        | 0x20D0..=0x20FF // Combining Diacritical Marks for Symbols
-        | 0xFE20..=0xFE2F // Combining Half Marks
-        | 0x200B          // Zero Width Space
-        | 0x200C..=0x200F // ZWNJ, ZWJ, LRM, RLM
-        | 0xFEFF,         // Zero Width No-Break Space (BOM)
+        0x0300..=0x036F     // Combining Diacritical Marks
+        | 0x1160..=0x11FF   // Hangul Jamo medial vowels and final consonants
+        | 0x1AB0..=0x1AFF   // Combining Diacritical Marks Extended
+        | 0x1DC0..=0x1DFF   // Combining Diacritical Marks Supplement
+        | 0x200B..=0x200F   // ZWSP, ZWNJ, ZWJ, LRM, RLM
+        | 0x202A..=0x202E   // Bidirectional embeddings and overrides
+        | 0x2060..=0x2064   // Word joiner and invisible operators
+        | 0x2066..=0x206F   // Bidirectional isolates, deprecated format controls
+        | 0x20D0..=0x20FF   // Combining Diacritical Marks for Symbols
+        | 0xD7B0..=0xD7FF   // Hangul Jamo Extended-B
+        | 0xFE00..=0xFE0F   // Variation selectors; U+FE0F asks for the emoji form
+        | 0xFE20..=0xFE2F   // Combining Half Marks
+        | 0xFEFF            // Zero Width No-Break Space (BOM)
+        | 0xE0001           // Language tag
+        | 0xE0020..=0xE007F // Tag characters, as in subdivision flags
+        | 0xE0100..=0xE01EF, // Variation Selectors Supplement
     );
     if is_zero_width {
         return 0;
     }
-    // East-Asian wide and fullwidth ranges occupy two cells.
-    let is_wide = matches!(cp,
-        0x1100..=0x115F   // Hangul Jamo
-        | 0x2E80..=0x303E // CJK Radicals, Kangxi, CJK symbols/punctuation
-        | 0x3041..=0x33FF // Hiragana, Katakana, CJK symbols, enclosed
-        | 0x3400..=0x4DBF // CJK Extension A
-        | 0x4E00..=0x9FFF // CJK Unified Ideographs
-        | 0xA000..=0xA4CF // Yi
-        | 0xAC00..=0xD7A3 // Hangul Syllables
-        | 0xF900..=0xFAFF // CJK Compatibility Ideographs
-        | 0xFE30..=0xFE4F // CJK Compatibility Forms
-        | 0xFF00..=0xFF60 // Fullwidth Forms
-        | 0xFFE0..=0xFFE6 // Fullwidth signs
-        | 0x1F300..=0x1FAFF // Emoji / symbols (approx.)
-        | 0x20000..=0x3FFFD, // CJK Extension B+ and supplementary ideographic plane
-    );
+    let is_wide = WIDE_RANGES
+        .binary_search_by(|&(first, last)| {
+            if last < cp {
+                std::cmp::Ordering::Less
+            } else if cp < first {
+                std::cmp::Ordering::Greater
+            } else {
+                std::cmp::Ordering::Equal
+            }
+        })
+        .is_ok();
     if is_wide { 2 } else { 1 }
 }
+
+/// Every East-Asian Width `W` and `F` range of Unicode 18.0's
+/// `EastAsianWidth.txt`, with touching ranges merged: the set
+/// `g_unichar_iswide` answers for, and so the characters VTE draws two cells
+/// wide.
+///
+/// To refresh it, take every `W` and `F` line of a newer `EastAsianWidth.txt`
+/// and merge ranges that touch. [`char_cell_width`] binary-searches it, so it
+/// must stay sorted and disjoint, which a test checks.
+const WIDE_RANGES: &[(u32, u32)] = &[
+    (0x1100, 0x115F),
+    (0x231A, 0x231B),
+    (0x2329, 0x232A),
+    (0x23E9, 0x23EC),
+    (0x23F0, 0x23F0),
+    (0x23F3, 0x23F3),
+    (0x25FD, 0x25FE),
+    (0x2614, 0x2615),
+    (0x2630, 0x2637),
+    (0x2648, 0x2653),
+    (0x267F, 0x267F),
+    (0x268A, 0x268F),
+    (0x2693, 0x2693),
+    (0x26A1, 0x26A1),
+    (0x26AA, 0x26AB),
+    (0x26BD, 0x26BE),
+    (0x26C4, 0x26C5),
+    (0x26CE, 0x26CE),
+    (0x26D4, 0x26D4),
+    (0x26EA, 0x26EA),
+    (0x26F2, 0x26F3),
+    (0x26F5, 0x26F5),
+    (0x26FA, 0x26FA),
+    (0x26FD, 0x26FD),
+    (0x2705, 0x2705),
+    (0x270A, 0x270B),
+    (0x2728, 0x2728),
+    (0x274C, 0x274C),
+    (0x274E, 0x274E),
+    (0x2753, 0x2755),
+    (0x2757, 0x2757),
+    (0x2795, 0x2797),
+    (0x27B0, 0x27B0),
+    (0x27BF, 0x27BF),
+    (0x2B1B, 0x2B1C),
+    (0x2B50, 0x2B50),
+    (0x2B55, 0x2B55),
+    (0x2E80, 0x2E99),
+    (0x2E9B, 0x2EF3),
+    (0x2F00, 0x2FD5),
+    (0x2FF0, 0x303E),
+    (0x3041, 0x3096),
+    (0x3099, 0x30FF),
+    (0x3105, 0x312F),
+    (0x3131, 0x318E),
+    (0x3190, 0x31E5),
+    (0x31EF, 0x321E),
+    (0x3220, 0x3247),
+    (0x3250, 0xA48C),
+    (0xA490, 0xA4C6),
+    (0xA960, 0xA97C),
+    (0xAC00, 0xD7A3),
+    (0xF900, 0xFAFF),
+    (0xFE10, 0xFE19),
+    (0xFE30, 0xFE52),
+    (0xFE54, 0xFE66),
+    (0xFE68, 0xFE6B),
+    (0xFF01, 0xFF60),
+    (0xFFE0, 0xFFE6),
+    (0x16FE0, 0x16FE4),
+    (0x16FF0, 0x16FF6),
+    (0x17000, 0x18CDA),
+    (0x18CFF, 0x18D20),
+    (0x18D80, 0x18DF2),
+    (0x18E00, 0x19191),
+    (0x191A0, 0x191D2),
+    (0x1AFF0, 0x1AFF3),
+    (0x1AFF5, 0x1AFFB),
+    (0x1AFFD, 0x1AFFE),
+    (0x1B000, 0x1B128),
+    (0x1B132, 0x1B132),
+    (0x1B150, 0x1B152),
+    (0x1B155, 0x1B155),
+    (0x1B164, 0x1B168),
+    (0x1B170, 0x1B2FB),
+    (0x1D300, 0x1D356),
+    (0x1D360, 0x1D376),
+    (0x1F004, 0x1F004),
+    (0x1F0CF, 0x1F0CF),
+    (0x1F18E, 0x1F18E),
+    (0x1F191, 0x1F19A),
+    (0x1F1AE, 0x1F1AE),
+    (0x1F200, 0x1F202),
+    (0x1F210, 0x1F23B),
+    (0x1F240, 0x1F248),
+    (0x1F250, 0x1F251),
+    (0x1F260, 0x1F265),
+    (0x1F300, 0x1F320),
+    (0x1F32D, 0x1F335),
+    (0x1F337, 0x1F37C),
+    (0x1F37E, 0x1F393),
+    (0x1F3A0, 0x1F3CA),
+    (0x1F3CF, 0x1F3D3),
+    (0x1F3E0, 0x1F3F0),
+    (0x1F3F4, 0x1F3F4),
+    (0x1F3F8, 0x1F43E),
+    (0x1F440, 0x1F440),
+    (0x1F442, 0x1F4FC),
+    (0x1F4FF, 0x1F53D),
+    (0x1F54B, 0x1F54E),
+    (0x1F550, 0x1F567),
+    (0x1F57A, 0x1F57A),
+    (0x1F595, 0x1F596),
+    (0x1F5A4, 0x1F5A4),
+    (0x1F5FB, 0x1F64F),
+    (0x1F680, 0x1F6C5),
+    (0x1F6CC, 0x1F6CC),
+    (0x1F6D0, 0x1F6D2),
+    (0x1F6D5, 0x1F6D9),
+    (0x1F6DC, 0x1F6DF),
+    (0x1F6EB, 0x1F6EC),
+    (0x1F6F4, 0x1F6FC),
+    (0x1F7DA, 0x1F7DA),
+    (0x1F7E0, 0x1F7EB),
+    (0x1F7F0, 0x1F7F0),
+    (0x1F90C, 0x1F93A),
+    (0x1F93C, 0x1F945),
+    (0x1F947, 0x1F9FF),
+    (0x1FA70, 0x1FA7C),
+    (0x1FA80, 0x1FAC6),
+    (0x1FAC8, 0x1FAC8),
+    (0x1FACC, 0x1FADD),
+    (0x1FADF, 0x1FAEB),
+    (0x1FAEF, 0x1FAFA),
+    (0x20000, 0x2FFFD),
+    (0x30000, 0x3FFFD),
+];
 
 /// Converts a byte offset within `line` to its terminal column (0-based).
 ///
@@ -447,8 +587,8 @@ pub fn builtin_defaults() -> Vec<HighlightRule> {
 #[cfg(test)]
 mod tests {
     use super::{
-        byte_offset_to_column, is_valid_color_input, normalize_color_input, parse_hex_color,
-        validate_pattern,
+        WIDE_RANGES, byte_offset_to_column, char_cell_width, is_valid_color_input,
+        normalize_color_input, parse_hex_color, validate_pattern,
     };
 
     #[test]
@@ -595,5 +735,55 @@ mod tests {
         // Consecutive tabs, and a wide character before a tab.
         assert_eq!(byte_offset_to_column("\t\tx", 2), 16);
         assert_eq!(byte_offset_to_column("世\tx", 4), 8);
+    }
+
+    /// VTE sizes cells with glib, so these follow East-Asian Width: the `✅`
+    /// and `❌` that build and test tools print are W, two cells, and `⚠️` is
+    /// the one-cell U+26A0 plus a zero-width variation selector. A match after
+    /// any of them was drawn a cell off.
+    #[test]
+    fn byte_offset_to_column_follows_vte_after_status_symbols() {
+        for (line, word, column) in [
+            ("❌ ERROR: build failed", "ERROR", 3),
+            ("✅ passed", "passed", 3),
+            ("⚠\u{FE0F} WARNING: disk", "WARNING", 2),
+            ("⭐⚡ FATAL", "FATAL", 5),
+        ] {
+            let offset = line.find(word).unwrap();
+            assert_eq!(byte_offset_to_column(line, offset), column, "{line:?}");
+        }
+    }
+
+    #[test]
+    fn char_cell_width_matches_east_asian_width() {
+        for (c, width) in [
+            ('a', 1),
+            ('世', 2),
+            ('\u{3000}', 2),  // Ideographic space (F)
+            ('\u{1F600}', 2), // Grinning face (W)
+            ('\u{1F5A5}', 1), // Desktop computer: text-style, EAW N
+            ('\u{1F6E0}', 1), // Hammer and wrench: EAW N
+            ('\u{1F1FA}', 1), // Regional indicator: EAW N, a flag is two of them
+            ('\u{FE0F}', 0),  // Variation selector-16
+            ('\u{200D}', 0),  // Zero width joiner
+            ('\u{E0067}', 0), // Tag character in a subdivision flag
+            ('\u{1161}', 0),  // Hangul Jamo medial vowel
+            ('\u{2060}', 0),  // Word joiner
+            ('\u{00AD}', 1),  // Soft hyphen: glib keeps it one cell wide
+        ] {
+            assert_eq!(char_cell_width(c), width, "{c:?}");
+        }
+    }
+
+    /// `char_cell_width` binary-searches the table, which is only correct
+    /// while the ranges are sorted and do not overlap.
+    #[test]
+    fn wide_ranges_are_sorted_and_disjoint() {
+        for &(first, last) in WIDE_RANGES {
+            assert!(first <= last, "{first:#X}..{last:#X}");
+        }
+        for pair in WIDE_RANGES.windows(2) {
+            assert!(pair[0].1 < pair[1].0, "{pair:X?}");
+        }
     }
 }
