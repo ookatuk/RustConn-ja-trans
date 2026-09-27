@@ -910,6 +910,41 @@ fn update_tray_state(tray: &TrayManager, state: &SharedAppState, last_state: &mu
         tray.set_recent_connections(recent);
         last_state.connections_hash = connections_hash;
     }
+
+    // Update favorites (pinned connections) only when the pinned set or its
+    // order changed. The hash covers id + pin_order so a re-pin that only
+    // reorders still refreshes the tray, but an unrelated edit does not.
+    let favorites_hash = {
+        use std::collections::hash_map::DefaultHasher;
+        use std::hash::{Hash, Hasher};
+        let mut hasher = DefaultHasher::new();
+        for c in state_ref.list_connections().iter().filter(|c| c.is_pinned) {
+            c.id.hash(&mut hasher);
+            c.pin_order.hash(&mut hasher);
+            c.name.hash(&mut hasher);
+        }
+        hasher.finish() as i64
+    };
+
+    if last_state.favorites_hash != favorites_hash {
+        let mut favorites: Vec<_> = state_ref
+            .list_connections()
+            .iter()
+            .filter(|c| c.is_pinned)
+            .map(|c| (c.id, c.name.clone(), c.pin_order))
+            .collect();
+        // Match the sidebar's Favorites order: pin_order, then name.
+        favorites.sort_by(|a, b| match a.2.cmp(&b.2) {
+            std::cmp::Ordering::Equal => a.1.to_lowercase().cmp(&b.1.to_lowercase()),
+            other => other,
+        });
+        let favorites: Vec<_> = favorites
+            .into_iter()
+            .map(|(id, name, _)| (id, name))
+            .collect();
+        tray.set_favorites(favorites);
+        last_state.favorites_hash = favorites_hash;
+    }
 }
 
 /// Cache for tray state to avoid unnecessary updates
@@ -917,6 +952,7 @@ fn update_tray_state(tray: &TrayManager, state: &SharedAppState, last_state: &mu
 struct TrayStateCache {
     session_count: u32,
     connections_hash: i64,
+    favorites_hash: i64,
 }
 
 /// Window actions the tray activates, named as the window's own action map

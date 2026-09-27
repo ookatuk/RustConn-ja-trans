@@ -1,4 +1,17 @@
 -------------------------------------------------------------------
+Sun Sep 27 2026 Anton Isaiev <totoshko88@gmail.com> - 0.22.8
+
+- Version bump to 0.22.8
+- Fixed: pinning a connection as a favorite now persists — the toggle no longer
+  went through a save path that discarded the pinned flag, so the Favorites group
+  appears (issue #344)
+- Added: favorite connections are reachable from the system tray via a Favorites
+  submenu, shown above Recent and only when non-empty (issue #344)
+- Changed: the sidebar context menu names the favorite toggle "Add to Favorites" /
+  "Remove from Favorites", a favorite shows a star at its real place in the tree,
+  and the Favorites group has its own star icon (issue #344)
+
+-------------------------------------------------------------------
 Sun Sep 27 2026 Anton Isaiev <totoshko88@gmail.com> - 0.22.7
 
 - Version bump to 0.22.7

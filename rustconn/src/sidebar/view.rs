@@ -128,6 +128,8 @@ pub fn show_context_menu_for_connection_item(
     // Whether this connection has an active external-viewer session (issue
     // #209): gates the Disconnect / Stop tracking items (R5.1).
     let has_external_session = item.external_session();
+    // Drives the favorite menu label between "Add to" and "Remove from".
+    let is_pinned = item.is_pinned();
 
     tracing::debug!(
         name = %item.name(),
@@ -135,6 +137,7 @@ pub fn show_context_menu_for_connection_item(
         is_group,
         is_connected,
         has_external_session,
+        is_pinned,
         "Showing sidebar context menu"
     );
 
@@ -147,6 +150,7 @@ pub fn show_context_menu_for_connection_item(
         is_connected,
         is_recording,
         has_external_session,
+        is_pinned,
         &item.sync_mode(),
         item.is_root_group(),
         item.has_dynamic_folder(),
@@ -201,7 +205,10 @@ pub fn setup_list_item(
     pin_icon.set_pixel_size(12);
     pin_icon.set_visible(false);
     pin_icon.add_css_class("pin-icon");
-    pin_icon.set_tooltip_text(Some(&i18n("Pinned")));
+    pin_icon.set_tooltip_text(Some(&i18n("Favorite")));
+    // A screen reader sees the accessible label, not the tooltip, so an
+    // icon-only indicator needs both (house rule in rustconn/AGENTS.md).
+    pin_icon.update_property(&[gtk4::accessible::Property::Label(&i18n("Favorite"))]);
     content_box.append(&pin_icon);
 
     // Notes badge shown when the connection has a description; the actual

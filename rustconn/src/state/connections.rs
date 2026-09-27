@@ -349,6 +349,22 @@ impl AppState {
         Ok(())
     }
 
+    /// Toggles the pinned (favorite) state of a connection.
+    ///
+    /// Routes through the manager's dedicated pin path rather than
+    /// `update_connection`, which preserves the old pin state and would discard
+    /// the toggle. Pinning is local-only, so it does not mark sync dirty.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error string if the connection does not exist or persistence
+    /// fails.
+    pub fn toggle_pin(&mut self, id: Uuid) -> Result<(), String> {
+        self.connection_manager
+            .toggle_pin(id)
+            .map_err(|e| format!("Failed to toggle pin state: {e}"))
+    }
+
     /// Soft-deletes a connection (moves to trash).
     ///
     /// Vault credentials are intentionally kept so that

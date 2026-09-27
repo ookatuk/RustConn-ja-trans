@@ -5,6 +5,27 @@ All notable changes to RustConn will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.22.8] - 2026-09-27
+
+### Fixed
+- **Pinning a connection as a favorite did nothing (issue #344)** — the "Pin / Unpin" context-menu action set the favorite flag on a throwaway clone and then saved it through `update_connection`, whose "preserve fields the edit dialog does not expose" block immediately overwrote `is_pinned` and `pin_order` with the old stored values, so the change never reached storage.
+The Favorites group in the sidebar is only drawn when at least one connection is pinned, so it never appeared, and the `is_pinned=true` log line was reading the discarded clone rather than the saved connection.
+Pinning now goes through a dedicated `ConnectionManager::set_pin`/`toggle_pin` path that mutates the stored connection in place, leaving `update_connection`'s preservation intact for the edit dialog, so editing an unrelated field still cannot clear a favorite.
+
+### Added
+- **Favorite connections are now reachable from the system tray (issue #344)** — the tray menu offered only a "Recent Connections" submenu built from the ten most recently used connections, an automatic heuristic the user cannot curate.
+It now shows a "Favorites" submenu above Recent, listing the pinned connections in the same order as the sidebar's Favorites group, so a curated shortlist is one click away without opening the window.
+The submenu appears only once at least one connection is pinned, mirroring how Recent Connections is hidden when empty, and is wired on both the Linux (StatusNotifierItem) and macOS (NSStatusItem) trays; the tray refreshes only when the pinned set or its order actually changes.
+
+### Changed
+- **The favorite toggle in the sidebar context menu now names what it does (issue #344)** — the single "Pin / Unpin" entry gave no hint of the current state or the result, and the word "Pin" also collided with the unrelated "Pin Tab" action, so it was unclear the feature was about favorites at all.
+The entry now reads "Add to Favorites" or "Remove from Favorites" depending on whether the connection is already pinned, matching the "Favorites" group the pinned connection appears in.
+- **A favorite connection now shows a star at its normal place in the tree, not only inside the Favorites group (issue #344)** — the sidebar row already carried a `starred-symbolic` emblem that binds to the connection's pinned state, but with pinning silently discarded (see the fix above) it never had a pinned connection to show it for.
+With pinning working, a favorite is now marked wherever it appears in the tree, so its status is visible without scrolling to the Favorites group; the emblem also carries an accessible label, and its tooltip and label now read "Favorite" to match the rest of the feature's wording.
+The star emblem is deliberately suppressed on the rows *inside* the Favorites group, where every entry is a favorite by definition and repeating it would only add visual noise.
+- **The Favorites group now has its own icon (issue #344)** — it used the plain folder icon, so it was indistinguishable from an ordinary, uncustomised group.
+It now shows a ⭐ glyph, setting the synthetic group apart from real folders at a glance.
+
 ## [0.22.7] - 2026-09-27
 
 ### Added

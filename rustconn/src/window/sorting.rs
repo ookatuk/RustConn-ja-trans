@@ -9,18 +9,11 @@ use uuid::Uuid;
 
 use super::types::get_protocol_string;
 use crate::i18n::i18n;
-use crate::sidebar::{ConnectionItem, ConnectionSidebar};
+use crate::sidebar::{ConnectionItem, ConnectionSidebar, PINNED_GROUP_ID};
 use crate::state::SharedAppState;
 
 /// Type alias for shared sidebar reference
 pub type SharedSidebar = Rc<ConnectionSidebar>;
-
-/// The virtual group that holds pinned connections at the top of the tree.
-///
-/// Not a real group: it has no `ConnectionGroup` behind it and its ID is this
-/// literal rather than a UUID, which is why anything that resolves a group by
-/// parsing the ID has to account for it.
-const PINNED_GROUP_ID: &str = "__pinned__";
 
 /// Builds a sidebar row for `conn`, carrying over the live state the sidebar holds.
 ///
@@ -31,8 +24,11 @@ const PINNED_GROUP_ID: &str = "__pinned__";
 /// any reload — a rename, a duplicate, a pin toggle, a re-sort, a drag-drop —
 /// silently cleared all three for every connection.
 ///
-/// `pinned` is passed in rather than taken from `conn.is_pinned` because the
-/// Favorites copy of a row is always drawn as pinned regardless.
+/// `pinned` drives the star emblem and is passed in rather than read from
+/// `conn.is_pinned`: the copy shown inside the Favorites group passes `false` so
+/// the emblem does not repeat on rows that are all favorites by definition,
+/// while the copy at the connection's real place passes `conn.is_pinned` to mark
+/// it there.
 fn build_connection_item(
     sidebar: &SharedSidebar,
     conn: &rustconn_core::models::Connection,
@@ -187,10 +183,17 @@ pub fn rebuild_sidebar_sorted(state: &SharedAppState, sidebar: &SharedSidebar) {
     // Add pinned connections as a virtual "Favorites" group at the top.
     // The same connection is also added below at its real place, so a pinned row
     // exists twice in the store — see `ConnectionSidebar::update_items_with_id`.
+    //
+    // The star emoji sets this synthetic group apart from ordinary folders, which
+    // carry the plain folder icon. Its children are built with `pinned = false`
+    // so the star emblem does not repeat on every row inside a group that is, by
+    // definition, entirely favorites — the emblem's job is to mark a favorite at
+    // its real place elsewhere in the tree.
     if !pinned.is_empty() {
-        let favorites_item = ConnectionItem::new_group(PINNED_GROUP_ID, &i18n("Favorites"));
+        let favorites_item =
+            ConnectionItem::new_group_with_icon(PINNED_GROUP_ID, &i18n("Favorites"), "⭐");
         for conn in &pinned {
-            favorites_item.add_child(&build_connection_item(sidebar, conn, true));
+            favorites_item.add_child(&build_connection_item(sidebar, conn, false));
         }
         store.append(&favorites_item);
     }

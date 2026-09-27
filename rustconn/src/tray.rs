@@ -52,6 +52,8 @@ pub enum TrayMessage {
 pub struct TrayState {
     /// Number of active sessions
     pub active_sessions: u32,
+    /// Favorite (pinned) connections (id, name), ordered by `pin_order`.
+    pub favorites: Vec<(Uuid, String)>,
     /// Recent connections (id, name)
     pub recent_connections: Vec<(Uuid, String)>,
     /// Whether the main window is visible
@@ -62,6 +64,7 @@ impl Default for TrayState {
     fn default() -> Self {
         Self {
             active_sessions: 0,
+            favorites: Vec::new(),
             recent_connections: Vec::new(),
             window_visible: true,
         }
@@ -167,13 +170,14 @@ mod tray_impl {
 
         fn menu(&self) -> Vec<MenuItem<Self>> {
             // Read state — lock is held briefly just to clone data.
-            let (window_visible, recent_connections, active_sessions) = {
+            let (window_visible, favorites, recent_connections, active_sessions) = {
                 let state = match self.state.lock() {
                     Ok(s) => s,
                     Err(e) => e.into_inner(),
                 };
                 (
                     state.window_visible,
+                    state.favorites.clone(),
                     state.recent_connections.clone(),
                     state.active_sessions,
                 )
@@ -194,6 +198,31 @@ mod tray_impl {
                 ..Default::default()
             }));
             items.push(MenuItem::Separator);
+
+            // Favorites first: they are the user's own explicit shortlist, so
+            // they rank above the automatic "recent" heuristic. Shown only when
+            // the user has pinned something, exactly like Recent Connections.
+            if !favorites.is_empty() {
+                let favorite_items: Vec<MenuItem<Self>> = favorites
+                    .iter()
+                    .map(|(id, name)| {
+                        let conn_id = *id;
+                        MenuItem::Standard(StandardItem {
+                            label: name.clone(),
+                            activate: Box::new(move |tray: &mut Self| {
+                                let _ = tray.sender.try_send(TrayMessage::Connect(conn_id));
+                            }),
+                            ..Default::default()
+                        })
+                    })
+                    .collect();
+                items.push(MenuItem::SubMenu(ksni::menu::SubMenu {
+                    label: gettext("Favorites"),
+                    submenu: favorite_items,
+                    ..Default::default()
+                }));
+                items.push(MenuItem::Separator);
+            }
 
             if !recent_connections.is_empty() {
                 let recent_items: Vec<MenuItem<Self>> = recent_connections
@@ -350,6 +379,15 @@ mod tray_impl {
                 && state.active_sessions != count
             {
                 state.active_sessions = count;
+                self.request_update();
+            }
+        }
+
+        pub fn set_favorites(&self, connections: Vec<(Uuid, String)>) {
+            if let Ok(mut state) = self.state.lock()
+                && state.favorites != connections
+            {
+                state.favorites = connections;
                 self.request_update();
             }
         }
@@ -539,6 +577,26 @@ mod tray_macos_impl {
             ));
             let _ = menu.append(&PredefinedMenuItem::separator());
 
+            // Favorites submenu — the user's explicit shortlist, ranked above
+            // the automatic Recent heuristic. Shown only when non-empty.
+            {
+                let s = state.lock().unwrap_or_else(|e| e.into_inner());
+                if !s.favorites.is_empty() {
+                    let submenu = Submenu::new(&gettext("Favorites"), true);
+                    for (id, name) in &s.favorites {
+                        let menu_id = format!("{ID_CONNECT_PREFIX}{id}");
+                        let _ = submenu.append(&MenuItem::with_id(
+                            muda::MenuId(menu_id),
+                            name,
+                            true,
+                            None,
+                        ));
+                    }
+                    let _ = menu.append(&submenu);
+                    let _ = menu.append(&PredefinedMenuItem::separator());
+                }
+            }
+
             // Recent connections submenu
             {
                 let s = state.lock().unwrap_or_else(|e| e.into_inner());
@@ -635,6 +693,22 @@ mod tray_macos_impl {
             }
         }
 
+        pub fn set_favorites(&self, connections: Vec<(Uuid, String)>) {
+            let changed = if let Ok(mut state) = self.state.lock() {
+                if state.favorites == connections {
+                    false
+                } else {
+                    state.favorites = connections;
+                    true
+                }
+            } else {
+                false
+            };
+            if changed {
+                self.rebuild_menu();
+            }
+        }
+
         pub fn set_recent_connections(&self, connections: Vec<(Uuid, String)>) {
             let changed = if let Ok(mut state) = self.state.lock() {
                 if state.recent_connections == connections {
@@ -695,6 +769,7 @@ mod tray_stub {
             None
         }
         pub fn set_active_sessions(&self, _count: u32) {}
+        pub fn set_favorites(&self, _connections: Vec<(Uuid, String)>) {}
         pub fn set_recent_connections(&self, _connections: Vec<(Uuid, String)>) {}
         pub fn set_window_visible(&self, _visible: bool) {}
         pub fn force_refresh(&self) {}
