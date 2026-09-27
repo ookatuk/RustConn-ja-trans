@@ -841,16 +841,12 @@ impl FreeRdpThread {
         // override still wins.
         plain_args.push(config.audio_mode.freerdp_arg().to_string());
 
-        for arg in &config.extra_args {
-            if sizing.drops(arg) {
-                tracing::warn!(
-                    argument = %arg,
-                    "[FreeRDP] Dropped a custom dynamic-resolution argument: smart sizing is on and FreeRDP refuses the two together"
-                );
-                continue;
-            }
-            plain_args.push(arg.clone());
-        }
+        // The same filter as the external launcher: a custom argument carrying a
+        // secret field, or selecting a shell or proxy, is dropped here too.
+        plain_args.extend(rustconn_core::protocol::filter_extra_args(
+            &config.extra_args,
+            sizing,
+        ));
 
         if config.port == 3389 {
             plain_args.push(format!("/v:{}", config.host));

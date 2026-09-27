@@ -60,6 +60,9 @@ And a reply that arrived after the remote clipboard had changed was decoded as t
 A malicious or compromised server could offer `.bash_profile` or `.zshenv` among ordinary files, and saving into the home folder left a hidden file that the next login shell runs; the button shows only how many files there are, never their names.
 The path became reachable in this release, now that the file list is fetched at all.
 Leading dots are now stripped, as a browser does for a download, and control and bidirectional-override characters are removed from the name, since they change what a file manager shows — `U+202E` makes `fdp.exe` read as `exe.pdf`.
+- **The embedded wlfreerdp launch passed a connection's custom `/shell:`, `/proxy:` and password arguments through unfiltered** — the external launcher drops, with a warning, a custom argument that carries a secret field or selects a shell or a proxy, because custom arguments can arrive in an imported or synced profile and a proxy or shell of the profile's choosing would change where the session goes or what it runs.
+The embedded wlfreerdp launch applied only the smart-sizing rule, so on that path the rest reached FreeRDP unchecked.
+Every FreeRDP launch now goes through one `filter_extra_args` in `rustconn-core`.
 
 ### Documentation
 - **Snap, install and user-guide corrections for the sandboxed builds and highlighting (issues #341, #342, #343)** — `docs/SNAP.md` and `docs/INSTALL.md` describe the bundled `xfreerdp3`, state that SPICE is not available in the snap (the previous "needs a host `remote-viewer`" was not something strict confinement allows), and replace the claim that the viewers need host display access a snap cannot grant.

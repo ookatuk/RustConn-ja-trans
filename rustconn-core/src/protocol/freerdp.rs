@@ -610,18 +610,28 @@ fn push_security_args(args: &mut Vec<String>, config: &FreeRdpConfig) {
     }
 }
 
-/// Pushes the user's extra arguments, dropping the ones that are unsafe or
-/// that FreeRDP would refuse.
+/// Pushes the user's extra arguments that [`filter_extra_args`] keeps.
+fn push_extra_args(args: &mut Vec<String>, config: &FreeRdpConfig, sizing: FreeRdpSizing) {
+    args.extend(filter_extra_args(&config.extra_args, sizing));
+}
+
+/// Returns a connection's custom `FreeRDP` arguments without the ones that are
+/// unsafe or that `FreeRDP` would refuse.
 ///
-/// Secret-bearing fields would put a credential on the FreeRDP argument vector,
-/// and `/shell:`/`/proxy:` change what actually gets executed. A
-/// `dynamic-resolution` argument cannot go out beside smart sizing (see
+/// Secret-bearing fields would put a credential on the `FreeRDP` argument
+/// vector, and `/shell:`/`/proxy:` change what actually gets executed — the
+/// arguments can come from an imported or synced profile, not only from the
+/// user. A `dynamic-resolution` argument cannot go out beside smart sizing (see
 /// [`FreeRdpSizing`]). All are dropped with a warning rather than failing the
 /// launch, so a stale custom argument cannot lock a user out of a working
-/// connection.
-fn push_extra_args(args: &mut Vec<String>, config: &FreeRdpConfig, sizing: FreeRdpSizing) {
+/// connection. Every launch path goes through this one filter: the embedded
+/// wlfreerdp launch used to apply only the sizing rule, so the rest reached
+/// `FreeRDP` there unchecked.
+#[must_use]
+pub fn filter_extra_args(extra_args: &[String], sizing: FreeRdpSizing) -> Vec<String> {
+    let mut kept = Vec::with_capacity(extra_args.len());
     let mut skip_next_value = false;
-    for arg in &config.extra_args {
+    for arg in extra_args {
         if skip_next_value {
             skip_next_value = false;
             continue;
@@ -638,8 +648,9 @@ fn push_extra_args(args: &mut Vec<String>, config: &FreeRdpConfig, sizing: FreeR
             );
             continue;
         }
-        args.push(arg.clone());
+        kept.push(arg.clone());
     }
+    kept
 }
 
 /// Pushes the RD Gateway argument.
@@ -1119,6 +1130,59 @@ mod tests {
         assert!(custom.drops("+dynamic-resolution"));
         assert!(!custom.drops("/smart-sizing"));
         assert!(!custom.drops("/sound"));
+    }
+
+    /// The one filter every launch path uses; the embedded wlfreerdp launch
+    /// used to apply only the sizing rule and passed the rest through.
+    #[test]
+    fn filter_extra_args_drops_secrets_shells_and_proxies_and_keeps_the_rest() {
+        let custom: Vec<String> = [
+            "/sound",
+            "/p:hunter2",
+            "/shell:calc.exe",
+            "/proxy:http://proxy.example:8080",
+            "/gateway:g:gw.example,p:composite-password",
+            "+clipboard",
+        ]
+        .into_iter()
+        .map(String::from)
+        .collect();
+        let sizing = FreeRdpSizing::resolve(true, false, &custom);
+
+        assert_eq!(
+            filter_extra_args(&custom, sizing),
+            vec!["/sound".to_string(), "+clipboard".to_string()]
+        );
+    }
+
+    /// A standalone secret flag takes the next argument as its value, and the
+    /// value must go with it.
+    #[test]
+    fn filter_extra_args_drops_the_value_after_a_standalone_secret_flag() {
+        let custom: Vec<String> = ["/p", "hunter2", "/sound"]
+            .into_iter()
+            .map(String::from)
+            .collect();
+        let sizing = FreeRdpSizing::resolve(true, false, &custom);
+
+        assert_eq!(
+            filter_extra_args(&custom, sizing),
+            vec!["/sound".to_string()]
+        );
+    }
+
+    #[test]
+    fn filter_extra_args_applies_the_sizing_rule() {
+        let custom: Vec<String> = ["/smart-sizing", "/dynamic-resolution"]
+            .into_iter()
+            .map(String::from)
+            .collect();
+        let sizing = FreeRdpSizing::resolve(true, false, &custom);
+
+        assert_eq!(
+            filter_extra_args(&custom, sizing),
+            vec!["/smart-sizing".to_string()]
+        );
     }
 }
 
