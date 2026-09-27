@@ -458,25 +458,13 @@ fn setup_font_with_settings(terminal: &Terminal, settings: &TerminalSettings) {
 
 /// Converts a hex color string (`#RRGGBB` or `#RRGGBBAA`) to a GDK RGBA value.
 ///
-/// Returns `None` if the string is not a valid hex color.
+/// Returns `None` if the string is not a valid hex color. The value is a stored
+/// theme override that an import or a sync can fill with anything, and this
+/// runs on every terminal start, so it uses the shared parser that refuses a
+/// multi-byte character instead of panicking on it (issue #343).
 fn hex_to_rgba(hex: &str) -> Option<gdk::RGBA> {
-    let hex = hex.strip_prefix('#')?;
-    let (r, g, b, a) = match hex.len() {
-        6 => {
-            let r = u8::from_str_radix(&hex[0..2], 16).ok()?;
-            let g = u8::from_str_radix(&hex[2..4], 16).ok()?;
-            let b = u8::from_str_radix(&hex[4..6], 16).ok()?;
-            (r, g, b, 255u8)
-        }
-        8 => {
-            let r = u8::from_str_radix(&hex[0..2], 16).ok()?;
-            let g = u8::from_str_radix(&hex[2..4], 16).ok()?;
-            let b = u8::from_str_radix(&hex[4..6], 16).ok()?;
-            let a = u8::from_str_radix(&hex[6..8], 16).ok()?;
-            (r, g, b, a)
-        }
-        _ => return None,
-    };
+    let [r, g, b, a] =
+        rustconn_core::terminal_themes::parse_hex_channels(hex.strip_prefix('#')?)?;
     Some(gdk::RGBA::new(
         f32::from(r) / 255.0,
         f32::from(g) / 255.0,

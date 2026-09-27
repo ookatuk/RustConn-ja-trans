@@ -10,6 +10,7 @@ use tracing::warn;
 use uuid::Uuid;
 
 use crate::models::HighlightRule;
+use crate::terminal_themes::parse_hex_channels;
 
 // ---------------------------------------------------------------------------
 // Rgb / colour parsing
@@ -22,22 +23,18 @@ pub type Rgb = (f64, f64, f64);
 /// Parses a CSS hex colour string (`#RRGGBB`) into [`Rgb`] floats in `0.0..=1.0`.
 ///
 /// Returns `None` when the input is not a `#` followed by exactly six hex digits.
+/// The value comes straight from a rule editor's text field and is compiled on
+/// every terminal session start, so it goes through
+/// [`parse_hex_channels`], the parser every colour field shares, which refuses a
+/// multi-byte character instead of panicking on it (issue #343).
 #[must_use]
 pub fn parse_hex_color(hex: &str) -> Option<Rgb> {
-    let hex = hex.strip_prefix('#')?;
-    // Check every byte before slicing. `len()` counts bytes, so a six-byte value
-    // can hold a multi-byte character — `#0а0ff` with a Cyrillic `а` — and
-    // `&hex[0..2]` would then split that character and panic. The value comes
-    // straight from a rule editor's text field, and it is compiled on every
-    // terminal session start, so that panic took the whole application down
-    // (issue #343). `from_str_radix` also accepts a leading `+`, which let
-    // `#+f+f+f` through as a colour.
-    if hex.len() != 6 || !hex.bytes().all(|b| b.is_ascii_hexdigit()) {
+    let digits = hex.strip_prefix('#')?;
+    // Six digits only: a highlight colour has no alpha channel.
+    if digits.len() != 6 {
         return None;
     }
-    let r = u8::from_str_radix(&hex[0..2], 16).ok()?;
-    let g = u8::from_str_radix(&hex[2..4], 16).ok()?;
-    let b = u8::from_str_radix(&hex[4..6], 16).ok()?;
+    let [r, g, b, _] = parse_hex_channels(digits)?;
     Some((
         f64::from(r) / 255.0,
         f64::from(g) / 255.0,
