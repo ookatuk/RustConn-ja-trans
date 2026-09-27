@@ -1,6 +1,6 @@
 name: rustconn
 base: core24
-version: '0.22.6'
+version: '0.22.7'
 title: RustConn
 summary: Manage remote connections easily
 description: |
@@ -11,9 +11,8 @@ description: |
 
   Supported protocols (embedded Rust implementations):
   - SSH with a built-in VTE terminal, split view, and scrollbar
-  - RDP via IronRDP (embedded, with a FreeRDP fallback)
-  - VNC via vnc-rs (embedded, with a TigerVNC fallback)
-  - SPICE via an external viewer (remote-viewer / virt-viewer)
+  - RDP via IronRDP (embedded), with a bundled FreeRDP client for external mode
+  - VNC via vnc-rs (embedded)
   - MOSH with predict mode and a UDP port range
   - Telnet, Serial consoles (RS-232/USB), and Kubernetes pod shells
   - Managed access gateways for the major cloud providers
@@ -48,9 +47,11 @@ description: |
   - Wake-on-LAN with auto-connect
 
   Note: This snap uses strict confinement with embedded protocol clients
-  (SSH, RDP via IronRDP, VNC via vnc-rs) bundled in the snap. Optional
-  helper CLIs are downloaded on demand into the snap's writable user data and
-  run inside the sandbox — no host access is required.
+  (SSH, RDP via IronRDP, VNC via vnc-rs) and FreeRDP's X11 client bundled in
+  the snap. Optional helper CLIs are downloaded on demand into the snap's
+  writable user data and run inside the sandbox — no host access is required.
+  SPICE is not available in the snap: no viewer is bundled, and strict
+  confinement cannot start one from the host.
 
   Web connections open in your system browser or a browser command of your
   choice; the in-tab WebKitGTK browser is available in the Flatpak and
@@ -251,6 +252,20 @@ parts:
       # runtime ships Python; under snap we must stage it explicitly.
       - python3
       - python3-venv
+      # FreeRDP's X11 client (`xfreerdp3`), the external RDP client for what the
+      # embedded IronRDP client cannot do: the legacy RDP security layer and
+      # TLS-only servers (e.g. Windows 2008 R2), RemoteApp, audio left on the
+      # remote machine, RD Gateway, and the external client's Smart sizing and
+      # Dynamic resolution switches (issues #341, #342). Without it those
+      # connections had nowhere to fall back to in the snap. The X11 client
+      # rather than wlfreerdp3, which upstream deprecated (#340), or the SDL
+      # client, which noble does not package: it runs through XWayland on a
+      # Wayland session and it is the client RemoteApp needs. The launcher finds
+      # it in $SNAP/usr/bin. Its dependencies are plain noble libraries (X11,
+      # Kerberos, ICU, CUPS, PulseAudio, libusb, FUSE, Opus); the one GTK-stack
+      # library it links, libcairo, is already dropped by the `prime:` block
+      # below in favour of the platform's copy.
+      - freerdp3-x11
     prime:
       # Drop the GTK4/GLib/rendering stack dragged in by libvte's dependencies.
       # All of these are provided by the gnome-46-2404 platform; staging a second

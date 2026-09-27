@@ -199,7 +199,7 @@ pub struct RdpConfig {
     /// (`/dynamic-resolution`). Default true; turn off for legacy servers.
     /// Mutually exclusive with [`Self::smart_sizing`] (issue #341).
     pub dynamic_resolution: bool,
-    /// Scale the remote framebuffer to the external window (`+smart-sizing`).
+    /// Scale the remote framebuffer to the external window (`/smart-sizing`).
     /// Mutually exclusive with [`Self::dynamic_resolution`] (issue #341).
     pub smart_sizing: bool,
     /// RemoteApp program path or alias (forces FreeRDP fallback).

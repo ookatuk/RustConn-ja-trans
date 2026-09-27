@@ -89,18 +89,17 @@ pub struct FreeRdpConfig {
     pub disable_nla: bool,
     /// Request dynamic desktop resizing (`/dynamic-resolution`).
     ///
-    /// Mutually exclusive with [`Self::smart_sizing`]: FreeRDP rejects the two
-    /// together, and a server that ignores MS-RDPEDISP gains nothing from it.
-    /// [`Self::smart_sizing`] wins when both are set, so this argument is
-    /// dropped in that case (issue #341).
+    /// Mutually exclusive with smart sizing: FreeRDP rejects the two together,
+    /// and a server that ignores MS-RDPEDISP gains nothing from it. Smart sizing
+    /// wins when both are asked for, so this argument is dropped in that case —
+    /// see [`FreeRdpSizing`] (issue #341).
     pub dynamic_resolution: bool,
-    /// Scale the remote framebuffer to the client window (`+smart-sizing`).
+    /// Scale the remote framebuffer to the client window (`/smart-sizing`).
     ///
     /// Lets a fixed-resolution session from a legacy server (e.g. Windows
     /// 2008 R2, which cannot do dynamic resolution) be resized by scaling its
-    /// content, instead of staying unreadably small on a HiDPI display. Passed
-    /// as the flag form `+smart-sizing`; the bare `/smart-sizing` with no value
-    /// is a parse error on FreeRDP 3.x (issue #341).
+    /// content, instead of staying unreadably small on a HiDPI display
+    /// (issue #341).
     pub smart_sizing: bool,
     /// Additional `FreeRDP` arguments
     pub extra_args: Vec<String>,
@@ -248,7 +247,7 @@ impl FreeRdpConfig {
         self
     }
 
-    /// Enables or disables framebuffer scaling to the window (`+smart-sizing`)
+    /// Enables or disables framebuffer scaling to the window (`/smart-sizing`)
     #[must_use]
     pub const fn with_smart_sizing(mut self, enabled: bool) -> Self {
         self.smart_sizing = enabled;
@@ -346,6 +345,106 @@ pub fn is_standalone_freerdp_blocked_field(arg: &str) -> bool {
     !has_value_delimiter && (is_freerdp_secret_name(name) || is_freerdp_shell_or_proxy_name(name))
 }
 
+/// The smart-sizing switch as `xfreerdp3 /?` documents it,
+/// `/smart-sizing[:<width>x<height>]`. Sent without a size, which scales the
+/// session to the window.
+const SMART_SIZING_FLAG: &str = "/smart-sizing";
+
+/// Dynamic desktop resizing. FreeRDP documents the boolean as
+/// `+dynamic-resolution`; the `/` form enables a boolean switch just the same
+/// and is what every RustConn release has sent.
+const DYNAMIC_RESOLUTION_FLAG: &str = "/dynamic-resolution";
+
+/// How a `FreeRDP` launch sizes the remote desktop, once the connection's
+/// switches and the user's custom arguments have both been taken into account.
+///
+/// FreeRDP refuses dynamic resolution and smart sizing together — the pair is
+/// a command-line parse error (`-1002`, "mutually exclusive") and the client
+/// exits before connecting. Smart sizing therefore wins wherever it comes from:
+/// the connection's switch, or a custom argument such as `/smart-sizing` or
+/// `/smart-sizing:1920x1080`. Before this also covered custom arguments, a
+/// hand-written `/smart-sizing` still collided with the `/dynamic-resolution`
+/// RustConn adds by default (issue #341).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct FreeRdpSizing {
+    /// The sizing switch RustConn adds itself, if any.
+    pub flag: Option<&'static str>,
+    /// Whether custom `dynamic-resolution` arguments have to be dropped.
+    drop_custom_dynamic_resolution: bool,
+}
+
+impl FreeRdpSizing {
+    /// Resolves the sizing from the two switches and the custom arguments.
+    #[must_use]
+    pub fn resolve(dynamic_resolution: bool, smart_sizing: bool, extra_args: &[String]) -> Self {
+        let custom_smart_sizing = extra_args.iter().any(|arg| requests_smart_sizing(arg));
+        if smart_sizing || custom_smart_sizing {
+            // A custom `/smart-sizing` already asks for it, possibly with a
+            // size, so RustConn does not add a second one.
+            let flag = if custom_smart_sizing {
+                None
+            } else {
+                Some(SMART_SIZING_FLAG)
+            };
+            return Self {
+                flag,
+                drop_custom_dynamic_resolution: true,
+            };
+        }
+        let flag = if dynamic_resolution {
+            Some(DYNAMIC_RESOLUTION_FLAG)
+        } else {
+            None
+        };
+        Self {
+            flag,
+            drop_custom_dynamic_resolution: false,
+        }
+    }
+
+    /// Whether a custom argument has to be dropped for this sizing to launch.
+    ///
+    /// Only a `dynamic-resolution` argument, and only when smart sizing is on.
+    /// It is dropped with a warning rather than failing the launch, like the
+    /// other refused custom arguments.
+    #[must_use]
+    pub fn drops(&self, arg: &str) -> bool {
+        self.drop_custom_dynamic_resolution && is_dynamic_resolution_arg(arg)
+    }
+}
+
+/// Splits a top-level `FreeRDP` argument into its sigil and option name.
+///
+/// `/smart-sizing:1920x1080` is `('/', "smart-sizing")`, `+clipboard` is
+/// `('+', "clipboard")`. `None` for anything that is not an option.
+fn freerdp_option(arg: &str) -> Option<(char, &str)> {
+    let arg = arg.trim_start();
+    let sigil = arg.chars().next()?;
+    if !matches!(sigil, '/' | '+' | '-') {
+        return None;
+    }
+    // The sigil is one ASCII byte.
+    let rest = &arg[1..];
+    let name_end = rest.find([':', '=']).unwrap_or(rest.len());
+    Some((sigil, &rest[..name_end]))
+}
+
+/// Whether a custom argument turns smart sizing on (`/` or `+`, any size).
+fn requests_smart_sizing(arg: &str) -> bool {
+    matches!(
+        freerdp_option(arg),
+        Some(('/' | '+', name)) if name.eq_ignore_ascii_case("smart-sizing")
+    )
+}
+
+/// Whether a custom argument sets dynamic resolution, in either direction.
+fn is_dynamic_resolution_arg(arg: &str) -> bool {
+    matches!(
+        freerdp_option(arg),
+        Some((_, name)) if name.eq_ignore_ascii_case("dynamic-resolution")
+    )
+}
+
 /// Builds `FreeRDP` command-line arguments from configuration
 ///
 /// This function generates the command-line arguments for `FreeRDP` (xfreerdp/wlfreerdp)
@@ -393,15 +492,17 @@ pub fn build_freerdp_args(config: &FreeRdpConfig) -> Vec<String> {
         args.push("/cert:tofu".to_string());
     }
 
-    // Sizing behaviour. `/dynamic-resolution` and `+smart-sizing` are mutually
-    // exclusive in FreeRDP — passing both is a parse error — so smart-sizing
-    // wins and suppresses dynamic resolution when both are asked for (issue
-    // #341). Smart-sizing must be the flag form `+smart-sizing`; the bare
-    // `/smart-sizing` with no value is rejected on FreeRDP 3.x.
-    if config.smart_sizing {
-        args.push("+smart-sizing".to_string());
-    } else if config.dynamic_resolution {
-        args.push("/dynamic-resolution".to_string());
+    // Sizing behaviour. Dynamic resolution and smart sizing are mutually
+    // exclusive in FreeRDP, so smart sizing wins — from the switch or from a
+    // custom argument — and conflicting custom arguments are dropped in
+    // `push_extra_args` (issue #341).
+    let sizing = FreeRdpSizing::resolve(
+        config.dynamic_resolution,
+        config.smart_sizing,
+        &config.extra_args,
+    );
+    if let Some(flag) = sizing.flag {
+        args.push(flag.to_string());
     }
 
     // Decorations flag for window controls. Kept for every display mode: the
@@ -434,7 +535,7 @@ pub fn build_freerdp_args(config: &FreeRdpConfig) -> Vec<String> {
     // there still takes precedence.
     args.push(config.audio_mode.freerdp_arg().to_string());
 
-    push_extra_args(&mut args, config);
+    push_extra_args(&mut args, config, sizing);
     push_gateway_args(&mut args, config);
     push_remote_app_args(&mut args, config);
 
@@ -509,15 +610,28 @@ fn push_security_args(args: &mut Vec<String>, config: &FreeRdpConfig) {
     }
 }
 
-/// Pushes the user's extra arguments, dropping the ones that are unsafe.
+/// Pushes the user's extra arguments that [`filter_extra_args`] keeps.
+fn push_extra_args(args: &mut Vec<String>, config: &FreeRdpConfig, sizing: FreeRdpSizing) {
+    args.extend(filter_extra_args(&config.extra_args, sizing));
+}
+
+/// Returns a connection's custom `FreeRDP` arguments without the ones that are
+/// unsafe or that `FreeRDP` would refuse.
 ///
-/// Secret-bearing fields would put a credential on the FreeRDP argument vector,
-/// and `/shell:`/`/proxy:` change what actually gets executed. Both are dropped
-/// with a warning rather than failing the launch, so a stale custom argument
-/// cannot lock a user out of a working connection.
-fn push_extra_args(args: &mut Vec<String>, config: &FreeRdpConfig) {
+/// Secret-bearing fields would put a credential on the `FreeRDP` argument
+/// vector, and `/shell:`/`/proxy:` change what actually gets executed — the
+/// arguments can come from an imported or synced profile, not only from the
+/// user. A `dynamic-resolution` argument cannot go out beside smart sizing (see
+/// [`FreeRdpSizing`]). All are dropped with a warning rather than failing the
+/// launch, so a stale custom argument cannot lock a user out of a working
+/// connection. Every launch path goes through this one filter: the embedded
+/// wlfreerdp launch used to apply only the sizing rule, so the rest reached
+/// `FreeRDP` there unchecked.
+#[must_use]
+pub fn filter_extra_args(extra_args: &[String], sizing: FreeRdpSizing) -> Vec<String> {
+    let mut kept = Vec::with_capacity(extra_args.len());
     let mut skip_next_value = false;
-    for arg in &config.extra_args {
+    for arg in extra_args {
         if skip_next_value {
             skip_next_value = false;
             continue;
@@ -527,8 +641,16 @@ fn push_extra_args(args: &mut Vec<String>, config: &FreeRdpConfig) {
             tracing::warn!("Blocked dangerous FreeRDP extra arg");
             continue;
         }
-        args.push(arg.clone());
+        if sizing.drops(arg) {
+            tracing::warn!(
+                argument = %arg,
+                "Dropped a custom dynamic-resolution argument: smart sizing is on and FreeRDP refuses the two together"
+            );
+            continue;
+        }
+        kept.push(arg.clone());
     }
+    kept
 }
 
 /// Pushes the RD Gateway argument.
@@ -637,7 +759,7 @@ mod tests {
         // Dynamic resolution is on by default (the historical behaviour), and
         // smart-sizing is off (issue #341).
         assert!(args.contains(&"/dynamic-resolution".to_string()));
-        assert!(!args.contains(&"+smart-sizing".to_string()));
+        assert!(!args.iter().any(|arg| arg.contains("smart-sizing")));
     }
 
     #[test]
@@ -897,29 +1019,36 @@ mod tests {
         assert!(!args.iter().any(|a| a.starts_with("/drive:")));
     }
 
+    /// Counts the arguments that set a given `FreeRDP` option, whatever the sigil.
+    fn count_option(args: &[String], name: &str) -> usize {
+        args.iter()
+            .filter(|arg| matches!(freerdp_option(arg), Some((_, option)) if option == name))
+            .count()
+    }
+
     #[test]
     fn dynamic_resolution_can_be_disabled() {
         let config = FreeRdpConfig::new("server.example.com").with_dynamic_resolution(false);
         let args = build_freerdp_args(&config);
 
-        assert!(!args.contains(&"/dynamic-resolution".to_string()));
-        assert!(!args.contains(&"+smart-sizing".to_string()));
+        assert_eq!(count_option(&args, "dynamic-resolution"), 0);
+        assert_eq!(count_option(&args, "smart-sizing"), 0);
     }
 
     #[test]
-    fn smart_sizing_emits_flag_form_and_suppresses_dynamic_resolution() {
+    fn smart_sizing_emits_documented_switch_and_suppresses_dynamic_resolution() {
         // Both requested: smart-sizing wins, dynamic-resolution is dropped so
-        // FreeRDP does not reject the mutually exclusive pair (issue #341).
+        // FreeRDP does not reject the mutually exclusive pair (issue #341). The
+        // pair, not the bare `/smart-sizing`, is what FreeRDP 3.x refuses:
+        // `/smart-sizing[:WxH]` is the documented form.
         let config = FreeRdpConfig::new("server.example.com")
             .with_dynamic_resolution(true)
             .with_smart_sizing(true);
         let args = build_freerdp_args(&config);
 
-        assert!(args.contains(&"+smart-sizing".to_string()));
-        assert!(!args.contains(&"/dynamic-resolution".to_string()));
-        // The bare `/smart-sizing` (no value) is the parse error the reporter
-        // hit; it must never be emitted.
-        assert!(!args.contains(&"/smart-sizing".to_string()));
+        assert!(args.contains(&"/smart-sizing".to_string()));
+        assert_eq!(count_option(&args, "smart-sizing"), 1);
+        assert_eq!(count_option(&args, "dynamic-resolution"), 0);
     }
 
     #[test]
@@ -929,8 +1058,131 @@ mod tests {
             .with_smart_sizing(true);
         let args = build_freerdp_args(&config);
 
-        assert!(args.contains(&"+smart-sizing".to_string()));
-        assert!(!args.contains(&"/dynamic-resolution".to_string()));
+        assert!(args.contains(&"/smart-sizing".to_string()));
+        assert_eq!(count_option(&args, "dynamic-resolution"), 0);
+    }
+
+    /// The reporter's own step: `/smart-sizing` typed as a custom argument,
+    /// with Dynamic resolution left at its default. RustConn's
+    /// `/dynamic-resolution` used to go out beside it and FreeRDP refused the
+    /// command line (issue #341).
+    #[test]
+    fn custom_smart_sizing_argument_suppresses_default_dynamic_resolution() {
+        for custom in ["/smart-sizing", "/smart-sizing:1920x1080", "+smart-sizing"] {
+            let config =
+                FreeRdpConfig::new("server.example.com").with_extra_args(vec![custom.to_string()]);
+            let args = build_freerdp_args(&config);
+
+            assert_eq!(count_option(&args, "dynamic-resolution"), 0, "{custom}");
+            // The user's own argument is the only smart-sizing one, size intact.
+            assert_eq!(count_option(&args, "smart-sizing"), 1, "{custom}");
+            assert!(args.contains(&custom.to_string()), "{custom}");
+        }
+    }
+
+    #[test]
+    fn smart_sizing_switch_drops_custom_dynamic_resolution_only() {
+        let config = FreeRdpConfig::new("server.example.com")
+            .with_smart_sizing(true)
+            .with_extra_args(vec![
+                "+dynamic-resolution".to_string(),
+                "/dynamic-resolution".to_string(),
+                "/sound".to_string(),
+            ]);
+        let args = build_freerdp_args(&config);
+
+        assert_eq!(count_option(&args, "dynamic-resolution"), 0);
+        assert!(args.contains(&"/sound".to_string()));
+        assert!(args.contains(&"/smart-sizing".to_string()));
+    }
+
+    #[test]
+    fn custom_dynamic_resolution_is_kept_without_smart_sizing() {
+        let config = FreeRdpConfig::new("server.example.com")
+            .with_dynamic_resolution(false)
+            .with_extra_args(vec!["/dynamic-resolution".to_string()]);
+        let args = build_freerdp_args(&config);
+
+        assert_eq!(count_option(&args, "dynamic-resolution"), 1);
+    }
+
+    /// Turning smart sizing *off* in a custom argument does not count as asking
+    /// for it, so dynamic resolution stays.
+    #[test]
+    fn custom_smart_sizing_off_does_not_suppress_dynamic_resolution() {
+        let config = FreeRdpConfig::new("server.example.com")
+            .with_extra_args(vec!["-smart-sizing".to_string()]);
+        let args = build_freerdp_args(&config);
+
+        assert_eq!(count_option(&args, "dynamic-resolution"), 1);
+    }
+
+    #[test]
+    fn sizing_resolution_for_the_embedded_client() {
+        // The embedded client always asks for dynamic resolution, unless a
+        // custom argument turns smart sizing on.
+        let plain = FreeRdpSizing::resolve(true, false, &[]);
+        assert_eq!(plain.flag, Some("/dynamic-resolution"));
+        assert!(!plain.drops("/dynamic-resolution"));
+
+        let custom = FreeRdpSizing::resolve(true, false, &["/smart-sizing".to_string()]);
+        assert_eq!(custom.flag, None);
+        assert!(custom.drops("+dynamic-resolution"));
+        assert!(!custom.drops("/smart-sizing"));
+        assert!(!custom.drops("/sound"));
+    }
+
+    /// The one filter every launch path uses; the embedded wlfreerdp launch
+    /// used to apply only the sizing rule and passed the rest through.
+    #[test]
+    fn filter_extra_args_drops_secrets_shells_and_proxies_and_keeps_the_rest() {
+        let custom: Vec<String> = [
+            "/sound",
+            "/p:hunter2",
+            "/shell:calc.exe",
+            "/proxy:http://proxy.example:8080",
+            "/gateway:g:gw.example,p:composite-password",
+            "+clipboard",
+        ]
+        .into_iter()
+        .map(String::from)
+        .collect();
+        let sizing = FreeRdpSizing::resolve(true, false, &custom);
+
+        assert_eq!(
+            filter_extra_args(&custom, sizing),
+            vec!["/sound".to_string(), "+clipboard".to_string()]
+        );
+    }
+
+    /// A standalone secret flag takes the next argument as its value, and the
+    /// value must go with it.
+    #[test]
+    fn filter_extra_args_drops_the_value_after_a_standalone_secret_flag() {
+        let custom: Vec<String> = ["/p", "hunter2", "/sound"]
+            .into_iter()
+            .map(String::from)
+            .collect();
+        let sizing = FreeRdpSizing::resolve(true, false, &custom);
+
+        assert_eq!(
+            filter_extra_args(&custom, sizing),
+            vec!["/sound".to_string()]
+        );
+    }
+
+    #[test]
+    fn filter_extra_args_applies_the_sizing_rule() {
+        let custom: Vec<String> = ["/smart-sizing", "/dynamic-resolution"]
+            .into_iter()
+            .map(String::from)
+            .collect();
+        let sizing = FreeRdpSizing::resolve(true, false, &custom);
+
+        assert_eq!(
+            filter_extra_args(&custom, sizing),
+            vec!["/smart-sizing".to_string()]
+        );
     }
 }
 

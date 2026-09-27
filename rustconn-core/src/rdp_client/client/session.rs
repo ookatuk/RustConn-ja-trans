@@ -85,6 +85,12 @@ pub(super) async fn run_active_session(
     // duplicate releases and enables X1/X2 (browser back/forward) buttons.
     let mut input_db = ironrdp_input::Database::new();
 
+    // Clipboard timeouts are driven from the loop, as `Cliprdr::drive_timeouts`
+    // asks. Five seconds is its own suggestion and well inside the 60 s after
+    // which an unanswered file request is given up; a missed tick is not made up.
+    let mut clipboard_timeouts = tokio::time::interval(std::time::Duration::from_secs(5));
+    clipboard_timeouts.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+
     loop {
         // Check shutdown signal
         if shutdown_signal.load(Ordering::SeqCst) {
@@ -162,6 +168,11 @@ pub(super) async fn run_active_session(
                         return Err(RdpClientError::ConnectionFailed(format!("Read error: {e}")));
                     }
                 }
+            }
+
+            // Branch 3: expire clipboard requests the server never answered.
+            _ = clipboard_timeouts.tick() => {
+                super::commands::drive_clipboard_timeouts(&mut active_stage, &mut writer).await;
             }
         }
     }

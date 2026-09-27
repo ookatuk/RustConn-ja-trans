@@ -11,6 +11,8 @@
 //! setting an error state rather than propagating the panic.
 
 use std::collections::HashMap;
+#[cfg(feature = "rdp-embedded")]
+use std::collections::VecDeque;
 use std::io::Write;
 use std::path::PathBuf;
 use std::process::{Child, Command, Stdio};
@@ -84,11 +86,12 @@ pub struct FileDownloadState {
     /// Bytes received so far
     pub bytes_received: u64,
     /// Accumulated data chunks.
-    // ponytail: the whole file is buffered in RAM before it is written, so a
-    // multi-gigabyte clipboard file costs that much memory. Fine for the
-    // config files and logs that are the realistic clipboard payload; stream
-    // straight to a temp file (write each chunk in `append_data`, rename on
-    // Complete) if a size limit ever needs lifting.
+    // ponytail: the whole file is buffered in RAM before it is written, one
+    // file at a time and released once saved, so a batch costs at most one
+    // file's worth of memory, capped at MAX_DOWNLOAD_BYTES. Fine for the config
+    // files and logs that are the realistic clipboard payload; stream straight
+    // to a temp file (write each chunk in `append_data`, rename on Complete) if
+    // the cap ever needs lifting.
     pub data: Vec<u8>,
     /// Whether download is complete
     pub complete: bool,
@@ -153,6 +156,13 @@ pub struct ClipboardFileTransfer {
     /// when every other file had saved. That is the common case rather than a
     /// rare one, since a server refuses any directory in the list.
     pub refused_count: usize,
+    /// Positions in `available_files` that the batch has yet to start, in order.
+    ///
+    /// A batch fetches one file at a time. Asking for every file at once kept
+    /// all of them in memory together — up to [`MAX_DOWNLOAD_BYTES`] each — and
+    /// a large folder copy ran into IronRDP's limit of 1000 pending requests,
+    /// so the files past it failed.
+    pub pending: VecDeque<usize>,
 }
 
 #[cfg(feature = "rdp-embedded")]
@@ -168,6 +178,7 @@ impl ClipboardFileTransfer {
             completed_count: 0,
             save_failures: 0,
             refused_count: 0,
+            pending: VecDeque::new(),
         }
     }
 
@@ -185,26 +196,70 @@ impl ClipboardFileTransfer {
         self.reset_batch_counters();
     }
 
-    /// Arms a fresh "Save N Files" run over the current file list.
+    /// Withdraws the offer: the remote clipboard no longer holds these files.
+    ///
+    /// The list is dropped, so a folder picked after this saves nothing. A file
+    /// already in flight is left to finish, but nothing new is asked for: the
+    /// server answers a request from whatever its clipboard holds now, so a
+    /// later request could return another file's bytes under this name. The
+    /// files the batch had not started are settled as not delivered, so the
+    /// summary still comes.
+    pub fn withdraw_offer(&mut self) {
+        self.available_files.clear();
+        self.refused_count += self.pending.len();
+        self.pending.clear();
+    }
+
+    /// Arms a fresh "Save N Files" run over the list offered right now.
+    ///
+    /// Returns how many files the run will fetch, zero when the offer was
+    /// withdrawn while the folder dialog was open. The list is read here, when
+    /// the folder has been picked, rather than when the button was pressed: a
+    /// snapshot taken at the press counted files that a list arriving in
+    /// between did not have, so the batch could never settle.
     ///
     /// Every counter is zeroed here rather than only in
     /// [`Self::set_available_files`], because a second click on the *same* list
     /// never re-announces it: the previous run's `save_failures` would then be
     /// added to the new summary, and its finished downloads would still be in
     /// the map. Takes the target directory so a run cannot be armed without one.
-    pub fn begin_batch(&mut self, target_directory: PathBuf, total_files: usize) {
+    pub fn begin_batch(&mut self, target_directory: PathBuf) -> usize {
         self.downloads.clear();
         self.reset_batch_counters();
         self.target_directory = Some(target_directory);
-        self.total_files = total_files;
+        self.total_files = self.available_files.len();
+        self.pending = (0..self.total_files).collect();
+        self.total_files
     }
 
-    /// Zeroes the per-run tallies, leaving the file list and stream-id sequence.
+    /// Starts the batch's next file: its stream id and the server's index for
+    /// the size request, or `None` once every file has been started.
+    ///
+    /// A position the list no longer holds is settled as not delivered rather
+    /// than skipped, or the batch would wait for it forever.
+    pub fn start_next_download(&mut self) -> Option<(u32, u32)> {
+        while let Some(position) = self.pending.pop_front() {
+            let started = u32::try_from(position)
+                .ok()
+                .and_then(|position| self.start_download(position));
+            if let Some(stream_id) = started
+                && let Some(file_index) = self.file_index_of(stream_id)
+            {
+                return Some((stream_id, file_index));
+            }
+            self.refused_count += 1;
+        }
+        None
+    }
+
+    /// Zeroes the per-run tallies and queue, leaving the file list and the
+    /// stream-id sequence.
     fn reset_batch_counters(&mut self) {
         self.total_files = 0;
         self.completed_count = 0;
         self.save_failures = 0;
         self.refused_count = 0;
+        self.pending.clear();
     }
 
     /// Starts download for a file, returns stream_id
@@ -226,6 +281,19 @@ impl ClipboardFileTransfer {
         if let Some(state) = self.downloads.get_mut(&stream_id) {
             state.total_size = size;
         }
+    }
+
+    /// Drops a download whose size reply is over [`MAX_DOWNLOAD_BYTES`].
+    ///
+    /// Returns whether it was dropped. Such a file is settled as not delivered
+    /// before any of it is fetched, instead of being pulled up to the cap only
+    /// to be thrown away there.
+    pub fn refuse_if_oversized(&mut self, stream_id: u32, size: u64) -> bool {
+        if size <= MAX_DOWNLOAD_BYTES || self.downloads.remove(&stream_id).is_none() {
+            return false;
+        }
+        self.refused_count += 1;
+        true
     }
 
     /// Drops a download the server refused, so the batch is not left waiting on
@@ -335,7 +403,7 @@ impl ClipboardFileTransfer {
         self.completed_count + self.refused_count
     }
 
-    /// Saves a completed download to disk.
+    /// Saves a completed download to disk and releases its buffer.
     ///
     /// The name comes from the server, so it is reduced to a single safe
     /// component first and the write refuses to clobber an existing file — see
@@ -347,17 +415,25 @@ impl ClipboardFileTransfer {
     /// if the download has not finished, [`std::io::ErrorKind::InvalidInput`] if
     /// the server's filename cannot be made safe, and any underlying I/O error
     /// from creating or writing the file.
-    pub fn save_download(&self, stream_id: u32) -> Result<PathBuf, std::io::Error> {
-        let state = self.downloads.get(&stream_id).ok_or_else(|| {
-            std::io::Error::new(std::io::ErrorKind::NotFound, "Download not found")
-        })?;
-
-        if !state.complete {
+    pub fn save_download(&mut self, stream_id: u32) -> Result<PathBuf, std::io::Error> {
+        let not_found = || std::io::Error::new(std::io::ErrorKind::NotFound, "Download not found");
+        let complete = self
+            .downloads
+            .get(&stream_id)
+            .map(|state| state.complete)
+            .ok_or_else(not_found)?;
+        if !complete {
             return Err(std::io::Error::new(
                 std::io::ErrorKind::InvalidData,
                 "Download not complete",
             ));
         }
+        // A finished download is written once and then released, whether the
+        // write succeeds or not. Its bytes used to stay in memory until the next
+        // batch, so every saved file stayed resident for the rest of the session.
+        // A late chunk for it now finds no download, which `append_data` already
+        // reports as `Unknown`.
+        let state = self.downloads.remove(&stream_id).ok_or_else(not_found)?;
 
         let target_dir = self.target_directory.as_ref().ok_or_else(|| {
             std::io::Error::new(std::io::ErrorKind::NotFound, "Target directory not set")
@@ -419,13 +495,40 @@ impl ClipboardFileTransfer {
 /// this code does not walk a directory hierarchy). Returns `None` for anything
 /// with no usable component left: empty, whitespace, `.`, `..`, or a name
 /// carrying an interior NUL.
+///
+/// Leading dots are stripped as well, the way a browser treats a download. The
+/// name is the server's and the user never sees it — the button shows only a
+/// count — so `.bash_profile` or `.zshenv` would land in the chosen folder as a
+/// hidden file that the next login shell runs; `create_new` only refuses to
+/// *overwrite* one that exists. Control and bidirectional-override characters
+/// are dropped too, since they change what a file manager shows without being
+/// visible themselves: `"\u{202E}fdp.exe"` reads as `exe.pdf`.
 #[cfg(feature = "rdp-embedded")]
 fn sanitized_file_name(raw: &str) -> Option<String> {
-    let last = raw.rsplit(['/', '\\']).next()?.trim();
-    if last.is_empty() || last == "." || last == ".." || last.contains('\0') {
+    let last = raw.rsplit(['/', '\\']).next()?;
+    if last.contains('\0') {
         return None;
     }
-    Some(last.to_string())
+    let visible: String = last.chars().filter(|&c| !is_hidden_name_char(c)).collect();
+    // Dots and whitespace together, so `. .profile` cannot leave a dot behind.
+    let name = visible
+        .trim_start_matches(|c: char| c == '.' || c.is_whitespace())
+        .trim_end();
+    if name.is_empty() {
+        return None;
+    }
+    Some(name.to_string())
+}
+
+/// Whether `c` changes how a filename displays without being visible in it: the
+/// C0 and C1 controls, DEL, and the Unicode bidirectional formatting characters.
+#[cfg(feature = "rdp-embedded")]
+fn is_hidden_name_char(c: char) -> bool {
+    c.is_control()
+        || matches!(
+            c,
+            '\u{061C}' | '\u{200E}' | '\u{200F}' | '\u{202A}'..='\u{202E}' | '\u{2066}'..='\u{2069}'
+        )
 }
 
 /// Creates `name` inside `dir` without ever overwriting an existing file.
@@ -713,15 +816,21 @@ impl FreeRdpThread {
         } else {
             plain_args.push("/cert:tofu".to_string());
         }
-        // Always requested here, unlike the external client, which reads
-        // `config.dynamic_resolution` / `config.smart_sizing` (issue #341). This
-        // is the embedded wlfreerdp widget: its size follows the DrawingArea
-        // geometry and the Display Control Channel, so external-window sizing
-        // options (`+smart-sizing`) do not apply, and `wlfreerdp` is hardcoded
-        // above because only a Wayland-native client embeds as a subsurface —
-        // the SDL3 client that is now preferred for external launches (#340)
-        // cannot.
-        plain_args.push("/dynamic-resolution".to_string());
+        // Dynamic resolution is always requested here, unlike the external
+        // client, which reads `config.dynamic_resolution` / `config.smart_sizing`
+        // (issue #341). This is the embedded wlfreerdp widget: its size follows
+        // the DrawingArea geometry and the Display Control Channel, so the
+        // external-window sizing switches do not apply, and `wlfreerdp` is
+        // hardcoded above because only a Wayland-native client embeds as a
+        // subsurface — the SDL3 client that is now preferred for external
+        // launches (#340) cannot. The one exception is a custom `/smart-sizing`
+        // argument: FreeRDP refuses it beside `/dynamic-resolution`, so the
+        // shared resolver leaves the switch out and the custom one stands.
+        let sizing =
+            rustconn_core::protocol::FreeRdpSizing::resolve(true, false, &config.extra_args);
+        if let Some(flag) = sizing.flag {
+            plain_args.push(flag.to_string());
+        }
 
         if config.clipboard_enabled {
             plain_args.push("+clipboard".to_string());
@@ -732,9 +841,12 @@ impl FreeRdpThread {
         // override still wins.
         plain_args.push(config.audio_mode.freerdp_arg().to_string());
 
-        for arg in &config.extra_args {
-            plain_args.push(arg.clone());
-        }
+        // The same filter as the external launcher: a custom argument carrying a
+        // secret field, or selecting a shell or proxy, is dropped here too.
+        plain_args.extend(rustconn_core::protocol::filter_extra_args(
+            &config.extra_args,
+            sizing,
+        ));
 
         if config.port == 3389 {
             plain_args.push(format!("/v:{}", config.host));
@@ -951,7 +1063,7 @@ mod tests {
             ClipboardFileInfo::new("a.bin".to_string(), 10, 0, 0, 0),
             ClipboardFileInfo::new("b.bin".to_string(), 10, 0, 0, 1),
         ]);
-        t.begin_batch(std::path::PathBuf::from("/tmp"), 2);
+        assert_eq!(t.begin_batch(std::path::PathBuf::from("/tmp")), 2);
         let first = t.start_download(0).expect("first download starts");
         let second = t.start_download(1).expect("second download starts");
         t.update_size(first, 10);
@@ -1006,13 +1118,126 @@ mod tests {
             ClipboardFileInfo::new("a.bin".to_string(), 10, 0, 0, 0),
             ClipboardFileInfo::new("b.bin".to_string(), 10, 0, 0, 1),
         ]);
-        t.begin_batch(std::path::PathBuf::from("/tmp"), 2);
+        assert_eq!(t.begin_batch(std::path::PathBuf::from("/tmp")), 2);
         let first = t.start_download(0).expect("starts");
         let second = t.start_download(1).expect("starts");
         t.update_size(first, 10);
         let _ = t.append_data(first, &[0u8; 10], false);
         t.cancel_download(second);
         assert!((t.overall_progress() - 1.0).abs() < f64::EPSILON);
+    }
+
+    fn three_files() -> Vec<ClipboardFileInfo> {
+        ["a.bin", "b.bin", "c.bin"]
+            .into_iter()
+            .zip(10u32..)
+            .map(|(name, index)| ClipboardFileInfo::new(name.to_string(), 4, 0, 0, index))
+            .collect()
+    }
+
+    /// Asking for every file at once held all of them in memory together and
+    /// hit IronRDP's cap of 1000 pending requests on a large folder copy. The
+    /// next file starts only when the previous one has settled.
+    #[test]
+    fn a_batch_fetches_one_file_at_a_time() {
+        let dir = tempfile::tempdir().expect("temp dir");
+        let mut t = ClipboardFileTransfer::new();
+        t.set_available_files(three_files());
+        assert_eq!(t.begin_batch(dir.path().to_path_buf()), 3);
+
+        let mut server_indices = Vec::new();
+        while let Some((sid, index)) = t.start_next_download() {
+            assert_eq!(t.downloads.len(), 1, "only one file is in flight");
+            server_indices.push(index);
+            t.update_size(sid, 4);
+            assert_eq!(t.append_data(sid, b"data", false), ChunkOutcome::Complete);
+            t.save_download(sid).expect("the write succeeds");
+        }
+        assert_eq!(server_indices, vec![10, 11, 12], "the server's own indices");
+        assert!(t.all_complete());
+        assert_eq!(t.saved_count(), 3);
+    }
+
+    /// A saved file's bytes used to stay in memory until the next batch.
+    #[test]
+    fn saving_releases_the_download() {
+        let dir = tempfile::tempdir().expect("temp dir");
+        let (mut t, sid) = completed_download_named(dir.path(), "notes.txt");
+        t.save_download(sid).expect("the write succeeds");
+
+        assert!(!t.downloads.contains_key(&sid), "the buffer is gone");
+        assert!(t.all_complete(), "the file still counts as saved");
+        assert_eq!(t.append_data(sid, b"late", false), ChunkOutcome::Unknown);
+    }
+
+    /// A file the server says is over the cap is settled on its size reply
+    /// instead of being fetched up to the cap only to be thrown away.
+    #[test]
+    fn an_oversized_file_is_refused_on_its_size_reply() {
+        use super::MAX_DOWNLOAD_BYTES;
+
+        let mut t = ClipboardFileTransfer::new();
+        t.set_available_files(three_files());
+        t.begin_batch(std::path::PathBuf::from("/tmp"));
+        let (sid, _) = t.start_next_download().expect("starts");
+
+        assert!(
+            !t.refuse_if_oversized(sid, MAX_DOWNLOAD_BYTES),
+            "at the cap is fine"
+        );
+        assert!(t.refuse_if_oversized(sid, MAX_DOWNLOAD_BYTES + 1));
+        assert!(!t.downloads.contains_key(&sid));
+        assert_eq!(t.refused_count(), 1);
+        assert!(
+            !t.refuse_if_oversized(sid, MAX_DOWNLOAD_BYTES + 1),
+            "a second reply for it settles nothing"
+        );
+    }
+
+    /// When the remote clipboard changes mid-batch the server no longer holds
+    /// the files, so nothing new is asked for; the file in flight may finish,
+    /// and the rest settle as not delivered so the summary still comes.
+    #[test]
+    fn withdrawing_the_offer_settles_the_files_not_started() {
+        let mut t = ClipboardFileTransfer::new();
+        t.set_available_files(three_files());
+        t.begin_batch(std::path::PathBuf::from("/tmp"));
+        let (sid, _) = t.start_next_download().expect("starts");
+
+        t.withdraw_offer();
+        assert!(t.start_next_download().is_none(), "nothing new is started");
+        assert_eq!(t.refused_count(), 2);
+        assert!(!t.all_complete(), "the file in flight is still open");
+
+        t.update_size(sid, 4);
+        assert_eq!(t.append_data(sid, b"data", false), ChunkOutcome::Complete);
+        assert!(t.all_complete());
+    }
+
+    /// The batch is built from the list offered when the folder is picked. A
+    /// snapshot from the button press could count files a newer list did not
+    /// have, and the batch never settled.
+    #[test]
+    fn a_batch_uses_the_list_offered_when_the_folder_is_picked() {
+        let mut t = ClipboardFileTransfer::new();
+        t.set_available_files(three_files());
+        // The remote clipboard changes while the folder dialog is open.
+        t.set_available_files(vec![ClipboardFileInfo::new(
+            "only.bin".to_string(),
+            4,
+            0,
+            0,
+            7,
+        )]);
+        assert_eq!(t.begin_batch(std::path::PathBuf::from("/tmp")), 1);
+        assert_eq!(t.start_next_download().map(|(_, index)| index), Some(7));
+        assert!(t.start_next_download().is_none());
+
+        // And an offer withdrawn before the folder was picked fetches nothing.
+        t.withdraw_offer();
+        assert_eq!(t.begin_batch(std::path::PathBuf::from("/tmp")), 0);
+        assert!(t.start_next_download().is_none());
+        assert!(!t.all_complete(), "an empty batch reports nothing");
     }
 
     // ------------------------------------------------------------------
@@ -1055,7 +1280,7 @@ mod tests {
             0,
             0,
         )]);
-        t.begin_batch(std::path::PathBuf::from("/tmp"), 1);
+        t.begin_batch(std::path::PathBuf::from("/tmp"));
         let sid = t.start_download(0).expect("starts");
         t.update_size(sid, u64::MAX);
 
@@ -1110,7 +1335,7 @@ mod tests {
         t.record_save_failure();
         assert_eq!(t.save_failures(), 1);
 
-        t.begin_batch(std::path::PathBuf::from("/tmp"), 1);
+        assert_eq!(t.begin_batch(std::path::PathBuf::from("/tmp")), 1);
         assert_eq!(t.save_failures(), 0);
         assert_eq!(t.completed_count, 0);
         assert_eq!(t.refused_count(), 0);
@@ -1162,9 +1387,59 @@ mod tests {
         );
     }
 
+    /// The name is the server's and the user never sees it, so a leading dot
+    /// would plant a hidden file — `.bash_profile`, `.zshenv` — that the next
+    /// login shell runs. `create_new` only refuses to overwrite one.
+    #[test]
+    fn a_leading_dot_is_stripped_so_no_hidden_file_is_created() {
+        for (raw, expected) in [
+            (".bash_profile", "bash_profile"),
+            (r"..\..\.zshenv", "zshenv"),
+            ("...hidden", "hidden"),
+            (" . .profile", "profile"),
+            ("report.v2.txt", "report.v2.txt"),
+        ] {
+            assert_eq!(
+                super::sanitized_file_name(raw).as_deref(),
+                Some(expected),
+                "{raw:?}"
+            );
+        }
+    }
+
+    /// Control and bidirectional-override characters change what a file
+    /// manager shows without being visible: `U+202E` makes `fdp.exe` read as
+    /// `exe.pdf`.
+    #[test]
+    fn control_and_bidi_characters_are_removed() {
+        for (raw, expected) in [
+            ("\u{202E}fdp.exe", "fdp.exe"),
+            ("in\u{2066}voice\u{2069}.pdf", "invoice.pdf"),
+            ("line\nbreak.txt", "linebreak.txt"),
+            ("tab\there\u{7f}.log", "tabhere.log"),
+        ] {
+            assert_eq!(
+                super::sanitized_file_name(raw).as_deref(),
+                Some(expected),
+                "{raw:?}"
+            );
+        }
+    }
+
     #[test]
     fn names_with_no_usable_component_are_refused() {
-        for raw in ["", "   ", ".", "..", "a/b/", "with\0nul", "sub/.."] {
+        for raw in [
+            "",
+            "   ",
+            ".",
+            "..",
+            "...",
+            ". .",
+            "\u{202E}",
+            "a/b/",
+            "with\0nul",
+            "sub/..",
+        ] {
             assert!(
                 super::sanitized_file_name(raw).is_none(),
                 "{raw:?} must be refused"
@@ -1192,7 +1467,7 @@ mod tests {
     fn completed_download_named(dir: &std::path::Path, name: &str) -> (ClipboardFileTransfer, u32) {
         let mut t = ClipboardFileTransfer::new();
         t.set_available_files(vec![ClipboardFileInfo::new(name.to_string(), 4, 0, 0, 0)]);
-        t.begin_batch(dir.to_path_buf(), 1);
+        t.begin_batch(dir.to_path_buf());
         let sid = t.start_download(0).expect("starts");
         t.update_size(sid, 4);
         assert_eq!(t.append_data(sid, b"data", false), ChunkOutcome::Complete);
@@ -1202,11 +1477,22 @@ mod tests {
     #[test]
     fn a_download_is_written_into_the_chosen_directory() {
         let dir = tempfile::tempdir().expect("temp dir");
-        let (t, sid) = completed_download_named(dir.path(), "notes.txt");
+        let (mut t, sid) = completed_download_named(dir.path(), "notes.txt");
 
         let path = t.save_download(sid).expect("the write succeeds");
         assert_eq!(path, dir.path().join("notes.txt"));
         assert_eq!(std::fs::read(&path).expect("readable"), b"data");
+    }
+
+    /// End to end: a server offering `.bash_profile` gets a visible file.
+    #[test]
+    fn a_server_dotfile_is_saved_as_a_visible_file() {
+        let dir = tempfile::tempdir().expect("temp dir");
+        let (mut t, sid) = completed_download_named(dir.path(), ".bash_profile");
+
+        let path = t.save_download(sid).expect("the write succeeds");
+        assert_eq!(path, dir.path().join("bash_profile"));
+        assert!(!dir.path().join(".bash_profile").exists());
     }
 
     /// The security case: an absolute name from the server must not escape the
@@ -1215,7 +1501,7 @@ mod tests {
     fn an_absolute_server_name_cannot_escape_the_chosen_directory() {
         let dir = tempfile::tempdir().expect("temp dir");
         let escape = dir.path().join("outside.txt");
-        let (t, sid) = completed_download_named(
+        let (mut t, sid) = completed_download_named(
             &dir.path().join("inside"),
             escape.to_str().expect("utf-8 temp path"),
         );
@@ -1235,7 +1521,7 @@ mod tests {
         let dir = tempfile::tempdir().expect("temp dir");
         let inner = dir.path().join("inner");
         std::fs::create_dir_all(&inner).expect("target dir");
-        let (t, sid) = completed_download_named(&inner, "../escaped.txt");
+        let (mut t, sid) = completed_download_named(&inner, "../escaped.txt");
 
         let path = t.save_download(sid).expect("the write succeeds");
         assert_eq!(path, inner.join("escaped.txt"));
@@ -1248,7 +1534,7 @@ mod tests {
     #[test]
     fn a_name_with_no_usable_component_is_refused_rather_than_written() {
         let dir = tempfile::tempdir().expect("temp dir");
-        let (t, sid) = completed_download_named(dir.path(), "..");
+        let (mut t, sid) = completed_download_named(dir.path(), "..");
 
         let err = t.save_download(sid).expect_err("must refuse");
         assert_eq!(err.kind(), std::io::ErrorKind::InvalidInput);
@@ -1266,7 +1552,7 @@ mod tests {
         let dir = tempfile::tempdir().expect("temp dir");
         std::fs::write(dir.path().join("notes.txt"), b"original").expect("seed file");
 
-        let (t, sid) = completed_download_named(dir.path(), "notes.txt");
+        let (mut t, sid) = completed_download_named(dir.path(), "notes.txt");
         let path = t.save_download(sid).expect("the write succeeds");
 
         assert_eq!(path, dir.path().join("notes (1).txt"));
@@ -1289,7 +1575,7 @@ mod tests {
             0,
             0,
         )]);
-        t.begin_batch(dir.path().to_path_buf(), 1);
+        t.begin_batch(dir.path().to_path_buf());
         let sid = t.start_download(0).expect("starts");
         t.update_size(sid, 100);
         assert_eq!(

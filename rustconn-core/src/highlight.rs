@@ -10,6 +10,7 @@ use tracing::warn;
 use uuid::Uuid;
 
 use crate::models::HighlightRule;
+use crate::terminal_themes::parse_hex_channels;
 
 // ---------------------------------------------------------------------------
 // Rgb / colour parsing
@@ -22,20 +23,301 @@ pub type Rgb = (f64, f64, f64);
 /// Parses a CSS hex colour string (`#RRGGBB`) into [`Rgb`] floats in `0.0..=1.0`.
 ///
 /// Returns `None` when the input is not a `#` followed by exactly six hex digits.
+/// The value comes straight from a rule editor's text field and is compiled on
+/// every terminal session start, so it goes through
+/// [`parse_hex_channels`], the parser every colour field shares, which refuses a
+/// multi-byte character instead of panicking on it (issue #343).
 #[must_use]
 pub fn parse_hex_color(hex: &str) -> Option<Rgb> {
-    let hex = hex.strip_prefix('#')?;
-    if hex.len() != 6 {
+    let digits = hex.strip_prefix('#')?;
+    // Six digits only: a highlight colour has no alpha channel.
+    if digits.len() != 6 {
         return None;
     }
-    let r = u8::from_str_radix(&hex[0..2], 16).ok()?;
-    let g = u8::from_str_radix(&hex[2..4], 16).ok()?;
-    let b = u8::from_str_radix(&hex[4..6], 16).ok()?;
+    let [r, g, b, _] = parse_hex_channels(digits)?;
     Some((
         f64::from(r) / 255.0,
         f64::from(g) / 255.0,
         f64::from(b) / 255.0,
     ))
+}
+
+/// Normalises the text of a rule editor's colour field into the stored value.
+///
+/// Surrounding whitespace is dropped and an empty field means "no colour"
+/// (`None`). Anything else is kept verbatim, valid or not, so a value the user is
+/// still typing survives a save and reopens as typed; [`is_valid_color_input`]
+/// is what the editor uses to flag it.
+#[must_use]
+pub fn normalize_color_input(text: &str) -> Option<String> {
+    let trimmed = text.trim();
+    if trimmed.is_empty() {
+        None
+    } else {
+        Some(trimmed.to_string())
+    }
+}
+
+/// Checks a rule pattern with the regex engine [`CompiledHighlightRules::compile`] uses.
+///
+/// An invalid pattern is skipped at compile time with nothing but a log line, so
+/// the rule editors call this to flag it while the user types. An empty pattern
+/// compiles; the editors treat it as not filled in yet.
+///
+/// # Errors
+///
+/// Returns the regex engine's error when `pattern` does not compile.
+pub fn validate_pattern(pattern: &str) -> Result<(), regex::Error> {
+    Regex::new(pattern).map(|_| ())
+}
+
+/// Whether a rule editor's colour field holds something usable.
+///
+/// An empty field is valid (it means "no colour"); otherwise the trimmed text
+/// must be a `#RRGGBB` value that [`parse_hex_color`] accepts. A rule with an
+/// invalid colour still matches, it just draws nothing for that colour, so the
+/// editor has to say so — silently drawing nothing is how issue #343 started.
+#[must_use]
+pub fn is_valid_color_input(text: &str) -> bool {
+    let trimmed = text.trim();
+    trimmed.is_empty() || parse_hex_color(trimmed).is_some()
+}
+
+// ---------------------------------------------------------------------------
+// Terminal column geometry
+// ---------------------------------------------------------------------------
+
+/// Distance between VTE's default tab stops, in cells.
+///
+/// VTE sets a tab stop every eight columns and a program only moves them with
+/// the rarely used HTS/TBC escape sequences, so eight is what a tab in ordinary
+/// output means.
+const TAB_STOP_WIDTH: usize = 8;
+
+/// Returns the number of terminal cells a character occupies: 0, 1, or 2.
+///
+/// A VTE terminal lays text out on a fixed grid, and VTE sizes each character
+/// with glib: `g_unichar_iszerowidth` makes it zero cells and
+/// `g_unichar_iswide` — East-Asian Width W or F — two; everything else takes
+/// one. The overlay that draws highlight rectangles has to count the same
+/// cells, not `char`s, or a rectangle after a wide character lands a whole cell
+/// too far left for every such character before it.
+///
+/// The wide set is exact: [`WIDE_RANGES`] is every W and F range of Unicode's
+/// `EastAsianWidth.txt`, so the `✅` and `❌` that build and test tools print
+/// count two cells, as VTE draws them. The zero-width set covers the combining
+/// blocks, variation selectors, tags and format characters that terminal
+/// output carries — `⚠️` is U+26A0 followed by the variation selector U+FE0F,
+/// one cell in VTE — but not the combining marks of every script, so a line of,
+/// say, Devanagari can still put a highlight a cell off; that is the documented
+/// limit. A multi-scalar emoji sequence is counted per scalar, as VTE counts it.
+#[must_use]
+fn char_cell_width(c: char) -> usize {
+    let cp = u32::from(c);
+    // Combining marks and zero-width characters occupy no cell of their own.
+    let is_zero_width = matches!(cp,
+        0x0300..=0x036F     // Combining Diacritical Marks
+        | 0x1160..=0x11FF   // Hangul Jamo medial vowels and final consonants
+        | 0x1AB0..=0x1AFF   // Combining Diacritical Marks Extended
+        | 0x1DC0..=0x1DFF   // Combining Diacritical Marks Supplement
+        | 0x200B..=0x200F   // ZWSP, ZWNJ, ZWJ, LRM, RLM
+        | 0x202A..=0x202E   // Bidirectional embeddings and overrides
+        | 0x2060..=0x2064   // Word joiner and invisible operators
+        | 0x2066..=0x206F   // Bidirectional isolates, deprecated format controls
+        | 0x20D0..=0x20FF   // Combining Diacritical Marks for Symbols
+        | 0xD7B0..=0xD7FF   // Hangul Jamo Extended-B
+        | 0xFE00..=0xFE0F   // Variation selectors; U+FE0F asks for the emoji form
+        | 0xFE20..=0xFE2F   // Combining Half Marks
+        | 0xFEFF            // Zero Width No-Break Space (BOM)
+        | 0xE0001           // Language tag
+        | 0xE0020..=0xE007F // Tag characters, as in subdivision flags
+        | 0xE0100..=0xE01EF, // Variation Selectors Supplement
+    );
+    if is_zero_width {
+        return 0;
+    }
+    let is_wide = WIDE_RANGES
+        .binary_search_by(|&(first, last)| {
+            if last < cp {
+                std::cmp::Ordering::Less
+            } else if cp < first {
+                std::cmp::Ordering::Greater
+            } else {
+                std::cmp::Ordering::Equal
+            }
+        })
+        .is_ok();
+    if is_wide { 2 } else { 1 }
+}
+
+/// Every East-Asian Width `W` and `F` range of Unicode 18.0's
+/// `EastAsianWidth.txt`, with touching ranges merged: the set
+/// `g_unichar_iswide` answers for, and so the characters VTE draws two cells
+/// wide.
+///
+/// To refresh it, take every `W` and `F` line of a newer `EastAsianWidth.txt`
+/// and merge ranges that touch. [`char_cell_width`] binary-searches it, so it
+/// must stay sorted and disjoint, which a test checks.
+const WIDE_RANGES: &[(u32, u32)] = &[
+    (0x1100, 0x115F),
+    (0x231A, 0x231B),
+    (0x2329, 0x232A),
+    (0x23E9, 0x23EC),
+    (0x23F0, 0x23F0),
+    (0x23F3, 0x23F3),
+    (0x25FD, 0x25FE),
+    (0x2614, 0x2615),
+    (0x2630, 0x2637),
+    (0x2648, 0x2653),
+    (0x267F, 0x267F),
+    (0x268A, 0x268F),
+    (0x2693, 0x2693),
+    (0x26A1, 0x26A1),
+    (0x26AA, 0x26AB),
+    (0x26BD, 0x26BE),
+    (0x26C4, 0x26C5),
+    (0x26CE, 0x26CE),
+    (0x26D4, 0x26D4),
+    (0x26EA, 0x26EA),
+    (0x26F2, 0x26F3),
+    (0x26F5, 0x26F5),
+    (0x26FA, 0x26FA),
+    (0x26FD, 0x26FD),
+    (0x2705, 0x2705),
+    (0x270A, 0x270B),
+    (0x2728, 0x2728),
+    (0x274C, 0x274C),
+    (0x274E, 0x274E),
+    (0x2753, 0x2755),
+    (0x2757, 0x2757),
+    (0x2795, 0x2797),
+    (0x27B0, 0x27B0),
+    (0x27BF, 0x27BF),
+    (0x2B1B, 0x2B1C),
+    (0x2B50, 0x2B50),
+    (0x2B55, 0x2B55),
+    (0x2E80, 0x2E99),
+    (0x2E9B, 0x2EF3),
+    (0x2F00, 0x2FD5),
+    (0x2FF0, 0x303E),
+    (0x3041, 0x3096),
+    (0x3099, 0x30FF),
+    (0x3105, 0x312F),
+    (0x3131, 0x318E),
+    (0x3190, 0x31E5),
+    (0x31EF, 0x321E),
+    (0x3220, 0x3247),
+    (0x3250, 0xA48C),
+    (0xA490, 0xA4C6),
+    (0xA960, 0xA97C),
+    (0xAC00, 0xD7A3),
+    (0xF900, 0xFAFF),
+    (0xFE10, 0xFE19),
+    (0xFE30, 0xFE52),
+    (0xFE54, 0xFE66),
+    (0xFE68, 0xFE6B),
+    (0xFF01, 0xFF60),
+    (0xFFE0, 0xFFE6),
+    (0x16FE0, 0x16FE4),
+    (0x16FF0, 0x16FF6),
+    (0x17000, 0x18CDA),
+    (0x18CFF, 0x18D20),
+    (0x18D80, 0x18DF2),
+    (0x18E00, 0x19191),
+    (0x191A0, 0x191D2),
+    (0x1AFF0, 0x1AFF3),
+    (0x1AFF5, 0x1AFFB),
+    (0x1AFFD, 0x1AFFE),
+    (0x1B000, 0x1B128),
+    (0x1B132, 0x1B132),
+    (0x1B150, 0x1B152),
+    (0x1B155, 0x1B155),
+    (0x1B164, 0x1B168),
+    (0x1B170, 0x1B2FB),
+    (0x1D300, 0x1D356),
+    (0x1D360, 0x1D376),
+    (0x1F004, 0x1F004),
+    (0x1F0CF, 0x1F0CF),
+    (0x1F18E, 0x1F18E),
+    (0x1F191, 0x1F19A),
+    (0x1F1AE, 0x1F1AE),
+    (0x1F200, 0x1F202),
+    (0x1F210, 0x1F23B),
+    (0x1F240, 0x1F248),
+    (0x1F250, 0x1F251),
+    (0x1F260, 0x1F265),
+    (0x1F300, 0x1F320),
+    (0x1F32D, 0x1F335),
+    (0x1F337, 0x1F37C),
+    (0x1F37E, 0x1F393),
+    (0x1F3A0, 0x1F3CA),
+    (0x1F3CF, 0x1F3D3),
+    (0x1F3E0, 0x1F3F0),
+    (0x1F3F4, 0x1F3F4),
+    (0x1F3F8, 0x1F43E),
+    (0x1F440, 0x1F440),
+    (0x1F442, 0x1F4FC),
+    (0x1F4FF, 0x1F53D),
+    (0x1F54B, 0x1F54E),
+    (0x1F550, 0x1F567),
+    (0x1F57A, 0x1F57A),
+    (0x1F595, 0x1F596),
+    (0x1F5A4, 0x1F5A4),
+    (0x1F5FB, 0x1F64F),
+    (0x1F680, 0x1F6C5),
+    (0x1F6CC, 0x1F6CC),
+    (0x1F6D0, 0x1F6D2),
+    (0x1F6D5, 0x1F6D9),
+    (0x1F6DC, 0x1F6DF),
+    (0x1F6EB, 0x1F6EC),
+    (0x1F6F4, 0x1F6FC),
+    (0x1F7DA, 0x1F7DA),
+    (0x1F7E0, 0x1F7EB),
+    (0x1F7F0, 0x1F7F0),
+    (0x1F90C, 0x1F93A),
+    (0x1F93C, 0x1F945),
+    (0x1F947, 0x1F9FF),
+    (0x1FA70, 0x1FA7C),
+    (0x1FA80, 0x1FAC6),
+    (0x1FAC8, 0x1FAC8),
+    (0x1FACC, 0x1FADD),
+    (0x1FADF, 0x1FAEB),
+    (0x1FAEF, 0x1FAFA),
+    (0x20000, 0x2FFFD),
+    (0x30000, 0x3FFFD),
+];
+
+/// Converts a byte offset within `line` to its terminal column (0-based).
+///
+/// Walks every character before `byte_offset`, so the result is the cell the
+/// character at that offset starts in — the value the overlay multiplies by the
+/// cell width to place a highlight rectangle. A byte offset past the end of the
+/// line clamps to the line's total column width.
+///
+/// Wide characters count as two columns and combining marks as zero (see
+/// [`char_cell_width`]), unlike a plain `chars().count()`, which is why a match
+/// after a CJK glyph is no longer drawn a cell further left for every wide
+/// character before it (issue #343).
+///
+/// A tab advances to the next tab stop. VTE keeps a tab written at the end of a
+/// line as a single `'\t'` cell spanning up to that stop, and its text export
+/// returns that `'\t'` once, so counting it as one column put every match after
+/// a tab — `grep` over indented code, a Java stack trace's `\tat` — up to seven
+/// cells too far left.
+#[must_use]
+pub fn byte_offset_to_column(line: &str, byte_offset: usize) -> usize {
+    let mut column = 0;
+    for (idx, c) in line.char_indices() {
+        if byte_offset <= idx {
+            break;
+        }
+        column = if c == '\t' {
+            (column / TAB_STOP_WIDTH + 1) * TAB_STOP_WIDTH
+        } else {
+            column + char_cell_width(c)
+        };
+    }
+    column
 }
 
 // ---------------------------------------------------------------------------
@@ -304,7 +586,20 @@ pub fn builtin_defaults() -> Vec<HighlightRule> {
 
 #[cfg(test)]
 mod tests {
-    use super::parse_hex_color;
+    use super::{
+        WIDE_RANGES, byte_offset_to_column, char_cell_width, is_valid_color_input,
+        normalize_color_input, parse_hex_color, validate_pattern,
+    };
+
+    #[test]
+    fn validate_pattern_accepts_what_compile_accepts() {
+        assert!(validate_pattern(r"(?i)\bINFO\b").is_ok());
+        assert!(validate_pattern("").is_ok());
+        assert!(validate_pattern("ERROR(").is_err());
+        // The literal other tools use is not a regex error, it just matches
+        // nothing useful — the colour field is where it goes wrong.
+        assert!(validate_pattern("'INFO'").is_ok());
+    }
 
     #[test]
     fn parse_hex_color_valid_colors() {
@@ -334,5 +629,161 @@ mod tests {
         assert_eq!(parse_hex_color("#GGHHII"), None); // invalid hex chars
         assert_eq!(parse_hex_color(""), None); // empty
         assert_eq!(parse_hex_color("#"), None); // only hash
+    }
+
+    /// Six bytes are not six hex digits: a Cyrillic `а` is two bytes, so
+    /// `#0а0ff` passed the length check and then panicked on a slice that split
+    /// the character (issue #343). It must be rejected, not crash.
+    #[test]
+    fn parse_hex_color_rejects_multibyte_input_without_panicking() {
+        assert_eq!(parse_hex_color("#0а0ff"), None);
+        assert_eq!(parse_hex_color("#ффф"), None);
+        assert_eq!(parse_hex_color("#€000"), None);
+    }
+
+    /// `u8::from_str_radix` accepts a leading `+`, which used to let `#+f+f+f`
+    /// through as `#0F0F0F`.
+    #[test]
+    fn parse_hex_color_rejects_signs() {
+        assert_eq!(parse_hex_color("#+f+f+f"), None);
+        assert_eq!(parse_hex_color("#-f-f-f"), None);
+    }
+
+    #[test]
+    fn normalize_color_input_trims_and_treats_blank_as_none() {
+        assert_eq!(normalize_color_input(""), None);
+        assert_eq!(normalize_color_input("   "), None);
+        assert_eq!(
+            normalize_color_input("  #00AAFF "),
+            Some("#00AAFF".to_string())
+        );
+        // An unfinished value is kept as typed; validity is a separate question.
+        assert_eq!(normalize_color_input("#00A"), Some("#00A".to_string()));
+    }
+
+    #[test]
+    fn is_valid_color_input_accepts_blank_and_hex_only() {
+        assert!(is_valid_color_input(""));
+        assert!(is_valid_color_input("  "));
+        assert!(is_valid_color_input("#00aaFF"));
+        assert!(is_valid_color_input(" #00AAFF "));
+        assert!(!is_valid_color_input("#00A"));
+        assert!(!is_valid_color_input("00AAFF"));
+        assert!(!is_valid_color_input("[0,0,255]"));
+        assert!(!is_valid_color_input("#0а0ff"));
+    }
+
+    #[test]
+    fn byte_offset_to_column_ascii() {
+        let line = "ERROR: disk full";
+        // One byte per character, so column == byte offset.
+        assert_eq!(byte_offset_to_column(line, 0), 0);
+        assert_eq!(byte_offset_to_column(line, 5), 5); // just past "ERROR"
+        assert_eq!(byte_offset_to_column(line, line.len()), 16);
+    }
+
+    #[test]
+    fn byte_offset_to_column_past_end_clamps_to_width() {
+        let line = "abc";
+        // An offset beyond the line clamps to its total column width.
+        assert_eq!(byte_offset_to_column(line, 99), 3);
+    }
+
+    #[test]
+    fn byte_offset_to_column_wide_chars_count_two() {
+        // "世" and "界" are CJK ideographs: 3 bytes each, 2 columns each.
+        let line = "世界x";
+        assert_eq!(line.len(), 7); // 3 + 3 + 1 bytes
+        assert_eq!(byte_offset_to_column(line, 0), 0);
+        assert_eq!(byte_offset_to_column(line, 3), 2); // after first ideograph
+        assert_eq!(byte_offset_to_column(line, 6), 4); // after second ideograph
+        assert_eq!(byte_offset_to_column(line, 7), 5); // after the ASCII 'x'
+    }
+
+    #[test]
+    fn byte_offset_to_column_combining_marks_count_zero() {
+        // 'e' (1 byte) followed by U+0301 combining acute accent (2 bytes):
+        // the mark adds no column of its own.
+        let line = "e\u{0301}x";
+        assert_eq!(line.len(), 4); // 1 + 2 + 1 bytes
+        assert_eq!(byte_offset_to_column(line, 1), 1); // after 'e'
+        assert_eq!(byte_offset_to_column(line, 3), 1); // after the combining mark
+        assert_eq!(byte_offset_to_column(line, 4), 2); // after 'x'
+    }
+
+    #[test]
+    fn byte_offset_to_column_empty_line() {
+        assert_eq!(byte_offset_to_column("", 0), 0);
+    }
+
+    /// VTE returns a tab as one `'\t'` that spans to the next tab stop, so the
+    /// column after it is the next multiple of eight, not one more.
+    #[test]
+    fn byte_offset_to_column_tab_advances_to_next_stop() {
+        let line = "\tat Foo.bar";
+        assert_eq!(byte_offset_to_column(line, 0), 0);
+        assert_eq!(byte_offset_to_column(line, 1), 8); // "at" starts at the first stop
+
+        let line = "ab\tERROR";
+        assert_eq!(byte_offset_to_column(line, 2), 2); // the tab itself
+        assert_eq!(byte_offset_to_column(line, 3), 8); // "ERROR" after it
+
+        // A tab that starts on a stop still moves a full stop further.
+        let line = "12345678\tx";
+        assert_eq!(byte_offset_to_column(line, 9), 16);
+
+        // Consecutive tabs, and a wide character before a tab.
+        assert_eq!(byte_offset_to_column("\t\tx", 2), 16);
+        assert_eq!(byte_offset_to_column("世\tx", 4), 8);
+    }
+
+    /// VTE sizes cells with glib, so these follow East-Asian Width: the `✅`
+    /// and `❌` that build and test tools print are W, two cells, and `⚠️` is
+    /// the one-cell U+26A0 plus a zero-width variation selector. A match after
+    /// any of them was drawn a cell off.
+    #[test]
+    fn byte_offset_to_column_follows_vte_after_status_symbols() {
+        for (line, word, column) in [
+            ("❌ ERROR: build failed", "ERROR", 3),
+            ("✅ passed", "passed", 3),
+            ("⚠\u{FE0F} WARNING: disk", "WARNING", 2),
+            ("⭐⚡ FATAL", "FATAL", 5),
+        ] {
+            let offset = line.find(word).unwrap();
+            assert_eq!(byte_offset_to_column(line, offset), column, "{line:?}");
+        }
+    }
+
+    #[test]
+    fn char_cell_width_matches_east_asian_width() {
+        for (c, width) in [
+            ('a', 1),
+            ('世', 2),
+            ('\u{3000}', 2),  // Ideographic space (F)
+            ('\u{1F600}', 2), // Grinning face (W)
+            ('\u{1F5A5}', 1), // Desktop computer: text-style, EAW N
+            ('\u{1F6E0}', 1), // Hammer and wrench: EAW N
+            ('\u{1F1FA}', 1), // Regional indicator: EAW N, a flag is two of them
+            ('\u{FE0F}', 0),  // Variation selector-16
+            ('\u{200D}', 0),  // Zero width joiner
+            ('\u{E0067}', 0), // Tag character in a subdivision flag
+            ('\u{1161}', 0),  // Hangul Jamo medial vowel
+            ('\u{2060}', 0),  // Word joiner
+            ('\u{00AD}', 1),  // Soft hyphen: glib keeps it one cell wide
+        ] {
+            assert_eq!(char_cell_width(c), width, "{c:?}");
+        }
+    }
+
+    /// `char_cell_width` binary-searches the table, which is only correct
+    /// while the ranges are sorted and do not overlap.
+    #[test]
+    fn wide_ranges_are_sorted_and_disjoint() {
+        for &(first, last) in WIDE_RANGES {
+            assert!(first <= last, "{first:#X}..{last:#X}");
+        }
+        for pair in WIDE_RANGES.windows(2) {
+            assert!(pair[0].1 < pair[1].0, "{pair:X?}");
+        }
     }
 }

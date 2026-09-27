@@ -113,8 +113,11 @@ impl TerminalNotebook {
             .borrow_mut()
             .remove(&session_id);
 
-        // Remove stale highlight overlay (will be re-created by set_highlight_rules)
-        self.highlight_overlays.borrow_mut().remove(&session_id);
+        // Remove stale highlight overlay (will be re-created by set_highlight_rules).
+        // Dropping it takes its layer off the terminal's overlay; dropped outside
+        // the map borrow because that `Drop` talks to GTK.
+        let stale_overlay = self.highlight_overlays.borrow_mut().remove(&session_id);
+        drop(stale_overlay);
 
         // Remove stale VTE child PID entry — the process should have already
         // exited (child-exited removes it), but if reconnect is triggered

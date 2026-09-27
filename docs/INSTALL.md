@@ -145,12 +145,15 @@ sudo snap connect rustconn:kube-credentials
 | picocom | Serial console |
 | Midnight Commander | SFTP file browser |
 | waypipe | Wayland forwarding |
+| FreeRDP X11 client (`xfreerdp3`) | External RDP client and fallback (since 0.22.7) |
 
 External CLIs (Zero Trust providers, password managers, kubectl) are downloaded on
-demand via the Components dialog (Menu → Components) inside the sandbox. RDP and VNC
-use the embedded clients (IronRDP and vnc-rs); the snap does not bundle or download
-an external FreeRDP or TigerVNC fallback, so those two protocols rely on the
-embedded implementations only.
+demand via the Components dialog (Menu → Components) inside the sandbox. RDP uses the
+embedded IronRDP client, with the bundled `xfreerdp3` for External mode and for what
+IronRDP cannot do (legacy RDP security layer, RemoteApp, an RD Gateway target on a
+port other than 3389). VNC uses the
+embedded vnc-rs client only. SPICE is not available in the snap: no viewer is bundled,
+and strict confinement cannot start the host's `remote-viewer`.
 
 ### CLI in Snap
 
@@ -428,10 +431,16 @@ for the full list.
 ### Optional Protocol Clients
 
 RustConn uses embedded Rust implementations for RDP and VNC by default.
-External clients serve as fallbacks when the embedded client fails (e.g., RD Gateway).
+External clients serve as fallbacks when the embedded client fails (e.g., an RD Gateway
+target on a port other than 3389).
 SPICE always uses an external viewer (remote-viewer / virt-viewer).
 
-FreeRDP detection priority (Wayland session): `sdl-freerdp3` > `sdl-freerdp` > `wlfreerdp3` > `xfreerdp3` > `wlfreerdp` > `xfreerdp`. The SDL3 client is preferred because FreeRDP upstream has deprecated the `wlfreerdp` client (issue #340); on an X11 session the `xfreerdp*` clients come first instead.
+FreeRDP detection priority:
+
+- Wayland session: `sdl-freerdp3` > `sdl-freerdp` > `wlfreerdp3` > `wlfreerdp` > `xfreerdp3` > `xfreerdp`. The SDL3 client is preferred because FreeRDP upstream has deprecated the `wlfreerdp` client (issue #340).
+- X11 session: `xfreerdp3` > `xfreerdp` > `sdl-freerdp3` > `sdl-freerdp` > `wlfreerdp3` > `wlfreerdp`.
+
+The client reported as installed and the client launched come from the same list. A connection can also name its client explicitly (FreeRDP client in the RDP editor, `--rdp-freerdp-client` on the CLI).
 
 | Protocol | Client | Package |
 |----------|--------|---------|

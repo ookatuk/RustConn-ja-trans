@@ -3376,6 +3376,18 @@ impl MainWindow {
                             .get_connection(connection_id)
                             .map(|c| c.protocol_config.erase_modes())
                     });
+                    // Highlight rules: the global rules and the built-in toggle
+                    // used to reach only sessions started afterwards, so turning
+                    // the built-ins off changed nothing on screen (issue #343).
+                    notebook.reapply_highlight_rules(
+                        &settings.highlight_rules,
+                        !settings.highlight_builtin_defaults_disabled,
+                        |connection_id| {
+                            state_ref
+                                .get_connection(connection_id)
+                                .map(|c| c.highlight_rules.clone())
+                        },
+                    );
                 }
 
                 // Apply protocol tab coloring setting

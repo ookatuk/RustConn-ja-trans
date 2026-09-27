@@ -100,7 +100,7 @@ impl AudioFormatInfo {
     }
 }
 
-/// File information for clipboard file transfers (`CF_HDROP`)
+/// File information for clipboard file transfers (`FileGroupDescriptorW`)
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ClipboardFileInfo {
     /// File name (without path)
@@ -552,7 +552,10 @@ pub enum RdpClientEvent {
     /// Request to fetch clipboard data from server (internal, triggers `initiate_paste`)
     ClipboardPasteRequest(ClipboardFormatInfo),
 
-    /// File list available on server clipboard (`CF_HDROP`)
+    /// Files on the server clipboard, from its `FileGroupDescriptorW`.
+    ///
+    /// An empty list withdraws the previous offer: the server's clipboard now
+    /// holds something other than files.
     ClipboardFileList(Vec<ClipboardFileInfo>),
 
     /// File contents received from server

@@ -7,23 +7,6 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Mutex, OnceLock};
 use std::time::{Duration, Instant};
 
-const WAYLAND_FIRST_CANDIDATES: &[&str] = &[
-    "sdl-freerdp3",
-    "sdl-freerdp",
-    "wlfreerdp3",
-    "wlfreerdp",
-    "xfreerdp3",
-    "xfreerdp",
-];
-const X11_FIRST_CANDIDATES: &[&str] = &[
-    "xfreerdp3",
-    "xfreerdp",
-    "sdl-freerdp3",
-    "sdl-freerdp",
-    "wlfreerdp3",
-    "wlfreerdp",
-];
-
 /// Maximum time allowed for a FreeRDP `--version` process.
 const VERSION_PROBE_TIMEOUT: Duration = Duration::from_secs(2);
 /// Maximum time allowed for one `which` process during binary detection.
@@ -40,13 +23,6 @@ static VERSION_CACHE: OnceLock<Mutex<HashMap<String, Option<FreeRdpVersion>>>> =
 
 fn is_cancelled(cancellation: Option<&AtomicBool>) -> bool {
     cancellation.is_some_and(|flag| flag.load(Ordering::Acquire))
-}
-
-fn is_wayland_session() -> bool {
-    std::env::var("XDG_SESSION_TYPE")
-        .map(|v| v == "wayland")
-        .unwrap_or(false)
-        || std::env::var("WAYLAND_DISPLAY").is_ok()
 }
 
 /// Syntax accepted by the installed FreeRDP for `/args-from:`.
@@ -334,13 +310,10 @@ pub(crate) fn detect_best_freerdp_with_cancel(cancellation: Option<&AtomicBool>)
         ("SDL-freerdp.app", "sdl-freerdp"),
         ("wlfreerdp.app", "wlfreerdp"),
     ];
-    let wayland = is_wayland_session();
-    let candidates = if wayland {
-        WAYLAND_FIRST_CANDIDATES
-    } else {
-        X11_FIRST_CANDIDATES
-    };
-    for candidate in candidates {
+    // The launch order lives in rustconn-core, shared with the client
+    // detection that reports which FreeRDP is installed (issue #340).
+    let wayland = rustconn_core::protocol::is_wayland_session();
+    for candidate in rustconn_core::protocol::freerdp_launch_order() {
         if is_cancelled(cancellation) {
             return None;
         }
@@ -371,7 +344,8 @@ pub fn detect_best_freerdp() -> Option<String> {
 /// Detects if a Wayland-native FreeRDP variant is available for embedded mode.
 #[must_use]
 pub fn detect_wlfreerdp() -> bool {
-    is_wayland_session() && (binary_exists("wlfreerdp3") || binary_exists("wlfreerdp"))
+    rustconn_core::protocol::is_wayland_session()
+        && (binary_exists("wlfreerdp3") || binary_exists("wlfreerdp"))
 }
 
 pub(crate) fn detect_best_freerdp_for_remoteapp_with_cancel(
@@ -407,7 +381,8 @@ pub fn detect_best_freerdp_for_remoteapp() -> Option<String> {
 
 /// Every FreeRDP client binary RustConn knows how to launch, newest-first.
 ///
-/// The superset of the platform-ordered candidate lists above, used to populate
+/// The superset of the session-ordered launch lists that
+/// `rustconn_core::protocol::freerdp_launch_order` returns, used to populate
 /// the connection editor's "FreeRDP client" dropdown. `wlfreerdp`/`wlfreerdp3`
 /// are deprecated upstream (issue #340) but still offered, since some setups
 /// only ship them.
@@ -544,24 +519,6 @@ mod tests {
         permissions.set_mode(0o700);
         std::fs::set_permissions(&path, permissions).expect("make probe script executable");
         (dir, path.to_string_lossy().into_owned())
-    }
-
-    #[test]
-    fn candidates_have_expected_precedence() {
-        let sdl = WAYLAND_FIRST_CANDIDATES
-            .iter()
-            .position(|c| *c == "sdl-freerdp3")
-            .expect("SDL candidate must exist");
-        let wl = WAYLAND_FIRST_CANDIDATES
-            .iter()
-            .position(|c| *c == "wlfreerdp3")
-            .expect("Wayland candidate must exist");
-        let x11 = WAYLAND_FIRST_CANDIDATES
-            .iter()
-            .position(|c| *c == "xfreerdp3")
-            .expect("X11 candidate must exist");
-        assert!(sdl < wl && wl < x11);
-        assert_eq!(X11_FIRST_CANDIDATES.first(), Some(&"xfreerdp3"));
     }
 
     #[test]

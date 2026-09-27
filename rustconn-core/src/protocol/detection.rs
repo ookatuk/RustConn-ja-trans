@@ -208,42 +208,106 @@ pub fn detect_ssh_client() -> ClientInfo {
     )
 }
 
+/// External FreeRDP clients in the order they are tried in a Wayland session.
+///
+/// The SDL3 client first: FreeRDP upstream has deprecated the wlfreerdp client
+/// in favour of it (issue #340). The X11 clients come last and run through
+/// XWayland. `sdl-freerdp` and the unsuffixed names are what the Flatpak,
+/// upstream builds and FreeRDP 2 install.
+pub const FREERDP_WAYLAND_FIRST: &[&str] = &[
+    "sdl-freerdp3",
+    "sdl-freerdp",
+    "wlfreerdp3",
+    "wlfreerdp",
+    "xfreerdp3",
+    "xfreerdp",
+];
+
+/// External FreeRDP clients in the order they are tried in an X11 session.
+pub const FREERDP_X11_FIRST: &[&str] = &[
+    "xfreerdp3",
+    "xfreerdp",
+    "sdl-freerdp3",
+    "sdl-freerdp",
+    "wlfreerdp3",
+    "wlfreerdp",
+];
+
+/// Whether the desktop session is Wayland: `XDG_SESSION_TYPE=wayland`, or a
+/// `WAYLAND_DISPLAY` to connect to.
+#[must_use]
+pub fn is_wayland_session() -> bool {
+    std::env::var("XDG_SESSION_TYPE").is_ok_and(|session| session == "wayland")
+        || std::env::var_os("WAYLAND_DISPLAY").is_some()
+}
+
+/// The external FreeRDP clients in the order they are tried in this session.
+///
+/// The one list both the launcher and [`detect_rdp_client`] walk, so the client
+/// reported as installed is the client that gets launched. They used to keep
+/// separate lists, which disagreed on where `wlfreerdp` and `xfreerdp3` go and
+/// ignored X11 sessions altogether.
+#[must_use]
+pub fn freerdp_launch_order() -> &'static [&'static str] {
+    if is_wayland_session() {
+        FREERDP_WAYLAND_FIRST
+    } else {
+        FREERDP_X11_FIRST
+    }
+}
+
+/// Picks the FreeRDP client for a launch outside the GUI: the connection's
+/// pinned client when it is installed, otherwise the first installed one in
+/// [`freerdp_launch_order`].
+///
+/// The GUI launcher resolves the same way and also probes a Flatpak host. A
+/// pinned client that is not installed is skipped with a warning, as it is
+/// there. `None` when no FreeRDP client is installed at all.
+#[must_use]
+pub fn resolve_freerdp_client(pinned: Option<&str>) -> Option<String> {
+    if let Some(name) = pinned.map(str::trim).filter(|name| !name.is_empty()) {
+        if crate::which::is_available(name) {
+            return Some(name.to_string());
+        }
+        tracing::warn!(
+            protocol = "rdp",
+            client = %name,
+            "Configured FreeRDP client is not available — falling back to auto-detection"
+        );
+    }
+    freerdp_launch_order()
+        .iter()
+        .copied()
+        .find(|binary| crate::which::is_available(binary))
+        .map(str::to_string)
+}
+
+/// Display name and minimum version for a FreeRDP client binary.
+///
+/// The `3`-suffixed binaries and the SDL client only ship with FreeRDP 3. The
+/// unsuffixed `wlfreerdp`/`xfreerdp` are what FreeRDP 2 installs, and some
+/// FreeRDP 3 packages too — the version probe then reports the real version.
+fn freerdp_generation(binary: &str) -> (&'static str, &'static str) {
+    if binary.ends_with('3') || binary == "sdl-freerdp" {
+        ("FreeRDP 3", "3.0.0")
+    } else {
+        ("FreeRDP 2", "2.0.0")
+    }
+}
+
 /// Detects the RDP client on the system
 ///
-/// Checks for FreeRDP 3.x, FreeRDP 2.x, or rdesktop binaries and extracts version information.
-/// Priority: sdl-freerdp3 > sdl-freerdp > wlfreerdp3 > xfreerdp3 > wlfreerdp > xfreerdp > rdesktop
-///
-/// SDL3 is preferred over the wlfreerdp client, which FreeRDP upstream has
-/// deprecated in favour of the SDL3 client (issue #340). This order mirrors the
-/// runtime launcher's `WAYLAND_FIRST_CANDIDATES` so the reported client is the
-/// one that actually gets launched.
+/// Checks the FreeRDP clients in [`freerdp_launch_order`], then rdesktop, and
+/// extracts version information. In a Wayland session that is sdl-freerdp3 >
+/// sdl-freerdp > wlfreerdp3 > wlfreerdp > xfreerdp3 > xfreerdp; in an X11
+/// session the X11 clients come first.
 #[must_use]
 pub fn detect_rdp_client() -> ClientInfo {
-    // Try FreeRDP 3.x first (preferred)
-    // sdl-freerdp3 — SDL3 client, versioned (distro packages)
-    if let Some(info) = try_detect_client("FreeRDP 3", "sdl-freerdp3", &["--version"]) {
-        return info.with_min_version("3.0.0");
-    }
-    // sdl-freerdp — SDL3 client, unversioned (Flatpak / upstream build)
-    if let Some(info) = try_detect_client("FreeRDP 3", "sdl-freerdp", &["--version"]) {
-        return info.with_min_version("3.0.0");
-    }
-    // wlfreerdp3 — Wayland-native, deprecated upstream but still shipped
-    if let Some(info) = try_detect_client("FreeRDP 3", "wlfreerdp3", &["--version"]) {
-        return info.with_min_version("3.0.0");
-    }
-    // xfreerdp3 for X11
-    if let Some(info) = try_detect_client("FreeRDP 3", "xfreerdp3", &["--version"]) {
-        return info.with_min_version("3.0.0");
-    }
-
-    // Try FreeRDP 2.x
-    // wlfreerdp for Wayland, xfreerdp for X11
-    if let Some(info) = try_detect_client("FreeRDP 2", "wlfreerdp", &["--version"]) {
-        return info.with_min_version("2.0.0");
-    }
-    if let Some(info) = try_detect_client("FreeRDP 2", "xfreerdp", &["--version"]) {
-        return info.with_min_version("2.0.0");
+    for binary in freerdp_launch_order() {
+        let (name, min_version) = freerdp_generation(binary);
+        if let Some(info) = try_detect_client(name, binary, &["--version"]) {
+            return info.with_min_version(min_version);
+        }
     }
 
     // Try rdesktop as legacy fallback
@@ -871,6 +935,61 @@ fn extract_version_string(line: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Moved from the GUI launcher when the lists became shared (issue #340):
+    /// SDL3 before the deprecated wlfreerdp before X11 on Wayland, X11 first on
+    /// X11, and the same six clients in both.
+    #[test]
+    fn freerdp_candidates_have_expected_precedence() {
+        let position = |list: &[&str], name: &str| {
+            list.iter()
+                .position(|candidate| *candidate == name)
+                .unwrap_or_else(|| panic!("{name} must be a candidate"))
+        };
+        let sdl = position(FREERDP_WAYLAND_FIRST, "sdl-freerdp3");
+        let wl = position(FREERDP_WAYLAND_FIRST, "wlfreerdp3");
+        let x11 = position(FREERDP_WAYLAND_FIRST, "xfreerdp3");
+        assert!(sdl < wl && wl < x11);
+        assert_eq!(FREERDP_X11_FIRST.first(), Some(&"xfreerdp3"));
+
+        let mut wayland = FREERDP_WAYLAND_FIRST.to_vec();
+        let mut x11_first = FREERDP_X11_FIRST.to_vec();
+        wayland.sort_unstable();
+        x11_first.sort_unstable();
+        assert_eq!(wayland, x11_first);
+    }
+
+    #[test]
+    fn freerdp_generation_follows_the_binary_name() {
+        assert_eq!(freerdp_generation("sdl-freerdp3").0, "FreeRDP 3");
+        assert_eq!(freerdp_generation("sdl-freerdp").0, "FreeRDP 3");
+        assert_eq!(freerdp_generation("xfreerdp3").0, "FreeRDP 3");
+        assert_eq!(freerdp_generation("wlfreerdp").0, "FreeRDP 2");
+        assert_eq!(freerdp_generation("xfreerdp").0, "FreeRDP 2");
+    }
+
+    /// The pinned client wins when it is installed; `sh` stands in for one,
+    /// since no FreeRDP is guaranteed on a test machine.
+    #[test]
+    fn a_pinned_installed_client_is_used() {
+        assert_eq!(resolve_freerdp_client(Some(" sh ")).as_deref(), Some("sh"));
+    }
+
+    /// A pinned client that is not installed falls back to the shared launch
+    /// order, never to the pinned name.
+    #[test]
+    fn a_missing_pinned_client_falls_back_to_the_launch_order() {
+        let resolved = resolve_freerdp_client(Some("no-such-freerdp-client"));
+        assert!(
+            resolved
+                .as_deref()
+                .is_none_or(|binary| freerdp_launch_order().contains(&binary))
+        );
+        assert_eq!(
+            resolve_freerdp_client(Some("  ")),
+            resolve_freerdp_client(None)
+        );
+    }
 
     #[test]
     fn test_client_info_installed() {

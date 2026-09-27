@@ -6,21 +6,35 @@
 //! on top of the terminal via `gtk4::Overlay`.
 //!
 //! A background rule tints the whole cell behind the match; a foreground rule
-//! paints a lighter translucent wash over the match plus a solid underline.
-//! The overlay cannot recolour VTE's own glyphs, so a foreground colour cannot
-//! literally recolour the text — the wash is the closest visible equivalent
-//! that keeps the text legible (issue #343).
+//! draws a thick underline in its colour. The overlay paints on a transparent
+//! layer above VTE and cannot recolour VTE's own glyphs, so the rule editors
+//! call the foreground colour the *underline* colour: recolouring the text
+//! itself takes an output filter such as `chromaterm`, which rewrites the stream
+//! before VTE sees it (issue #343).
 //!
 //! ## Architecture
 //!
-//! 1. [`HighlightOverlay::new`] creates a `DrawingArea` and attaches it as
-//!    an overlay on the provided `gtk4::Overlay` widget.
-//! 2. [`HighlightOverlay::connect`] wires VTE's `contents-changed` signal
-//!    so the overlay repaints whenever terminal output changes.
-//! 3. On each paint the overlay reads the visible text via
-//!    `terminal.text_range_format()`, runs [`CompiledHighlightRules::find_matches`]
-//!    per line, and draws colored rectangles (background) and underlines
-//!    (foreground) using Cairo.
+//! [`HighlightOverlay::attach`] creates the `DrawingArea`, puts it on the
+//! `gtk4::Overlay` that hosts the terminal, and repaints it whenever VTE's text,
+//! cursor or cell size changes. On each paint it reads the visible text via
+//! `terminal.text_range_format()`, runs [`CompiledHighlightRules::find_matches`]
+//! per line, and draws colored rectangles (background) and underlines
+//! (foreground) using Cairo.
+//!
+//! ## Lifecycle (issue #343)
+//!
+//! A session's terminal moves — into a split pane, into a detached window and
+//! back — and every move wraps it in a different `gtk4::Overlay`. The drawing
+//! layer follows it: whenever the terminal is mapped, the layer re-homes itself
+//! on the overlay that hosts the terminal now. Pinned to the overlay it was
+//! first attached to, it used to vanish after a detach and never appear in a
+//! split pane.
+//!
+//! The value owns everything it adds. Dropping it takes the layer off its
+//! overlay, disconnects its signal handlers and unregisters the hover regexes it
+//! was handed, so replacing a session's rules — on reconnect, or after Settings
+//! change — no longer stacks a second layer, a second set of handlers and a
+//! second set of regexes on the first.
 //!
 //! ## Coordinate system (issue #154)
 //!
@@ -35,254 +49,328 @@
 //!
 //! The fix: anchor the read range to the current viewport top
 //! (`vadjustment.value()`), so highlights are computed for the lines that
-//! VTE is actually painting at any given moment.
+//! VTE is actually painting at any given moment. Scrolling needs no extra
+//! wiring: VTE emits `contents-changed` when the view scrolls.
+//!
+//! ## Cell geometry (issue #343)
+//!
+//! Cell size comes from VTE's own `char_width()`/`char_height()`, not from
+//! dividing the DrawingArea by the row/column count (which spread the slack over
+//! every column and drifted). The grid starts at the top-left of VTE's *content*
+//! box, which [`grid_origin`] maps into the DrawingArea's coordinates. That
+//! absorbs the scrollbar beside the terminal and VTE's own CSS padding (1px by
+//! default), both of which an origin derived from the DrawingArea or from VTE's
+//! border box got wrong. Measured against VTE 0.84 by rendering a full block to
+//! a texture: the block's first pixel is exactly at the content-box origin.
+//! Byte offsets are turned into columns with [`byte_offset_to_column`], which
+//! counts a wide (CJK) glyph as two cells, a combining mark as zero and a tab up
+//! to the next tab stop.
 //!
 //! ## Limitations
 //!
-//! - Wide characters (CJK) occupy 2 terminal columns but `chars().count()`
-//!   treats them as 1 character, so highlight positions may be slightly off
-//!   for lines containing wide characters.
+//! - [`byte_offset_to_column`] approximates Unicode width over the common CJK,
+//!   kana, Hangul, fullwidth and emoji ranges; a rarer wide block, or a
+//!   multi-scalar emoji sequence (ZWJ / regional-indicator pairs) counted per
+//!   scalar, can still place a highlight a cell off. Tabs assume VTE's default
+//!   stop every eight columns.
 
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::rc::Rc;
 
 use gtk4::prelude::*;
-use gtk4::{DrawingArea, Overlay};
-use rustconn_core::highlight::CompiledHighlightRules;
+use gtk4::{DrawingArea, Overlay, glib, graphene};
+use rustconn_core::highlight::{CompiledHighlightRules, byte_offset_to_column};
 use uuid::Uuid;
 use vte4::Terminal;
 use vte4::prelude::*;
 
+/// How many levels above the terminal to look for the overlay that hosts it.
+///
+/// A tab and a split pane both wrap the terminal as
+/// `Overlay > Box(terminal, scrollbar)`, so the overlay is two levels up. One
+/// level of slack keeps an extra wrapper working without letting the search
+/// climb to an unrelated overlay near the top of the window.
+const HOST_OVERLAY_SEARCH_DEPTH: usize = 3;
+
 /// A transparent drawing layer that renders colored highlight matches
 /// on top of a VTE terminal.
+///
+/// Owns what it adds to the terminal and removes all of it when dropped — see
+/// the module's lifecycle notes.
 pub struct HighlightOverlay {
     drawing_area: DrawingArea,
+    terminal: glib::WeakRef<Terminal>,
+    /// Handlers connected on the terminal, disconnected on drop.
+    terminal_handlers: Vec<glib::SignalHandlerId>,
+    /// Hover regexes registered on the terminal for these rules, removed on drop.
+    match_tags: Vec<i32>,
 }
 
 impl HighlightOverlay {
-    /// Creates a new highlight overlay and attaches it to the given `Overlay` widget.
+    /// Creates a session's highlight layer and attaches it above `terminal`.
     ///
-    /// The `DrawingArea` is set to transparent (pass-through for mouse events)
-    /// so it does not interfere with VTE's own input handling.
-    pub fn new(overlay: &Overlay, terminal: &Terminal) -> Self {
+    /// `rules` is the shared compiled-rules map for all sessions; the layer
+    /// draws the entry for `session_id`. `match_tags` are the hover regexes the
+    /// caller registered on `terminal` for the same rules. The layer takes them
+    /// over and unregisters them when it is dropped.
+    pub fn attach(
+        terminal: &Terminal,
+        rules: Rc<RefCell<HashMap<Uuid, CompiledHighlightRules>>>,
+        session_id: Uuid,
+        match_tags: Vec<i32>,
+    ) -> Self {
         let drawing_area = DrawingArea::new();
         drawing_area.set_hexpand(true);
         drawing_area.set_vexpand(true);
         // Let mouse events pass through to the terminal underneath
         drawing_area.set_can_target(false);
 
-        overlay.add_overlay(&drawing_area);
-
-        // Initial empty draw function — replaced by `connect()`
+        // Weak: the terminal must not be kept alive by its own decoration.
         let term_weak = terminal.downgrade();
-        drawing_area.set_draw_func(move |_da, cr, _w, _h| {
+        drawing_area.set_draw_func(move |da, cr, _width, _height| {
+            // Clear to fully transparent
             cr.set_operator(gtk4::cairo::Operator::Clear);
-            let _ = cr.paint();
+            if cr.paint().is_err() {
+                return;
+            }
             cr.set_operator(gtk4::cairo::Operator::Over);
-            let _ = term_weak.upgrade();
+
+            let Some(terminal) = term_weak.upgrade() else {
+                return;
+            };
+            let rules_map = rules.borrow();
+            let Some(compiled) = rules_map.get(&session_id) else {
+                return;
+            };
+            draw_matches(da, cr, &terminal, compiled);
         });
 
-        Self { drawing_area }
-    }
+        let schedule_redraw = redraw_scheduler(&drawing_area);
+        let mut terminal_handlers = Vec::with_capacity(4);
 
-    /// Wires the overlay to repaint on every `contents-changed` signal from VTE.
-    ///
-    /// `rules` is the shared compiled highlight rules map for all sessions.
-    pub fn connect(
-        &self,
-        terminal: &Terminal,
-        rules: Rc<RefCell<HashMap<Uuid, CompiledHighlightRules>>>,
-        session_id: Uuid,
-    ) {
-        let da = self.drawing_area.clone();
-        let term_for_draw = terminal.clone();
-        let rules_for_draw = rules;
+        // Repaint when the text changes. `cursor-moved` too, because
+        // `contents-changed` alone does not fire reliably for every escape
+        // sequence (e.g. `\033[2J`, erase display), while the cursor home that
+        // `clear` always sends does move the cursor (issue #154).
+        let redraw = Rc::clone(&schedule_redraw);
+        terminal_handlers.push(terminal.connect_contents_changed(move |_| redraw()));
+        let redraw = Rc::clone(&schedule_redraw);
+        terminal_handlers.push(terminal.connect_cursor_moved(move |_| redraw()));
+        // A font change or zoom resizes the cells, and VTE only reports
+        // `contents-changed` for it when the row or column count changes too.
+        let redraw = Rc::clone(&schedule_redraw);
+        terminal_handlers.push(terminal.connect_char_size_changed(move |_, _, _| redraw()));
 
-        self.drawing_area
-            .set_draw_func(move |_da, cr, width, height| {
-                // Clear to fully transparent
-                cr.set_operator(gtk4::cairo::Operator::Clear);
-                if cr.paint().is_err() {
-                    return;
-                }
-                cr.set_operator(gtk4::cairo::Operator::Over);
-
-                let rules_map = rules_for_draw.borrow();
-                let Some(compiled) = rules_map.get(&session_id) else {
-                    return;
-                };
-
-                let row_count = term_for_draw.row_count();
-                let col_count = term_for_draw.column_count();
-                if row_count <= 0 || col_count <= 0 {
-                    return;
-                }
-
-                // Compute cell dimensions from the terminal's visible area
-                let cell_w = f64::from(width) / col_count as f64;
-                let cell_h = f64::from(height) / row_count as f64;
-                if cell_w <= 0.0 || cell_h <= 0.0 {
-                    return;
-                }
-
-                // Anchor the read range to the current viewport top.
-                //
-                // VTE addresses the entire scrollback + visible area in a
-                // single coordinate system.  Reading rows 0..row_count
-                // returns the first lines of the scrollback (which still
-                // contain the original colored text after `clear`), not
-                // the visible viewport.  See module-level docs for details
-                // on issue #154.
-                let viewport_top = term_for_draw
-                    .vadjustment()
-                    .map_or(0_i64, |adj| adj.value() as i64);
-
-                // ponytail: re-runs the rule regex over every visible row on
-                // each repaint (already coalesced to 1/frame). Fine for a
-                // ~24-50 row viewport with short lines; if profiling ever shows
-                // this hot (huge terminals + many rules), cache matches keyed by
-                // (row text, rules version) and skip unchanged rows.
-                for visible_row in 0..row_count {
-                    let buffer_row = viewport_top.saturating_add(visible_row);
-                    let (line_opt, _) = term_for_draw.text_range_format(
-                        vte4::Format::Text,
-                        buffer_row,
-                        0,
-                        buffer_row,
-                        col_count,
-                    );
-                    let Some(line_gstr) = line_opt else {
-                        continue;
-                    };
-                    let line = line_gstr.as_str();
-                    if line.is_empty() {
-                        continue;
-                    }
-
-                    let matches = compiled.find_matches(line);
-                    if matches.is_empty() {
-                        continue;
-                    }
-
-                    let y = visible_row as f64 * cell_h;
-
-                    for m in &matches {
-                        // Convert byte offsets to column positions. col_end is
-                        // computed as a delta from col_start so we scan each
-                        // line slice once instead of twice from the start.
-                        let col_start = line[..m.start].chars().count();
-                        let col_end = col_start + line[m.start..m.end].chars().count();
-                        let x = col_start as f64 * cell_w;
-                        let w = (col_end - col_start) as f64 * cell_w;
-
-                        // Draw background highlight rectangle (colour pre-parsed).
-                        // A background rule tints the whole cell behind the match.
-                        if let Some((r, g, b)) = m.background_rgb {
-                            cr.set_source_rgba(r, g, b, 0.35);
-                            cr.rectangle(x, y, w, cell_h);
-                            if cr.fill().is_err() {
-                                return;
-                            }
-                        }
-
-                        // Draw the foreground highlight (colour pre-parsed).
-                        //
-                        // The overlay cannot recolour VTE's own glyphs — it only
-                        // paints on a transparent layer above the terminal — so a
-                        // foreground rule is shown as a translucent wash over the
-                        // matched text plus a solid underline. Earlier this was a
-                        // 2px underline alone (issue #343): with most rules only
-                        // setting a foreground colour, the sole visible effect was
-                        // a thin line a user did not read as "highlighting". The
-                        // wash keeps the underlying text legible (low alpha) while
-                        // making the match unmistakably coloured; the underline
-                        // stays as a crisp anchor and to distinguish a foreground
-                        // rule from a background one.
-                        if let Some((r, g, b)) = m.foreground_rgb {
-                            cr.set_source_rgba(r, g, b, 0.25);
-                            cr.rectangle(x, y, w, cell_h);
-                            if cr.fill().is_err() {
-                                return;
-                            }
-                            cr.set_source_rgba(r, g, b, 0.9);
-                            cr.set_line_width(2.0);
-                            cr.move_to(x, y + cell_h - 1.0);
-                            cr.line_to(x + w, y + cell_h - 1.0);
-                            if cr.stroke().is_err() {
-                                return;
-                            }
-                        }
-                    }
+        // Follow the terminal when it is shown somewhere new. Deferred to idle so
+        // the widget tree is not rearranged in the middle of a `map` emission.
+        let da_weak = drawing_area.downgrade();
+        terminal_handlers.push(terminal.connect_map(move |terminal| {
+            let da_weak = da_weak.clone();
+            let term_weak = terminal.downgrade();
+            glib::idle_add_local_once(move || {
+                if let (Some(da), Some(terminal)) = (da_weak.upgrade(), term_weak.upgrade()) {
+                    attach_to_host_overlay(&da, &terminal);
                 }
             });
+        }));
 
-        // Redraw on contents-changed and cursor-moved using idle callback.
-        //
-        // Both signals are needed because `contents-changed` alone does not
-        // fire reliably for all escape sequences (e.g. `\033[2J` erase
-        // display).  The `cursor-moved` signal fires on `\033[H` (cursor
-        // home) which is always part of `clear`, ensuring the overlay
-        // repaints even when `contents-changed` is not emitted (issue #154).
-        //
-        // `idle_add_local_once` schedules the redraw in the same main-loop
-        // iteration — after VTE finishes processing the current input batch
-        // but before the next frame is composited.  Coalescing is still
-        // effective: rapid signals within one iteration share a single
-        // pending flag, so only one `queue_draw()` fires per frame.
-        let redraw_pending = Rc::new(std::cell::Cell::new(false));
+        attach_to_host_overlay(&drawing_area, terminal);
 
-        let da_weak_contents = da.downgrade();
-        let redraw_pending_contents = redraw_pending.clone();
-        terminal.connect_contents_changed(move |_| {
-            if redraw_pending_contents.get() {
-                return; // Already scheduled
+        Self {
+            drawing_area,
+            terminal: terminal.downgrade(),
+            terminal_handlers,
+            match_tags,
+        }
+    }
+}
+
+impl Drop for HighlightOverlay {
+    fn drop(&mut self) {
+        detach_from_parent(&self.drawing_area);
+        if let Some(terminal) = self.terminal.upgrade() {
+            for handler in self.terminal_handlers.drain(..) {
+                terminal.disconnect(handler);
             }
-            redraw_pending_contents.set(true);
-            let da_weak_idle = da_weak_contents.clone();
-            let pending = redraw_pending_contents.clone();
-            gtk4::glib::idle_add_local_once(move || {
-                pending.set(false);
-                if let Some(da_ref) = da_weak_idle.upgrade() {
-                    da_ref.queue_draw();
-                }
-            });
-        });
-
-        let da_weak_cursor = da.downgrade();
-        let redraw_pending_cursor = redraw_pending;
-        terminal.connect_cursor_moved(move |_| {
-            if redraw_pending_cursor.get() {
-                return; // Already scheduled
+            // Removing a tag VTE no longer knows (the search dialog clears all
+            // matches) is a no-op.
+            for tag in self.match_tags.drain(..) {
+                terminal.match_remove(tag);
             }
-            redraw_pending_cursor.set(true);
-            let da_weak_idle = da_weak_cursor.clone();
-            let pending = redraw_pending_cursor.clone();
-            gtk4::glib::idle_add_local_once(move || {
-                pending.set(false);
-                if let Some(da_ref) = da_weak_idle.upgrade() {
-                    da_ref.queue_draw();
-                }
-            });
+        }
+    }
+}
+
+/// Returns a callback that repaints the layer once, on the next idle.
+///
+/// `idle_add_local_once` runs after VTE finishes processing the current input
+/// batch but before the next frame is composited, and rapid signals within one
+/// main-loop iteration share a single pending flag, so a burst of output costs
+/// one `queue_draw()`. The callback holds the layer weakly.
+fn redraw_scheduler(drawing_area: &DrawingArea) -> Rc<dyn Fn()> {
+    let pending = Rc::new(Cell::new(false));
+    let da_weak = drawing_area.downgrade();
+    Rc::new(move || {
+        if pending.replace(true) {
+            return; // Already scheduled
+        }
+        let pending = Rc::clone(&pending);
+        let da_weak = da_weak.clone();
+        glib::idle_add_local_once(move || {
+            pending.set(false);
+            if let Some(da) = da_weak.upgrade() {
+                da.queue_draw();
+            }
         });
+    })
+}
+
+/// Finds the `gtk4::Overlay` that hosts `terminal` right now, if any.
+fn host_overlay(terminal: &Terminal) -> Option<Overlay> {
+    let mut ancestor = terminal.parent();
+    for _ in 0..HOST_OVERLAY_SEARCH_DEPTH {
+        match ancestor?.downcast::<Overlay>() {
+            Ok(overlay) => return Some(overlay),
+            Err(widget) => ancestor = widget.parent(),
+        }
+    }
+    None
+}
+
+/// Puts the drawing layer on the overlay that hosts `terminal` now.
+///
+/// A no-op when it is already there. Otherwise the layer leaves its old overlay
+/// and joins the new one directly above the terminal — below any controls that
+/// overlay also carries, such as a split pane's corner buttons, so a highlight
+/// never paints over them.
+fn attach_to_host_overlay(drawing_area: &DrawingArea, terminal: &Terminal) {
+    let Some(overlay) = host_overlay(terminal) else {
+        return;
+    };
+    if drawing_area.parent().as_ref() == Some(overlay.upcast_ref::<gtk4::Widget>()) {
+        return;
+    }
+    detach_from_parent(drawing_area);
+    overlay.add_overlay(drawing_area);
+    if let Some(main_child) = overlay.child() {
+        drawing_area.insert_after(&overlay, Some(&main_child));
+    }
+    drawing_area.queue_draw();
+}
+
+/// Takes the drawing layer off whatever it is attached to.
+fn detach_from_parent(drawing_area: &DrawingArea) {
+    let Some(parent) = drawing_area.parent() else {
+        return;
+    };
+    match parent.downcast::<Overlay>() {
+        Ok(overlay) => overlay.remove_overlay(drawing_area),
+        Err(_) => drawing_area.unparent(),
+    }
+}
+
+/// Top-left corner of VTE's character grid, in the DrawingArea's coordinates.
+///
+/// A widget's own coordinates start at its content box, so this is the point
+/// `(0, 0)` of the terminal mapped into the DrawingArea. `None` until both are
+/// in the same, allocated widget tree — the frame is skipped rather than guessed.
+fn grid_origin(terminal: &Terminal, drawing_area: &DrawingArea) -> Option<(f64, f64)> {
+    let origin = terminal.compute_point(drawing_area, &graphene::Point::new(0.0, 0.0))?;
+    Some((f64::from(origin.x()), f64::from(origin.y())))
+}
+
+/// Paints the matches of `compiled` for the rows VTE is showing right now.
+fn draw_matches(
+    da: &DrawingArea,
+    cr: &gtk4::cairo::Context,
+    terminal: &Terminal,
+    compiled: &CompiledHighlightRules,
+) {
+    let row_count = terminal.row_count();
+    let col_count = terminal.column_count();
+    if row_count <= 0 || col_count <= 0 {
+        return;
     }
 
-    /// Returns the underlying `DrawingArea` widget.
-    #[must_use]
-    #[expect(
-        dead_code,
-        reason = "kept alive for GTK widget lifecycle / future API exposure"
-    )]
-    pub fn drawing_area(&self) -> &DrawingArea {
-        &self.drawing_area
+    // VTE quantises each cell to an integer `char_width` × `char_height`, so
+    // dividing the DrawingArea by the row/column count spreads the unused slack
+    // across every column and the error accumulates along the line and down the
+    // screen. The true cell size removes that drift.
+    let cell_w = terminal.char_width() as f64;
+    let cell_h = terminal.char_height() as f64;
+    if cell_w <= 0.0 || cell_h <= 0.0 {
+        return;
     }
 
-    /// Triggers a manual redraw of the overlay.
-    #[expect(
-        dead_code,
-        reason = "kept alive for GTK widget lifecycle / future API exposure"
-    )]
-    pub fn queue_redraw(&self) {
-        self.drawing_area.queue_draw();
+    let Some((origin_x, origin_y)) = grid_origin(terminal, da) else {
+        return;
+    };
+
+    // Anchor the read range to the current viewport top.
+    //
+    // VTE addresses the entire scrollback + visible area in a single coordinate
+    // system. Reading rows 0..row_count returns the first lines of the
+    // scrollback (which still contain the original colored text after `clear`),
+    // not the visible viewport. See module-level docs for details on issue #154.
+    let viewport_top = terminal
+        .vadjustment()
+        .map_or(0_i64, |adj| adj.value() as i64);
+
+    // ponytail: re-runs the rule regex over every visible row on each repaint
+    // (already coalesced to 1/frame). Fine for a ~24-50 row viewport with short
+    // lines; if profiling ever shows this hot (huge terminals + many rules),
+    // cache matches keyed by (row text, rules version) and skip unchanged rows.
+    for visible_row in 0..row_count {
+        let buffer_row = viewport_top.saturating_add(visible_row);
+        let (line_opt, _) =
+            terminal.text_range_format(vte4::Format::Text, buffer_row, 0, buffer_row, col_count);
+        let Some(line_gstr) = line_opt else {
+            continue;
+        };
+        let line = line_gstr.as_str();
+        if line.is_empty() {
+            continue;
+        }
+
+        let matches = compiled.find_matches(line);
+        if matches.is_empty() {
+            continue;
+        }
+
+        let y = (visible_row as f64).mul_add(cell_h, origin_y);
+
+        for m in &matches {
+            // Byte offsets to terminal columns: a wide (CJK) glyph is two cells,
+            // a combining mark none, a tab runs to the next stop.
+            let col_start = byte_offset_to_column(line, m.start);
+            let col_end = byte_offset_to_column(line, m.end);
+            let x = (col_start as f64).mul_add(cell_w, origin_x);
+            let w = (col_end - col_start) as f64 * cell_w;
+
+            // Background rule: tint the whole cell behind the match.
+            if let Some((r, g, b)) = m.background_rgb {
+                cr.set_source_rgba(r, g, b, 0.35);
+                cr.rectangle(x, y, w, cell_h);
+                if cr.fill().is_err() {
+                    return;
+                }
+            }
+
+            // Foreground rule: a thick underline in the rule's colour. It cannot
+            // recolour VTE's glyphs (see the module docs), and unlike the
+            // full-cell wash 0.22.6 used it does not read as a background tint.
+            // Inset from the row's bottom edge so it is not clipped.
+            if let Some((r, g, b)) = m.foreground_rgb {
+                cr.set_source_rgba(r, g, b, 0.95);
+                cr.set_line_width(3.0);
+                let underline_y = y + cell_h - 2.0;
+                cr.move_to(x, underline_y);
+                cr.line_to(x + w, underline_y);
+                if cr.stroke().is_err() {
+                    return;
+                }
+            }
+        }
     }
 }

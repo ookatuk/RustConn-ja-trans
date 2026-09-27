@@ -140,6 +140,24 @@
     <control>touch</control>
   </supports>
   <releases>
+    <release version="0.22.7" date="2026-09-27">
+      <description>
+        <p>Version 0.22.7 - terminal highlight, RDP sizing and clipboard fixes, FreeRDP in the Snap:</p>
+        <ul>
+          <li>Added: the Snap bundles FreeRDP's X11 client (xfreerdp3) for external RDP, RemoteApp and legacy servers (issue #342)</li>
+          <li>Fixed: terminal highlights are drawn on the text — cell size and origin come from VTE, wide characters and tab stops are counted as VTE counts them, and a text colour is drawn as an underline (issue #343)</li>
+          <li>Fixed: a non-ASCII character in a highlight or terminal colour value no longer crashes RustConn (issue #343)</li>
+          <li>Fixed: highlights follow a moved session, no longer stack on reconnect, reach open sessions when Settings are saved, and cover Zero Trust and Quick Connect sessions (issue #343)</li>
+          <li>Fixed: the highlight rule editors flag an invalid pattern or colour, for screen readers too, and call the foreground colour an underline (issue #343)</li>
+          <li>Fixed: a custom /smart-sizing argument no longer makes the external RDP client exit; smart sizing wins over dynamic resolution everywhere, and .rdp import and export keep both settings (issue #341)</li>
+          <li>Fixed: the FreeRDP client reported as installed is the one launched, and rustconn-cli connect uses the same choice, the pinned client and the sizing switches (issues #340, #341)</li>
+          <li>Fixed: embedded RDP "Save N Files" works against a real server, fetches one file at a time, times out, and no longer puts stale data on the local clipboard (issue #74)</li>
+          <li>Security: "Save N Files" no longer creates a hidden file named by the server, and the embedded wlfreerdp launch filters custom /shell:, /proxy: and password arguments like the external launcher (issue #74)</li>
+          <li>Documentation: Snap, install and user-guide corrections for the sandboxed builds, RD Gateway and highlighting (issues #341, #342, #343)</li>
+          <li>Dependencies: FreeRDP (Flatpak) 3.32.0, a security release</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.22.6" date="2026-09-25">
       <description>
         <p>Version 0.22.6 - terminal highlight fixes and packaging corrections:</p>

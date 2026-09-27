@@ -478,6 +478,114 @@ impl SwitchRowBuilder {
     }
 }
 
+/// Shared text and field feedback for the two highlight rule editors.
+///
+/// The global editor in Settings and the per-connection one in the connection
+/// editor used to accept anything silently: an invalid pattern or colour was
+/// stored and then drew nothing, with no sign of why (issue #343). Both now
+/// mark such a field with the `error` style class. The value itself is still
+/// stored as typed, so nothing is lost mid-edit.
+pub mod highlight_fields {
+    use gtk4::prelude::*;
+
+    use crate::i18n::i18n;
+
+    /// Label of the underline (foreground) colour field.
+    ///
+    /// The overlay cannot recolour the terminal's glyphs, so the foreground
+    /// colour is drawn as an underline. It used to be labelled "Text colour",
+    /// which promised something the terminal never did (issue #343).
+    #[must_use]
+    pub fn underline_colour_label() -> String {
+        i18n("Underline colour (#RRGGBB)")
+    }
+
+    /// Label of the background colour field.
+    #[must_use]
+    pub fn background_colour_label() -> String {
+        i18n("Background colour (#RRGGBB)")
+    }
+
+    /// Tooltip of the underline (foreground) colour field.
+    #[must_use]
+    pub fn underline_colour_tooltip() -> String {
+        i18n(
+            "Hexadecimal colour such as #00AAFF, drawn as an underline under the match. Leave empty for none. To recolour the text itself, give the connection an Output Filter such as ChromaTerm.",
+        )
+    }
+
+    /// Tooltip of the background colour field.
+    #[must_use]
+    pub fn background_colour_tooltip() -> String {
+        i18n("Hexadecimal colour such as #402020. Leave empty for no background.")
+    }
+
+    /// Marks a colour field invalid unless its text is empty or `#RRGGBB`.
+    pub fn show_colour_validity(field: &impl IsA<gtk4::Widget>, text: &str) {
+        set_invalid(field, !rustconn_core::highlight::is_valid_color_input(text));
+    }
+
+    /// Marks a pattern field invalid when its text is not a regular expression.
+    ///
+    /// An invalid pattern's tooltip becomes the regex engine's own message,
+    /// which names the problem; a valid one gets `tooltip` back.
+    pub fn show_pattern_validity(field: &impl IsA<gtk4::Widget>, text: &str, tooltip: &str) {
+        match rustconn_core::highlight::validate_pattern(text) {
+            Ok(()) => {
+                set_invalid(field, false);
+                field.set_tooltip_text(Some(tooltip));
+            }
+            Err(error) => {
+                set_invalid(field, true);
+                field.set_tooltip_text(Some(&error.to_string()));
+            }
+        }
+    }
+
+    /// Marks `field` invalid or valid, for the eye and for assistive technology.
+    ///
+    /// The red outline alone tells a screen reader nothing, and the HIG asks
+    /// that no information be carried by colour only, so the accessible
+    /// `invalid` state follows the `error` style class.
+    fn set_invalid(field: &impl IsA<gtk4::Widget>, invalid: bool) {
+        let widget = field.upcast_ref::<gtk4::Widget>();
+        if invalid {
+            widget.add_css_class("error");
+            widget.update_state(&[gtk4::accessible::State::Invalid(
+                gtk4::AccessibleInvalidState::True,
+            )]);
+        } else {
+            widget.remove_css_class("error");
+            widget.reset_state(gtk4::AccessibleState::Invalid);
+        }
+    }
+
+    #[cfg(test)]
+    mod tests {
+        /// The style class and the accessible state are set and cleared
+        /// together; a field corrected by the user must lose both.
+        #[test]
+        #[ignore = "initialises GTK: needs a display and its own process; run alone with `cargo test -p rustconn --bin rustconn -- --ignored --exact <this test path>`"]
+        fn an_invalid_colour_is_flagged_and_a_corrected_one_is_cleared() {
+            use gtk4::prelude::*;
+
+            if gtk4::init().is_err() {
+                return;
+            }
+            let entry = gtk4::Entry::new();
+            super::show_colour_validity(&entry, "#0а0ff");
+            assert!(entry.has_css_class("error"));
+            super::show_colour_validity(&entry, "#00AAFF");
+            assert!(!entry.has_css_class("error"));
+            super::show_colour_validity(&entry, "");
+            assert!(
+                !entry.has_css_class("error"),
+                "an empty field means no colour"
+            );
+        }
+    }
+}
+
 /// Marker function for xgettext to discover dialog header button labels.
 /// These strings are used indirectly via `dialog_header()` and would otherwise
 /// be invisible to the POT extraction tool.

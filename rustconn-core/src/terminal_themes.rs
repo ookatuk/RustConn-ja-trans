@@ -9,6 +9,30 @@ use std::sync::Mutex;
 
 use serde::{Deserialize, Serialize};
 
+/// Parses the digits of a hex colour, `RRGGBB` or `RRGGBBAA` without the `#`,
+/// into its red, green, blue and alpha bytes.
+///
+/// Alpha is `0xFF` when there are six digits. Every byte is checked to be an
+/// ASCII hex digit before anything is sliced: `len()` counts bytes, so six bytes
+/// can hold a multi-byte character — `0а0ff` with a Cyrillic `а` — and slicing
+/// at byte 2 would split it and panic. That panic took the application down on
+/// every terminal start in issue #343. Every colour parser goes through this one
+/// so that no copy of the old code can keep the bug; the check also refuses the
+/// leading `+` that `u8::from_str_radix` would accept.
+#[must_use]
+pub fn parse_hex_channels(digits: &str) -> Option<[u8; 4]> {
+    if !matches!(digits.len(), 6 | 8) || !digits.bytes().all(|b| b.is_ascii_hexdigit()) {
+        return None;
+    }
+    let channel = |at: usize| u8::from_str_radix(digits.get(at..at + 2)?, 16).ok();
+    let alpha = if digits.len() == 8 {
+        channel(6)?
+    } else {
+        u8::MAX
+    };
+    Some([channel(0)?, channel(2)?, channel(4)?, alpha])
+}
+
 /// RGB color representation
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Color {
@@ -28,18 +52,19 @@ impl Color {
     }
 
     /// Creates a color from hex string (e.g., "#FF0000")
+    ///
+    /// Anything other than six hex digits, with or without the `#`, is black.
     #[must_use]
     pub fn from_hex(hex: &str) -> Self {
-        let hex = hex.trim_start_matches('#');
-        if hex.len() != 6 {
-            return Self::new(0.0, 0.0, 0.0);
+        let digits = hex.trim_start_matches('#');
+        match parse_hex_channels(digits) {
+            Some([r, g, b, _]) if digits.len() == 6 => Self::new(
+                f32::from(r) / 255.0,
+                f32::from(g) / 255.0,
+                f32::from(b) / 255.0,
+            ),
+            _ => Self::new(0.0, 0.0, 0.0),
         }
-
-        let r = f32::from(u8::from_str_radix(&hex[0..2], 16).unwrap_or(0)) / 255.0;
-        let g = f32::from(u8::from_str_radix(&hex[2..4], 16).unwrap_or(0)) / 255.0;
-        let b = f32::from(u8::from_str_radix(&hex[4..6], 16).unwrap_or(0)) / 255.0;
-
-        Self::new(r, g, b)
     }
 
     /// Converts this color to a `#RRGGBB` hex string.
@@ -487,7 +512,51 @@ impl TerminalTheme {
 
 #[cfg(test)]
 mod tests {
-    use super::{FOLLOW_SYSTEM_THEME, TerminalTheme};
+    use super::{Color, FOLLOW_SYSTEM_THEME, TerminalTheme, parse_hex_channels};
+
+    #[test]
+    fn hex_channels_parse_six_and_eight_digits() {
+        assert_eq!(parse_hex_channels("FF8000"), Some([0xFF, 0x80, 0x00, 0xFF]));
+        assert_eq!(parse_hex_channels("aaBBcc"), Some([0xAA, 0xBB, 0xCC, 0xFF]));
+        assert_eq!(
+            parse_hex_channels("10203040"),
+            Some([0x10, 0x20, 0x30, 0x40])
+        );
+    }
+
+    #[test]
+    fn hex_channels_refuse_wrong_lengths_and_non_hex() {
+        for digits in [
+            "",
+            "FFF",
+            "FFFFF",
+            "FFFFFFF",
+            "FFFFFFFFF",
+            "GGGGGG",
+            "#FFFFFF",
+        ] {
+            assert_eq!(parse_hex_channels(digits), None, "{digits:?}");
+        }
+    }
+
+    /// Six bytes are not six hex digits: a Cyrillic `а` is two bytes, so a
+    /// length check alone let `0а0ff` through to a slice that split the
+    /// character and panicked (issue #343). `from_str_radix` also takes a `+`.
+    #[test]
+    fn hex_channels_refuse_multibyte_characters_and_signs_without_panicking() {
+        for digits in ["0а0ff", "ффф", "€000", "0а0ff0а0", "+f+f+f", "+f+f+f+f"] {
+            assert_eq!(parse_hex_channels(digits), None, "{digits:?}");
+        }
+    }
+
+    /// The theme constructor shares the parser, so a stored or imported value
+    /// holding a multi-byte character is black instead of a crash.
+    #[test]
+    fn color_from_hex_refuses_multibyte_input_without_panicking() {
+        assert_eq!(Color::from_hex("#0а0ff"), Color::new(0.0, 0.0, 0.0));
+        assert_eq!(Color::from_hex("#10203040"), Color::new(0.0, 0.0, 0.0));
+        assert_eq!(Color::from_hex("#FF0000"), Color::new(1.0, 0.0, 0.0));
+    }
 
     #[test]
     fn follow_system_resolves_to_dark_when_the_desktop_is_dark() {

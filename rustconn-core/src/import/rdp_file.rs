@@ -16,6 +16,8 @@
 //! - `audiomode` — 0 = local, 1 = remote, 2 = none
 //! - `redirectclipboard` — 0/1
 //! - `redirectprinters` — 0/1
+//! - `smart sizing` — 0/1, scale the session to the window
+//! - `dynamic resolution` — 0/1, resize the remote desktop with the window
 
 use std::collections::HashMap;
 use std::path::Path;
@@ -126,6 +128,13 @@ impl RdpFileImporter {
         // Printer redirection
         let printer_enabled = fields.get_bool("redirectprinters").unwrap_or(false);
 
+        // Sizing. A profile for a legacy server (e.g. Windows 2008 R2) carries
+        // `smart sizing:i:1` and often `dynamic resolution:i:0`; without these
+        // it imported with the defaults and opened unreadably small on a HiDPI
+        // display (issue #341). Absent keys keep the defaults.
+        let smart_sizing = fields.get_bool("smart sizing").unwrap_or(false);
+        let dynamic_resolution = fields.get_bool("dynamic resolution").unwrap_or(true);
+
         let gateway = parse_gateway(&fields);
 
         let name = path
@@ -140,6 +149,8 @@ impl RdpFileImporter {
             gateway,
             clipboard_enabled: clipboard,
             printer_enabled,
+            dynamic_resolution,
+            smart_sizing,
             remote_app_program: fields
                 .get("remoteapplicationprogram")
                 .filter(|s| !s.is_empty())
@@ -503,6 +514,32 @@ desktopheight:i:1080
             split_gateway_host("[2001:db8::1]", 443),
             ("2001:db8::1".to_string(), 443)
         );
+    }
+
+    /// The profile a legacy server needs: smart sizing on, dynamic resolution
+    /// off (issue #341).
+    #[test]
+    fn sizing_keys_are_imported() {
+        let dir = tempfile::tempdir().unwrap();
+        let conn = import_rdp(
+            dir.path(),
+            "legacy.rdp",
+            "full address:s:w2k8r2.corp\n\
+             smart sizing:i:1\n\
+             dynamic resolution:i:0\n",
+        );
+        let rdp = rdp_config(&conn);
+        assert!(rdp.smart_sizing);
+        assert!(!rdp.dynamic_resolution);
+    }
+
+    #[test]
+    fn missing_sizing_keys_keep_the_defaults() {
+        let dir = tempfile::tempdir().unwrap();
+        let conn = import_rdp(dir.path(), "plain.rdp", "full address:s:host.internal\n");
+        let rdp = rdp_config(&conn);
+        assert!(!rdp.smart_sizing);
+        assert!(rdp.dynamic_resolution);
     }
 
     #[test]

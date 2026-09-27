@@ -682,8 +682,10 @@ impl TerminalNotebook {
                 // Remove compiled highlight rules for this session
                 session_highlight_rules.borrow_mut().remove(&session_id);
 
-                // Remove highlight overlay for this session
-                highlight_overlays.borrow_mut().remove(&session_id);
+                // Remove highlight overlay for this session. Dropped outside the
+                // map borrow: its `Drop` detaches the layer and its handlers.
+                let highlight_overlay = highlight_overlays.borrow_mut().remove(&session_id);
+                drop(highlight_overlay);
 
                 // Remove terminal overlay widget for this session
                 terminal_overlays.borrow_mut().remove(&session_id);
@@ -2926,13 +2928,18 @@ impl TerminalNotebook {
     /// Sets up highlight rules for a terminal session.
     ///
     /// Compiles global and per-connection [`HighlightRule`]s using
-    /// [`CompiledHighlightRules::compile_with_options`], creates a transparent
-    /// [`HighlightOverlay`] that draws colored backgrounds and foreground
-    /// text on top of the VTE terminal, and wires `contents-changed` so
-    /// the overlay repaints automatically.
+    /// [`CompiledHighlightRules::compile_with_options`] and gives the session a
+    /// fresh [`HighlightOverlay`], the transparent layer that draws colored
+    /// backgrounds and underlines on top of the VTE terminal and repaints
+    /// itself as the terminal changes.
     ///
     /// When `include_builtin_defaults` is `false` the built-in
     /// ERROR/WARNING/CRITICAL/FATAL rules are not applied (issue #343).
+    ///
+    /// Safe to call again for the same session — on reconnect, or when
+    /// [`Self::reapply_highlight_rules`] pushes new Settings: the previous
+    /// overlay is dropped first, which removes its layer, its signal handlers
+    /// and its hover regexes instead of stacking a second set (issue #343).
     ///
     /// VTE's `match_add_regex()` is still registered for hover-underline
     /// feedback, but the actual colored rendering is done by the overlay.
@@ -2949,50 +2956,98 @@ impl TerminalNotebook {
             include_builtin_defaults,
         );
 
-        if let Some(terminal) = self.terminals.borrow().get(&session_id) {
-            // Still register with VTE for hover-underline feedback
-            for rule in compiled.source_patterns() {
-                let pattern = &rule.pattern;
-                match vte4::Regex::for_match(pattern, PCRE2_MULTILINE) {
-                    Ok(vte_regex) => {
-                        terminal.match_add_regex(&vte_regex, 0);
-                        tracing::trace!(
-                            %session_id,
-                            rule_name = %rule.name,
-                            "Registered VTE highlight regex"
-                        );
-                    }
-                    Err(e) => {
-                        tracing::warn!(
-                            %session_id,
-                            rule_name = %rule.name,
-                            pattern = %pattern,
-                            "Failed to register VTE highlight regex: {e}"
-                        );
-                    }
+        // Drop the previous overlay outside the map borrow: its `Drop` talks to
+        // GTK and VTE.
+        let previous = self.highlight_overlays.borrow_mut().remove(&session_id);
+        drop(previous);
+
+        let terminal = self.terminals.borrow().get(&session_id).cloned();
+        let Some(terminal) = terminal else {
+            self.session_highlight_rules
+                .borrow_mut()
+                .insert(session_id, compiled);
+            return;
+        };
+
+        // Still register with VTE for hover-underline feedback. The tags go to
+        // the overlay, which unregisters them when it is replaced.
+        let mut match_tags = Vec::new();
+        for rule in compiled.source_patterns() {
+            let pattern = &rule.pattern;
+            match vte4::Regex::for_match(pattern, PCRE2_MULTILINE) {
+                Ok(vte_regex) => {
+                    match_tags.push(terminal.match_add_regex(&vte_regex, 0));
+                    tracing::trace!(
+                        %session_id,
+                        rule_name = %rule.name,
+                        "Registered VTE highlight regex"
+                    );
+                }
+                Err(e) => {
+                    tracing::warn!(
+                        %session_id,
+                        rule_name = %rule.name,
+                        pattern = %pattern,
+                        "Failed to register VTE highlight regex: {e}"
+                    );
                 }
             }
+        }
 
-            // Store compiled rules first so the overlay draw func can access them
-            self.session_highlight_rules
-                .borrow_mut()
-                .insert(session_id, compiled);
+        // Store compiled rules first so the overlay draw func can access them
+        self.session_highlight_rules
+            .borrow_mut()
+            .insert(session_id, compiled);
 
-            // Remove any previous overlay for this session
-            self.highlight_overlays.borrow_mut().remove(&session_id);
+        let overlay = HighlightOverlay::attach(
+            &terminal,
+            Rc::clone(&self.session_highlight_rules),
+            session_id,
+            match_tags,
+        );
+        self.highlight_overlays
+            .borrow_mut()
+            .insert(session_id, overlay);
+    }
 
-            // Create and connect the colored highlight overlay
-            if let Some(overlay_widget) = self.terminal_overlays.borrow().get(&session_id) {
-                let hl_overlay = HighlightOverlay::new(overlay_widget, terminal);
-                hl_overlay.connect(terminal, self.session_highlight_rules.clone(), session_id);
-                self.highlight_overlays
-                    .borrow_mut()
-                    .insert(session_id, hl_overlay);
-            }
-        } else {
-            self.session_highlight_rules
-                .borrow_mut()
-                .insert(session_id, compiled);
+    /// Re-applies highlight rules to every open session that has them.
+    ///
+    /// Settings used to reach only sessions started afterwards, so turning the
+    /// built-in rules off or editing a global rule changed nothing on screen
+    /// until a reconnect (issue #343). `get_connection_rules` returns a
+    /// connection's own rules; a session whose connection is gone (a quick
+    /// connect, a deleted entry) gets the global rules alone. Sessions that
+    /// never had highlighting — the local shell, the mc file browser, embedded
+    /// viewers — are left alone.
+    pub fn reapply_highlight_rules<F>(
+        &self,
+        global_rules: &[HighlightRule],
+        include_builtin_defaults: bool,
+        get_connection_rules: F,
+    ) where
+        F: Fn(Uuid) -> Option<Vec<HighlightRule>>,
+    {
+        let sessions: Vec<(Uuid, Uuid)> = {
+            let highlighted = self.session_highlight_rules.borrow();
+            let session_info = self.session_info.borrow();
+            highlighted
+                .keys()
+                .map(|session_id| {
+                    let connection_id = session_info
+                        .get(session_id)
+                        .map_or_else(Uuid::nil, |info| info.connection_id);
+                    (*session_id, connection_id)
+                })
+                .collect()
+        };
+        for (session_id, connection_id) in sessions {
+            let per_conn_rules = get_connection_rules(connection_id).unwrap_or_default();
+            self.set_highlight_rules(
+                session_id,
+                global_rules,
+                &per_conn_rules,
+                include_builtin_defaults,
+            );
         }
     }
 

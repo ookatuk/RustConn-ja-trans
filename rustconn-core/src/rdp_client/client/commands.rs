@@ -570,22 +570,81 @@ async fn handle_clipboard_request<W: FramedWrite>(
         "RequestClipboardData command received for format {}",
         format_id
     );
-    if let Some(cliprdr) = active_stage.get_svc_processor_mut::<CliprdrClient>() {
-        let format = ironrdp::cliprdr::pdu::ClipboardFormatId::new(format_id);
-        match cliprdr.initiate_paste(format) {
-            Ok(messages) => {
-                tracing::debug!("initiate_paste succeeded");
-                if let Ok(frame) = active_stage.process_svc_processor_messages(messages) {
-                    let _ = writer.write_all(&frame).await;
-                    tracing::debug!("Clipboard paste request sent for format {}", format_id);
+    let Some(cliprdr) = active_stage.get_svc_processor_mut::<CliprdrClient>() else {
+        tracing::warn!("CLIPRDR channel not available");
+        return;
+    };
+    let format = ironrdp::cliprdr::pdu::ClipboardFormatId::new(format_id);
+    let sent = match cliprdr.initiate_paste(format) {
+        Ok(messages) => {
+            tracing::debug!("initiate_paste succeeded");
+            match active_stage.process_svc_processor_messages(messages) {
+                Ok(frame) => match writer.write_all(&frame).await {
+                    Ok(()) => {
+                        tracing::debug!("Clipboard paste request sent for format {}", format_id);
+                        true
+                    }
+                    Err(e) => {
+                        tracing::warn!(error = %e, "writing the clipboard paste request failed");
+                        false
+                    }
+                },
+                Err(e) => {
+                    tracing::warn!(error = %e, "encoding the clipboard paste request failed");
+                    false
                 }
             }
-            Err(e) => {
-                tracing::warn!("initiate_paste failed: {}", e);
+        }
+        Err(e) => {
+            tracing::warn!("initiate_paste failed: {}", e);
+            false
+        }
+    };
+    // No reply is coming for a request that never went out. The backend has to
+    // know, or it would wait for that reply and drop the next genuine one.
+    if !sent
+        && let Some(cliprdr) = active_stage.get_svc_processor_mut::<CliprdrClient>()
+        && let Some(backend) =
+            cliprdr.downcast_backend_mut::<super::super::clipboard::RustConnClipboardBackend>()
+    {
+        backend.paste_request_not_sent();
+    }
+}
+
+/// Expires clipboard requests the server never answered, and releases
+/// clipboard locks that have run out.
+///
+/// `IronRDP` gives up on a File Contents Request after its transfer timeout
+/// (60 s) and reports it to the backend as a refusal, which the download
+/// already knows how to unwind — but only while this is called. Nothing called
+/// it, so a server that ignored one request left "Save N Files" on
+/// "Downloading…" for the rest of the session. The session loop runs it on a
+/// timer, as `Cliprdr::drive_timeouts` asks.
+pub(super) async fn drive_clipboard_timeouts<W: FramedWrite>(
+    active_stage: &mut ActiveStage,
+    writer: &mut W,
+) {
+    let Some(cliprdr) = active_stage.get_svc_processor_mut::<CliprdrClient>() else {
+        return;
+    };
+    let messages = match cliprdr.drive_timeouts() {
+        Ok(messages) => messages,
+        Err(e) => {
+            tracing::warn!(error = %e, "driving the clipboard timeouts failed");
+            return;
+        }
+    };
+    // Most ticks have nothing to send, and then the frame is empty.
+    match active_stage.process_svc_processor_messages(messages) {
+        Ok(frame) if frame.is_empty() => {}
+        Ok(frame) => {
+            if let Err(e) = writer.write_all(&frame).await {
+                tracing::warn!(error = %e, "writing the clipboard unlock messages failed");
             }
         }
-    } else {
-        tracing::warn!("CLIPRDR channel not available");
+        Err(e) => {
+            tracing::warn!(error = %e, "encoding the clipboard unlock messages failed");
+        }
     }
 }
 
@@ -647,8 +706,9 @@ fn fail_download(active_stage: &mut ActiveStage, stream_id: u32) {
 /// Turns a "Save N Files" request into a CLIPRDR File Contents *Request* PDU via
 /// [`CliprdrClient::request_file_contents`]. A `request_size` request asks for
 /// the file size (`FileContentsFlags::SIZE`, fixed 8-byte reply, position 0);
-/// otherwise it asks for a byte range (`FileContentsFlags::RANGE`). The reply is
-/// delivered asynchronously to `on_file_contents_response`, not here.
+/// otherwise it asks for a byte range (`FileContentsFlags::RANGE`), trimmed to
+/// the bytes the server's file list says remain. The reply is delivered
+/// asynchronously to `on_file_contents_response`, not here.
 async fn handle_download_file_contents<W: FramedWrite>(
     active_stage: &mut ActiveStage,
     writer: &mut W,
@@ -658,6 +718,38 @@ async fn handle_download_file_contents<W: FramedWrite>(
     offset: u64,
     length: u32,
 ) {
+    // IronRDP refuses a RANGE reaching past the end of the file as the server's
+    // file list describes it, and a zero-length one outright. Trim the slice to
+    // what remains; when nothing does, report the end the way a server would
+    // rather than send a request that cannot go out.
+    let length = if request_size {
+        length
+    } else {
+        let backend = active_stage
+            .get_svc_processor_mut::<CliprdrClient>()
+            .and_then(|cliprdr| {
+                cliprdr.downcast_backend_mut::<super::super::clipboard::RustConnClipboardBackend>()
+            });
+        match backend {
+            Some(backend) => {
+                let trimmed = backend.range_request_length(file_index, offset, length);
+                if trimmed == 0 {
+                    tracing::debug!(
+                        protocol = "rdp",
+                        stream_id,
+                        offset,
+                        "Nothing left to download; ending the file"
+                    );
+                    backend.emit_end_of_file(stream_id);
+                    return;
+                }
+                trimmed
+            }
+            // No channel: the lookup below reports it.
+            None => length,
+        }
+    };
+
     let Some(request) = build_download_request(stream_id, file_index, request_size, offset, length)
     else {
         tracing::warn!(
