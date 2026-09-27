@@ -12,6 +12,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 The Favorites group in the sidebar is only drawn when at least one connection is pinned, so it never appeared, and the `is_pinned=true` log line was reading the discarded clone rather than the saved connection.
 Pinning now goes through a dedicated `ConnectionManager::set_pin`/`toggle_pin` path that mutates the stored connection in place, leaving `update_connection`'s preservation intact for the edit dialog, so editing an unrelated field still cannot clear a favorite.
 
+### Added
+- **Favorite connections are now reachable from the system tray (issue #344)** — the tray menu offered only a "Recent Connections" submenu built from the ten most recently used connections, an automatic heuristic the user cannot curate.
+It now shows a "Favorites" submenu above Recent, listing the pinned connections in the same order as the sidebar's Favorites group, so a curated shortlist is one click away without opening the window.
+The submenu appears only once at least one connection is pinned, mirroring how Recent Connections is hidden when empty, and is wired on both the Linux (StatusNotifierItem) and macOS (NSStatusItem) trays; the tray refreshes only when the pinned set or its order actually changes.
+
 ### Changed
 - **The favorite toggle in the sidebar context menu now names what it does (issue #344)** — the single "Pin / Unpin" entry gave no hint of the current state or the result, and the word "Pin" also collided with the unrelated "Pin Tab" action, so it was unclear the feature was about favorites at all.
 The entry now reads "Add to Favorites" or "Remove from Favorites" depending on whether the connection is already pinned, matching the "Favorites" group the pinned connection appears in.
