@@ -205,7 +205,10 @@ pub fn setup_list_item(
     pin_icon.set_pixel_size(12);
     pin_icon.set_visible(false);
     pin_icon.add_css_class("pin-icon");
-    pin_icon.set_tooltip_text(Some(&i18n("Pinned")));
+    pin_icon.set_tooltip_text(Some(&i18n("Favorite")));
+    // A screen reader sees the accessible label, not the tooltip, so an
+    // icon-only indicator needs both (house rule in rustconn/AGENTS.md).
+    pin_icon.update_property(&[gtk4::accessible::Property::Label(&i18n("Favorite"))]);
     content_box.append(&pin_icon);
 
     // Notes badge shown when the connection has a description; the actual

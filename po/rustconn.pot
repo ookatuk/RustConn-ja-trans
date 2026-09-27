@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: rustconn 0.22.7\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-09-27 16:41+0300\n"
+"POT-Creation-Date: 2026-09-27 17:45+0300\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -6967,7 +6967,7 @@ msgstr ""
 
 #: rustconn/src/dialogs/settings/secrets_tab/mod.rs:2646
 #: rustconn/src/embedded_rdp/ui.rs:169 rustconn/src/embedded_vnc/ui.rs:331
-#: rustconn/src/sidebar/view.rs:743
+#: rustconn/src/sidebar/view.rs:746
 msgid "Connected"
 msgstr ""
 
@@ -9593,7 +9593,7 @@ msgid "RDP session running in external window"
 msgstr ""
 
 #: rustconn/src/embedded_rdp/ui.rs:177 rustconn/src/session/vnc.rs:342
-#: rustconn/src/sidebar/view.rs:754
+#: rustconn/src/sidebar/view.rs:757
 msgid "Connection failed"
 msgstr ""
 
@@ -10003,39 +10003,39 @@ msgstr ""
 msgid "group:{}: Search in group"
 msgstr ""
 
-#: rustconn/src/sidebar/view.rs:208
-msgid "Pinned"
+#: rustconn/src/sidebar/view.rs:208 rustconn/src/sidebar/view.rs:211
+msgid "Favorite"
 msgstr ""
 
-#: rustconn/src/sidebar/view.rs:219
+#: rustconn/src/sidebar/view.rs:222
 msgid "Has notes"
 msgstr ""
 
-#: rustconn/src/sidebar/view.rs:228 rustconn/src/sidebar/view.rs:230
+#: rustconn/src/sidebar/view.rs:231 rustconn/src/sidebar/view.rs:233
 msgid "Recording session"
 msgstr ""
 
-#: rustconn/src/sidebar/view.rs:245 rustconn/src/sidebar/view.rs:247
+#: rustconn/src/sidebar/view.rs:248 rustconn/src/sidebar/view.rs:250
 msgid "Running in external window"
 msgstr ""
 
-#: rustconn/src/sidebar/view.rs:264 rustconn/src/sidebar/view.rs:266
+#: rustconn/src/sidebar/view.rs:267 rustconn/src/sidebar/view.rs:269
 msgid "Part of a split view"
 msgstr ""
 
-#: rustconn/src/sidebar/view.rs:614
+#: rustconn/src/sidebar/view.rs:617
 msgid "Master — synced to cloud"
 msgstr ""
 
-#: rustconn/src/sidebar/view.rs:616
+#: rustconn/src/sidebar/view.rs:619
 msgid "Import — synced from cloud"
 msgstr ""
 
-#: rustconn/src/sidebar/view.rs:640
+#: rustconn/src/sidebar/view.rs:643
 msgid "Sync error: {}"
 msgstr ""
 
-#: rustconn/src/sidebar/view.rs:748
+#: rustconn/src/sidebar/view.rs:751
 msgid "Connecting"
 msgstr ""
 

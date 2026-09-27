@@ -15,6 +15,8 @@ Pinning now goes through a dedicated `ConnectionManager::set_pin`/`toggle_pin` p
 ### Changed
 - **The favorite toggle in the sidebar context menu now names what it does (issue #344)** — the single "Pin / Unpin" entry gave no hint of the current state or the result, and the word "Pin" also collided with the unrelated "Pin Tab" action, so it was unclear the feature was about favorites at all.
 The entry now reads "Add to Favorites" or "Remove from Favorites" depending on whether the connection is already pinned, matching the "Favorites" group the pinned connection appears in.
+- **A favorite connection now shows a star at its normal place in the tree, not only inside the Favorites group (issue #344)** — the sidebar row already carried a `starred-symbolic` emblem that binds to the connection's pinned state, but with pinning silently discarded (see the fix above) it never had a pinned connection to show it for.
+With pinning working, a favorite is now marked wherever it appears in the tree, so its status is visible without scrolling to the Favorites group; the emblem also carries an accessible label, and its tooltip and label now read "Favorite" to match the rest of the feature's wording.
 
 ## [0.22.7] - 2026-09-27
 
