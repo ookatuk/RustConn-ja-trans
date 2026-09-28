@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: rustconn 0.12.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-09-28 13:58+0300\n"
+"POT-Creation-Date: 2026-09-28 17:02+0300\n"
 "PO-Revision-Date: 2026-04-25 10:46+0000\n"
 "Last-Translator: RustConn Team\n"
 "Language-Team: Uzbek\n"
@@ -50,10 +50,10 @@ msgstr "OK"
 #: rustconn/src/window/connection_dialogs.rs:1081
 #: rustconn/src/window/edit_group.rs:1887
 #: rustconn/src/window/edit_group.rs:1935
-#: rustconn/src/window/group_broadcast.rs:379 rustconn/src/window/mod.rs:3720
-#: rustconn/src/window/operations.rs:82 rustconn/src/window/operations.rs:456
-#: rustconn/src/window/operations.rs:639 rustconn/src/window/sessions.rs:339
-#: rustconn/src/window/workspaces.rs:548
+#: rustconn/src/window/group_broadcast.rs:379 rustconn/src/window/mod.rs:2958
+#: rustconn/src/window/mod.rs:3841 rustconn/src/window/operations.rs:82
+#: rustconn/src/window/operations.rs:456 rustconn/src/window/operations.rs:639
+#: rustconn/src/window/sessions.rs:339 rustconn/src/window/workspaces.rs:548
 msgid "Cancel"
 msgstr "Bekor qilish"
 
@@ -1169,7 +1169,10 @@ msgid ""
 "This looks like a randomized (private) address, which changes periodically. "
 "Wake-on-LAN will stop working once it rotates — turn off the private address "
 "for this network on the target device, or read it again later."
-msgstr "Bu vaqti-vaqti bilan o‘zgaradigan tasodifiy (shaxsiy) manzilga o‘xshaydi. U o‘zgargach Wake-on-LAN ishlamay qoladi — maqsadli qurilmada ushbu tarmoq uchun shaxsiy manzilni o‘chiring yoki uni keyinroq qayta o‘qing."
+msgstr ""
+"Bu vaqti-vaqti bilan o‘zgaradigan tasodifiy (shaxsiy) manzilga o‘xshaydi. U "
+"o‘zgargach Wake-on-LAN ishlamay qoladi — maqsadli qurilmada ushbu tarmoq "
+"uchun shaxsiy manzilni o‘chiring yoki uni keyinroq qayta o‘qing."
 
 #: rustconn/src/dialogs/connection/dialog/build.rs:468
 msgid "MAC address not found"
@@ -1180,7 +1183,10 @@ msgid ""
 "The host is not in this computer's ARP cache. It must be powered on and on "
 "the same local network. For a host beyond a router, read its MAC over an SSH "
 "session instead."
-msgstr "Xost ushbu kompyuterning ARP keshida yo‘q. U yoqilgan va bir xil mahalliy tarmoqda bo‘lishi kerak. Router ortidagi xost uchun uning MAC-ini SSH sessiyasi orqali o‘qing."
+msgstr ""
+"Xost ushbu kompyuterning ARP keshida yo‘q. U yoqilgan va bir xil mahalliy "
+"tarmoqda bo‘lishi kerak. Router ortidagi xost uchun uning MAC-ini SSH "
+"sessiyasi orqali o‘qing."
 
 #: rustconn/src/dialogs/connection/dialog/build.rs:810
 #: rustconn/src/dialogs/connection/dialog/populate.rs:1174
@@ -4394,7 +4400,7 @@ msgstr "Ko'chirish to'xtatildi"
 #: rustconn/src/dialogs/settings/cloud_sync_tab.rs:238
 #: rustconn/src/dialogs/tunnel_builder/mod.rs:618
 #: rustconn/src/dialogs/widgets.rs:596 rustconn/src/terminal/tab_menu.rs:481
-#: rustconn/src/vault_ops.rs:65 rustconn/src/window/mod.rs:3721
+#: rustconn/src/vault_ops.rs:65 rustconn/src/window/mod.rs:3842
 msgid "Close"
 msgstr "Yopish"
 
@@ -10873,7 +10879,7 @@ msgid "Tab Overview (Ctrl+Shift+O)"
 msgstr "Varaqlar ko'rinishi (Ctrl+Shift+O)"
 
 #: rustconn/src/terminal/mod.rs:493 rustconn/src/terminal/tab_lifecycle.rs:35
-#: rustconn/src/terminal/tab_lifecycle.rs:50 rustconn/src/window/mod.rs:3297
+#: rustconn/src/terminal/tab_lifecycle.rs:50 rustconn/src/window/mod.rs:3418
 msgid "Welcome"
 msgstr "Xush kelibsiz"
 
@@ -11117,7 +11123,7 @@ msgstr "{} faol sessiya(lar)"
 msgid "About RustConn"
 msgstr "RustConn haqida"
 
-#: rustconn/src/vault_ops.rs:50 rustconn/src/window/mod.rs:4632
+#: rustconn/src/vault_ops.rs:50 rustconn/src/window/mod.rs:4753
 msgid "Passphrase Does Not Open the Portable File"
 msgstr "Parol iborasi ko'chma faylni ochmaydi"
 
@@ -12093,35 +12099,61 @@ msgstr "Allaqachon tashqi oynada ishlamoqda"
 msgid "Connection to ‘{}’ failed"
 msgstr "‘{}’ ga ulanish muvaffaqiyatsiz"
 
-#: rustconn/src/window/mod.rs:2627 rustconn/src/window/mod.rs:2641
+#: rustconn/src/window/mod.rs:2654 rustconn/src/window/mod.rs:2668
 msgid "Pre-connect task failed: {}"
 msgstr "Ulanish oldidan vazifa bajarilmadi: {}"
 
-#: rustconn/src/window/mod.rs:2675
+#: rustconn/src/window/mod.rs:2702
 msgid "Port knock failed: {}"
 msgstr "Port knock amalga oshmadi: {}"
 
-#: rustconn/src/window/mod.rs:2724
+#: rustconn/src/window/mod.rs:2751
 msgid "SPA failed: {}"
 msgstr "SPA amalga oshmadi: {}"
 
-#: rustconn/src/window/mod.rs:2923 rustconn/src/window/mod.rs:3098
+#: rustconn/src/window/mod.rs:2947
+msgid "{} (via {})"
+msgstr "{} ({} orqali)"
+
+#: rustconn/src/window/mod.rs:2953
+msgid ""
+"This connection no longer goes where it did.\n"
+"\n"
+"Previously connected to:\n"
+"{}\n"
+"\n"
+"Now points to:\n"
+"{}\n"
+"\n"
+"If you did not make this change, cancel — connecting could send saved "
+"credentials to a different machine."
+msgstr "Bu ulanish endi avvalgi joyga bormaydi.\n\nAvval ulanardi:\n{}\n\nEndi ko‘rsatadi:\n{}\n\nAgar bu o‘zgarishni siz qilmagan bo‘lsangiz, bekor qiling — ulanish saqlangan hisob ma’lumotlarini boshqa mashinaga yuborishi mumkin."
+
+#: rustconn/src/window/mod.rs:2957
+msgid "Routing changed for “{}”"
+msgstr "«{}» uchun marshrut o‘zgardi"
+
+#: rustconn/src/window/mod.rs:2959 rustconn/src/window/rdp_vnc.rs:743
+msgid "Connect Anyway"
+msgstr "Baribir ulanish"
+
+#: rustconn/src/window/mod.rs:3044 rustconn/src/window/mod.rs:3219
 msgid "Connection “{}” created"
 msgstr "“{}” ulanishi yaratildi"
 
-#: rustconn/src/window/mod.rs:3302
+#: rustconn/src/window/mod.rs:3423
 msgid "RustConn - {}"
 msgstr "RustConn — {}"
 
-#: rustconn/src/window/mod.rs:3447
+#: rustconn/src/window/mod.rs:3568
 msgid "Settings saved"
 msgstr "Sozlamalar saqlandi"
 
-#: rustconn/src/window/mod.rs:3484
+#: rustconn/src/window/mod.rs:3605
 msgid "Passphrase Not Saved on This Computer"
 msgstr "Parol iborasi bu kompyuterda saqlanmadi"
 
-#: rustconn/src/window/mod.rs:3486
+#: rustconn/src/window/mod.rs:3607
 msgid ""
 "The passphrase could not be encrypted for local storage, so it is kept for "
 "this session only and you will be asked for it again after a restart. Choose "
@@ -12133,11 +12165,11 @@ msgstr ""
 "so'raladi. Buning o'rniga «Tizim kalitlar shodasi»ni tanlang yoki RustConn "
 "o'z ma'lumotlar katalogiga yozishi mumkinligini tekshiring."
 
-#: rustconn/src/window/mod.rs:3532
+#: rustconn/src/window/mod.rs:3653
 msgid "Credentials Not Saved to Keyring"
 msgstr "Hisob ma’lumotlari kalitlar to‘plamiga saqlanmadi"
 
-#: rustconn/src/window/mod.rs:3534
+#: rustconn/src/window/mod.rs:3655
 msgid ""
 "The system keyring did not accept the credentials, so they are kept for this "
 "session only and will be gone after a restart. Check that your keyring "
@@ -12148,43 +12180,43 @@ msgstr ""
 "yo‘qoladi. Kalitlar to‘plami xizmati ishlayotganini va qulfi ochilganini "
 "tekshirib, sozlamalarni qayta saqlang."
 
-#: rustconn/src/window/mod.rs:3714
+#: rustconn/src/window/mod.rs:3835
 msgid "Close RustConn?"
 msgstr "RustConn yopilsinmi?"
 
-#: rustconn/src/window/mod.rs:3716
+#: rustconn/src/window/mod.rs:3837
 msgid "{} session tab(s) are open. Active connections will be disconnected."
 msgstr "{} ta seans varag'i ochiq. Faol ulanishlar uziladi."
 
-#: rustconn/src/window/mod.rs:3751
+#: rustconn/src/window/mod.rs:3872
 msgid "Cloud sync failed for '{}': {}"
 msgstr "'{}' uchun bulutli sinxronlash muvaffaqiyatsiz tugadi: {}"
 
-#: rustconn/src/window/mod.rs:3932
+#: rustconn/src/window/mod.rs:4053
 msgid "Startup connection not found"
 msgstr "Ishga tushirish ulanishi topilmadi"
 
-#: rustconn/src/window/mod.rs:3968
+#: rustconn/src/window/mod.rs:4089
 msgid "Failed to open .rdp file"
 msgstr ".rdp faylni ochib bo’lmadi"
 
-#: rustconn/src/window/mod.rs:4004
+#: rustconn/src/window/mod.rs:4125
 msgid "Failed to open .vv file"
 msgstr ".vv faylni ochib bo'lmadi"
 
-#: rustconn/src/window/mod.rs:4041
+#: rustconn/src/window/mod.rs:4162
 msgid "Tunnel “{}” stopped: {}"
 msgstr "“{}” tunneli to'xtadi: {}"
 
-#: rustconn/src/window/mod.rs:4057
+#: rustconn/src/window/mod.rs:4178
 msgid "Gave up reconnecting tunnel “{}”: {}"
 msgstr "“{}” tunnelini qayta ulash to'xtatildi: {}"
 
-#: rustconn/src/window/mod.rs:4548
+#: rustconn/src/window/mod.rs:4669
 msgid "Successfully exported {} connection(s). {} skipped."
 msgstr "{} ta ulanish muvaffaqiyatli eksport qilindi. {} tashlab yuborildi."
 
-#: rustconn/src/window/mod.rs:4634
+#: rustconn/src/window/mod.rs:4755
 msgid ""
 "The passphrase you saved does not decrypt the portable credential file, so "
 "none of the passwords in it can be read. Open Settings ▸ Secrets and enter "
@@ -12433,10 +12465,6 @@ msgstr ""
 "Bu server faqat TLS yoki tarmoq darajasidagi autentifikatsiyadan zaifroq "
 "bo‘lgan standart RDP xavfsizligini qo‘llab-quvvatlaydi. Tashqi RDP mijozi "
 "bilan davom etilsinmi?"
-
-#: rustconn/src/window/rdp_vnc.rs:743
-msgid "Connect Anyway"
-msgstr "Baribir ulanish"
 
 #: rustconn/src/window/rdp_vnc.rs:772 rustconn/src/window/rdp_vnc.rs:1059
 msgid "Certificate changed"
