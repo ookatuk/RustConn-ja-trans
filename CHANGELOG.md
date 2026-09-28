@@ -12,6 +12,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 The resolver (`resolve_ssh_proxy_jump` and friends) always walked the full ancestor chain — a new test in `jump_chain.rs` confirms a grandparent's jump host is honoured — so this was a display gap, not a routing bug: the editor only ever read the group's *own* five SSH fields and never showed what it would inherit.
 The group editor now resolves the effective inherited value per field through a new `resolve_inherited_group_ssh` in `rustconn-core`, which walks from the group's parent to the root (the group's own values excluded), and shows it in each empty field's subtitle or tooltip as "Inherited from a parent group: …"; the SSH section now also expands when a group inherits settings even if it defines none of its own, while the enable switch still tracks only the group's own fields so revealing inherited values never makes the group start saving them as its own.
 
+## [0.22.8] - 2026-09-27
+
 ### Fixed
 - **Pinning a connection as a favorite did nothing (issue #344)** — the "Pin / Unpin" context-menu action set the favorite flag on a throwaway clone and then saved it through `update_connection`, whose "preserve fields the edit dialog does not expose" block immediately overwrote `is_pinned` and `pin_order` with the old stored values, so the change never reached storage.
 The Favorites group in the sidebar is only drawn when at least one connection is pinned, so it never appeared, and the `is_pinned=true` log line was reading the discarded clone rather than the saved connection.
