@@ -61,12 +61,18 @@ A `control_bash_process` job left running holds its terminal. They accumulate:
 roughly 30 stray jobs once wedged the cargo lock and the shell tool together, which
 looks like a broken environment rather than a housekeeping problem.
 
-## Sub-agent PATH
+## `cargo: command not found`, main agent and sub-agent alike
 
-`rust-quality-check` reported on 2026-08-20 that `cargo` was not on its PATH
-despite the terminal-profile injection. Sub-agents do not reliably inherit it. The
-symptom is `cargo: command not found` from a sub-agent while the same command works
-in the main terminal — always this, never a broken toolchain.
+`rust-quality-check` reported on 2026-08-20 that `cargo` was not on its PATH, and
+this was first written down as "sub-agents do not reliably inherit the PATH". That
+put the blame in the wrong place. Measured on 2026-09-28, `$PATH` is byte-identical
+in the main bash, in `sh -c` and under `nohup sh -c`, and **none** of them has
+`~/.cargo/bin` — the terminal-profile injection the old note assumed does not add
+it. So `cargo: command not found` from a sub-agent and from the main agent are the
+same single cause, not two. The fix is the same everywhere: write the absolute
+`~/.cargo/bin/cargo`, or prepend `PATH="$HOME/.cargo/bin:$PATH"` for a script that
+calls `cargo` itself. `shell-environment.md` carries the rule; this is only why the
+earlier explanation was wrong.
 
 ## `inclusion: auto` and the file that lied about itself
 

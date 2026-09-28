@@ -26,17 +26,22 @@ trap 'exit 0' ERR
 payload=$(cat) || exit 0
 command -v jq >/dev/null 2>&1 || exit 0
 
-# fs_write / fs_append use `path`; delete_file uses `targetFile`.
-path=$(printf '%s' "$payload" | jq -r '.tool_input.path // .tool_input.targetFile // ""' 2>/dev/null) || exit 0
+# fs_write / fs_append / str_replace use `path`, delete_file uses `targetFile`,
+# the KiroGraph write tools use `file`.
+path=$(printf '%s' "$payload" | jq -r '.tool_input.path // .tool_input.targetFile // .tool_input.file // ""' 2>/dev/null) || exit 0
 [ -n "$path" ] || exit 0
 case "$path" in
 *.rs) ;;
 *) exit 0 ;;
 esac
 
-# fs_write / fs_append carry `text`, str_replace carries `newStr`.
-# delete_file has neither: nothing is being introduced, so nothing to check.
-content=$(printf '%s' "$payload" | jq -r '.tool_input.text // .tool_input.newStr // ""' 2>/dev/null) || exit 0
+# The text being introduced: `text` (fs_write / fs_append), `newStr`
+# (str_replace), `new_str` / `pairs[].new_str` / `content` / `rewrite` (the
+# KiroGraph str_replace, multi_str_replace, insert_at and ast_grep_rewrite).
+# delete_file has none of them: nothing is being introduced, so nothing to check.
+content=$(printf '%s' "$payload" | jq -r '
+    .tool_input | .text // .newStr // .new_str // .content // .rewrite
+    // ([.pairs[]?.new_str | strings] | join("\n")) // ""' 2>/dev/null) || exit 0
 [ -n "$content" ] || exit 0
 
 # Normalise to a repo-relative path so the crate prefixes below match whether

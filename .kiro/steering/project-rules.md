@@ -150,7 +150,7 @@ sanctioned workarounds. Each requires a tracking comment and must be reported to
   tool return nothing at all. (Same rule, stated once more in
   `shell-environment.md`, which unlike this file is always loaded.)
 - **NEVER** start `cargo test` if another instance is already running (`pgrep -f 'cargo test'`).
-- A full `cargo test --workspace` is ~2.5 min wall (~45s of test time + ~1m49s compile, ~3900 tests, measured 2026-08-20). This is normal — wait for completion, do NOT assume timeout.
+- A full `cargo test --workspace` is ~2.5 min wall (~45s of test time + ~1m49s compile). This is normal — wait for completion, do NOT assume timeout. The run's own `test result:` lines give the count; do not trust a number in prose.
 - If a hook or sub-agent already ran tests in this turn, do NOT re-run them.
 - Use `timeout=900000` for test commands. This said 180s until 2026-08-20, which is *below* the measured wall time and therefore fails the same way the tool default does.
 
@@ -191,7 +191,7 @@ authoritative count — check it rather than any of the three prose copies.
 
 In addition to the local rules above, RustConn follows:
 
-- **[Microsoft Pragmatic Rust Guidelines](https://microsoft.github.io/rust-guidelines/)** — details and adaptation in `rust-pragmatic-guidelines.md` (auto-included for `*.rs`). Key points: `#[expect]` instead of `#[allow]`, M-PANIC-ON-BUG, `# Errors` / `# Panics` sections in public APIs, `mimalloc` as an option.
+- **[Microsoft Pragmatic Rust Guidelines](https://microsoft.github.io/rust-guidelines/)** — details and adaptation in `rust-pragmatic-guidelines.md` (`fileMatch` on `*.rs`). Key points: `#[expect]` instead of `#[allow]`, M-PANIC-ON-BUG, `# Errors` / `# Panics` sections in public APIs, `mimalloc` as an option.
 - **[GNOME HIG](https://developer.gnome.org/hig/)** — details and adaptation in `gnome-hig.md` (auto-included for `rustconn/src/**/*.rs`). Key points: `adw::AlertDialog` instead of `gtk::MessageDialog`, CSS class `suggested-action` / `destructive-action`, mandatory keyboard shortcuts (Ctrl+W, Ctrl+Q, F10), Toast vs Banner vs Dialog.
 - **[Rust API Guidelines](https://rust-lang.github.io/api-guidelines/)** — standard Rust conventions (C-CONV, C-GETTER, C-COMMON-TRAITS). Quick review scan: the [checklist](https://rust-lang.github.io/api-guidelines/checklist.html).
-- **[rust-analyzer style guide](https://rust-analyzer.github.io/book/contributing/style.html)** — details and adaptation in `rust-analyzer-style.md` (auto-included for `*.rs`). Key points: prefer general borrowed types (`&str`/`&[T]`/`&Path`), preconditions in types, config struct over many bool/Option params, private field + borrowing getter (no setters), top-down file layout, control flow over clever combinators, type ascription over turbofish. Its "Do NOT adopt" section marks the rust-analyzer-internal rules that conflict with RustConn's own (`FxHashMap`, blanket `anyhow::Result`, mangled names, `#[ignore]` ban).
+- **[rust-analyzer style guide](https://rust-analyzer.github.io/book/contributing/style.html)** — details and adaptation in `rust-analyzer-style.md` (`inclusion: auto` — loads when the request is about Rust code style; `#rust-analyzer-style` to force it). Key points: prefer general borrowed types (`&str`/`&[T]`/`&Path`), preconditions in types, config struct over many bool/Option params, private field + borrowing getter (no setters), top-down file layout, control flow over clever combinators, type ascription over turbofish. Its "Do NOT adopt" section marks the rust-analyzer-internal rules that conflict with RustConn's own (`FxHashMap`, blanket `anyhow::Result`, mangled names, `#[ignore]` ban).

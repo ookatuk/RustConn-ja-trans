@@ -1,6 +1,7 @@
 ---
-inclusion: fileMatch
-fileMatchPattern: "**/*.rs"
+inclusion: auto
+name: error-resolution
+description: "How to fix a Rust compiler or clippy error at its root in this workspace — the architecturally correct fix for E0382/E0502/E0499 borrow errors, BorrowMutError and nested runtime panics in GTK callbacks, thiserror and SecretString patterns, and platform traps (Instant vs SystemTime, SO_KEEPALIVE). Load when a build, clippy or test run fails, or when resolving a borrow, lifetime, async, unsafe or lint error."
 ---
 
 # Error Resolution Guide — RustConn

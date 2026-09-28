@@ -136,8 +136,12 @@ fi
 # `check-jump-host-wiring` is not an i18n check but belongs with these: it is a
 # grep over a connection between two files, which is what this group is, and it
 # needs no toolchain.
+#
+# `test-hooks` asserts what the .kiro/hooks guards actually do with a payload —
+# the release, push, crate-boundary and cargo-serialisation rules — so a claim in
+# hooks-map.md that stops being true fails here instead of at the next incident.
 for s in check-potfiles check-i18n-escapes check-po-complete check-ai-docs \
-    check-jump-host-wiring; do
+    check-jump-host-wiring test-hooks; do
     if [ -x "scripts/$s.sh" ]; then
         run_gate "$s" "scripts/$s.sh"
     else

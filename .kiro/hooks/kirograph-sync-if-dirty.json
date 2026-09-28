@@ -7,8 +7,9 @@
       "trigger": "Stop",
       "action": {
         "type": "command",
-        "command": "cd \"$(git rev-parse --show-toplevel 2>/dev/null || pwd)\" || exit 0; pgrep -f 'kirograph [s]ync' >/dev/null && exit 0; kirograph unlock >>.kirograph/hook.log 2>&1 || true; nice -n 15 kirograph sync-if-dirty --quiet >>.kirograph/hook.log 2>&1 || true"
+        "command": ".kiro/hooks/bin/kirograph-sync.sh"
       },
+      "timeout": 0,
       "enabled": true
     }
   ]

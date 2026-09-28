@@ -58,7 +58,19 @@ Kiro version is untested, so no such rule is included here — do not rely on on
 verifying it first. The `fs_write` excludes for `.env*`, `*.pem` and `secrets/**` are
 carried over unchanged.
 
-**`mcp.json`**: adds `--path` so the KiroGraph server binds to this repo explicitly.
+**`mcp.json`, `disabledTools` (added 2026-09-28):** turns off KiroGraph's four file-write
+tools — `kirograph_str_replace`, `kirograph_multi_str_replace`, `kirograph_insert_at` and
+`kirograph_ast_grep_rewrite`. The built-in `fs_write` / `fs_append` / `str_replace` do the
+same work, and they are the tools every write hook was built around. An audit found the
+KiroGraph ones reached no hook at all: no crate-boundary check before the write, no entry
+in the edit journal after it, so a journal-scoped `git add` left the file out and
+`commit-review-gate` never asked for its review. The hook matchers and scripts now cover
+them as well (`scripts/test-hooks.sh` has the rows), so this is a second layer, not the
+only one. `kirograph_exec` stays enabled on purpose: its compressed output is useful, and
+the shell guards now match it. `disabledTools` takes the server's own tool names, not the
+client-prefixed `mcp_kirograph_…` form ([kiro.dev/docs/mcp/configuration](https://kiro.dev/docs/mcp/configuration.md)).
+
+**`mcp.json`, `--path`:** binds the KiroGraph server to this repo explicitly.
 Without it the server resolves the project from its startup cwd; when that cwd was
 `rustconn/src`, every graph tool answered "KiroGraph not initialized" while the CLI in the
 repo root worked fine. The `env.PATH` entry stays because the server is launched without a

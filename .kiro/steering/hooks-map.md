@@ -33,28 +33,30 @@ reasoning, and the two patterns that made the conversion possible, are in
 
 | Hook | Matcher | Type | Latency | Side-effects |
 |------|---------|------|---------|--------------|
-| **crate-boundary-guard** | `fs_write\|fs_append\|str_replace\|delete_file\|code` | command | <50ms | Blocks with exit 2. Zero model cost when clean. Fails open. |
-| **agent-model-guard** | `fs_write\|fs_append\|str_replace\|code` | command | <50ms | Blocks with exit 2 an agent profile in `.kiro/agents/` that declares no `model:`, and an edit that removes the field. The default is `auto` at 1.0x chosen per request — wrong at both ends of the range, since a cargo runner clippy re-checks belongs at 0.05x and a reviewer nothing re-checks belongs at 2.2x. All five profiles were unset until 2026-09-06 because nothing visibly breaks when the field is missing. Does **not** validate the ID: an unrecognised one falls back to the default with a warning, the same outcome as omitting it, so a fail-closed check would only block each new model Kiro adds. Fails open. Logic: `bin/agent-model-guard.sh`. |
+| **crate-boundary-guard** | anchored `^(fs_write\|fs_append\|str_replace\|delete_file\|code\|smart_relocate\|semantic_rename\|mcp_kirograph_kirograph_(str_replace\|multi_str_replace\|insert_at\|ast_grep_rewrite)\|@kirograph/…)$` | command | <50ms | Blocks with exit 2. Since 2026-09-28 also reads the KiroGraph write tools' `file` param and their `new_str`/`content`/`rewrite`/`pairs[].new_str` content, so `unsafe`/`use gtk4` cannot slip in through them (`scripts/test-hooks.sh` covers it). Zero model cost when clean. Fails open. |
+| **agent-model-guard** | anchored `^(fs_write\|fs_append\|str_replace\|code)$` | command | <50ms | Blocks with exit 2 an agent profile in `.kiro/agents/` that declares no `model:`, and an edit that removes the field. Exits 0 for `fs_append` (it can only add, and its fragment is not the whole profile — treating its `text` as a file blocked every appended rule until 2026-09-28). The default is `auto` at 1.0x chosen per request — wrong at both ends of the range, since a cargo runner clippy re-checks belongs at 0.05x and a reviewer nothing re-checks belongs at 2.2x. All five profiles were unset until 2026-09-06 because nothing visibly breaks when the field is missing. Does **not** validate the ID: an unrecognised one falls back to the default with a warning, the same outcome as omitting it, so a fail-closed check would only block each new model Kiro adds. Fails open. Logic: `bin/agent-model-guard.sh`. |
 
 ## PostToolUse (after write)
 
 | Hook | Matcher | Type | Latency | Side-effects |
 |------|---------|------|---------|--------------|
-| **edit-journal** | `fs_write\|fs_append\|str_replace\|delete_file\|code` | command | <50ms | Appends the written path, repo-relative and deduplicated, to `target/.kiro-session-edits`. Skips its own bookkeeping under `target/`. This journal is the scope for the Stop report, for `git add` at commit time (never `git add -A` in a checkout shared with the IDE), and for `commit-review-gate`. Silent; PostToolUse stdout is discarded anyway. Fails open. Logic: `bin/edit-journal.sh`. |
+| **edit-journal** | anchored, same set as crate-boundary-guard plus `smart_relocate`/`semantic_rename` | command | <50ms | Appends the written path(s), repo-relative and deduplicated, to `target/.kiro-session-edits`. Reads `path`/`targetFile`/`file`/`sourcePath`/`destinationPath`, so a move journals both ends and a KiroGraph edit journals its `file` (all three were invisible before 2026-09-28). This journal is the scope for the Stop report, for `git add` at commit time (never `git add -A` in a checkout shared with the IDE), and for `commit-review-gate`. Files written by *scripts* (bump-version, sync-cargo-sources, update-pot) are not seen here — they call `scripts/lib/journal.sh` themselves. Honours `KIRO_EDIT_JOURNAL` so `scripts/test-hooks.sh` can redirect it. Silent; PostToolUse stdout is discarded anyway. Fails open. Logic: `bin/edit-journal.sh`. |
 
 ## PreToolUse (before shell)
 
 All three fire on every shell call, so their cost is paid constantly and their
 false positives are felt immediately. Matcher for the first two:
-`^(execute_bash|executeBash|bash|shell|control_bash_process|controlBashProcess)$`;
+`^(execute_bash|executeBash|bash|shell|control_bash_process|controlBashProcess|mcp_kirograph_kirograph_exec|@kirograph/kirograph_exec)$`;
 `commit-review-gate` omits the `control_bash_process` spellings, since a commit is
-not a background job.
+not a background job. The `kirograph_exec` spellings were added 2026-09-28 — it
+runs shell commands too, so `git push` / `release.sh --yes` through it must be
+guarded like any other shell call.
 
 | Hook | Type | Latency | Side-effects |
 |------|------|---------|--------------|
-| **bash-serialization-guard** | command | <50ms | Blocks with exit 2. Rejects `sleep`-based waiting, cargo output piped through a filter, a second cargo while one holds the target-dir lock, and a cargo build/test issued with the default 120 s timeout. Keeps a one-shot marker in `$TMPDIR` so a differently-spelled timeout field cannot deadlock it. Fails open. Logic: `bin/bash-serialization-guard.sh`. |
-| **release-manual-only-guard** | command | <50ms | Blocks with exit 2. Refuses `scripts/release.sh` without `--dry-run`, refuses `--yes` either way, refuses a by-hand `git tag v<semver>`, and since 2026-09-06 refuses **any** `git push` — any remote, any ref, branch or tag. The push rule used to fire only on a version tag; widening it also forced both verbs to be anchored to command position, without which a blanket ban turned `echo "then git push it"` into a refusal. `git commit`, `git push --dry-run`, and tag *listing* and *deletion* stay allowed. Fails open. Logic: `bin/release-manual-only-guard.sh`. |
-| **commit-review-gate** | command | <50ms | Returns `permissionDecision: "ask"` at `git commit` when the edit journal contains paths with a dedicated review: a `rustconn-*-sys` change (`unsafe-reviewer`), credential code (`security-reviewer`), or `po/uk.po` (`uk-translation-reviewer`). Replaced three `PostFileSave` agent hooks on 2026-09-06 — one agent loop per saved file, each reviewing a file in isolation, plus one on every `msgmerge` that rewrote `uk.po` without changing a translation. Asks rather than blocks, because it cannot observe whether a reviewer already ran; `--dry-run` and a mere mention of the words pass. Fails open. Logic: `bin/commit-review-gate.sh`. |
+| **bash-serialization-guard** | command | <50ms | Blocks with exit 2. Rejects `sleep`-based waiting (R1), cargo output piped through a filter (R2), a second cargo while one holds the target-dir lock (R3), a cargo build/test issued with the default 120 s timeout (R4), and — since 2026-09-28 — a second `verify.sh`/`release.sh` runner while one is already alive (R5). R5 exists because R3 matches the cargo *binary*, so it fires only once a runner's inner cargo starts; two wrapper scripts can race for the target-dir lock and interleave a shared log before that. Keeps a one-shot marker in `$TMPDIR` so a differently-spelled timeout field cannot deadlock it. Fails open. Logic: `bin/bash-serialization-guard.sh`. |
+| **release-manual-only-guard** | command | <50ms | Blocks with exit 2. Refuses `scripts/release.sh` without `--dry-run`, refuses `--yes` either way, refuses a by-hand `git tag v<semver>`, and refuses **any** `git push` (any remote, ref, branch or tag). Rewritten 2026-09-28 to parse the command line into simple commands via `bin/lib/command-segments.awk` and read each flag from its own invocation — the old whole-line regexes let seven forms through, including the PATH-prefixed `PATH=… ./scripts/release.sh --yes` that `shell-environment.md` prescribes, and `env`/`timeout` wrappers, and a `-h`/`-n`/`--dry-run` belonging to a *different* command on the line. `git commit`, `git push --dry-run`, and tag listing/deletion stay allowed. `scripts/test-hooks.sh` locks all of this down. Fails open. Logic: `bin/release-manual-only-guard.sh`. |
+| **commit-review-gate** | command | <50ms | Returns `permissionDecision: "ask"` at `git commit` when the edit journal contains paths with a dedicated review: any `rustconn-*-sys` change including its `Cargo.toml` (`unsafe-reviewer` — the name shape, not a fixed list, so a fifth -sys crate is caught), credential code (`security-reviewer`), or `po/uk.po` (`uk-translation-reviewer`). Uses the same command-segment parser as the release guard, so `GIT_EDITOR=… git commit` and `git add … && git commit` are seen while a mention is not. Replaced three `PostFileSave` agent hooks on 2026-09-06. Asks rather than blocks, because it cannot observe whether a reviewer already ran; `--dry-run` passes. Fails open. Logic: `bin/commit-review-gate.sh`. |
 
 ### Known false positives in `bash-serialization-guard`
 
@@ -104,7 +106,7 @@ anything containing `!`.
 
 | Hook | Matcher | Type | Latency | Side-effects |
 |------|---------|------|---------|--------------|
-| **translation-sync** | `rustconn/src/.*\.rs$` | command | <100ms | Silent unless a `POTFILES.in` line must be added |
+| **translation-sync** | `rustconn/src/.*\.rs$` | command | <100ms | Notes a missing `POTFILES.in` line or a `\u{…}` escape in a translatable literal. Since 2026-09-28 it writes to `target/.kiro-session-report` (flushed next turn), not stdout — PostFileSave stdout is discarded, so its reminder was silently lost before. Anchors the path at the git root like `edit-journal`, not the old `${rel##*/RustConn/}`. Silent when clean. Logic: `bin/translation-sync.sh`. |
 | **cargo-security-scan** | `Cargo\.lock$` | command | ~5s | Read-only advisory check, findings to `target/cargo-advisories.log`. Skips silently when `Cargo.lock` matches HEAD. Logic: `bin/cargo-advisory-scan.sh`. Prefers the **bare** `cargo-deny` binary over `cargo deny`, so `rust-toolchain.toml` is not asked to resolve a toolchain for a check that only parses the lockfile — the same reason `ci.yml` invokes `cargo-machete` directly. Presence is probed with `command -v`, never inferred from an exit code: cargo-deny exits non-zero *because* it found an advisory, and the old inline `\|\|` chain therefore reported real findings as "neither tool installed" while `2>/dev/null` discarded the report. Fixed 2026-09-02. |
 | **flatpak-manifest-check** | `Cargo\.lock$` | command | <50ms | Notes that `packaging/*/cargo-sources.json` are older than `Cargo.lock`, so a Flatpak build would vendor the previous dependency set. Never regenerates — that is a deliberate pre-release act on large generated files. Was an `agent` action until 2026-09-06: a full agent loop per `Cargo.lock` save to run `test -f` twice and print a fixed warning. Now a timestamp comparison, delivered through `target/.kiro-session-report`. Fails open. Logic: `bin/flatpak-manifest-check.sh`. |
 | **kirograph-mark-dirty-on-save** | `\.(rs\|toml)$` | command | <100ms | Writes `.kirograph/dirty`; logs to `.kirograph/hook.log` |
@@ -133,14 +135,14 @@ anything containing `!`.
 | Hook | Matcher | Type | Latency | Side-effects |
 |------|---------|------|---------|--------------|
 | **session-report** | (none) | command | <100ms | Scans the `.rs` files in the edit journal for debug leftovers on lines this session added, and appends a paragraph to `target/.kiro-session-report`. Silent when clean. Replaced **post-session-diagnostics** on 2026-09-06, an `agent` action that spent a full agent loop on every turn — five in one session, each reporting files the agent had never touched, each ending in a `getDiagnostics` call that does not exist outside the IDE. Compile diagnostics moved to the commit gate, where clippy runs once per feature. Fails open. Logic: `bin/session-report.sh write`. |
-| **patch-litter-scan** | (none) | command | <50ms | Scans the working tree for `*.rej` / `*.orig` — the fingerprint of a partially applied patch — and appends a paragraph to `target/.kiro-session-report` (the third producer of that shared channel). Added 2026-09-22 after a delegated agent applied a patch to `embedded_vnc_types.rs` that only partly took, corrupting the file and leaving `.rej`/`.orig` behind, caught only when `verify.sh` failed minutes later. Deliberately does **not** flag "changed but not in the edit journal" — that is the normal state in a shared checkout and cost five wasted loops on 2026-09-06. Uses `git ls-files` (respects `.gitignore`, skips `target/`). Silent on a clean tree; fails open. Logic: `bin/patch-litter-scan.sh`. |
-| **kirograph-sync-if-dirty** | (none) | command | **~3-4 min**, up to ~20 min | Syncs KiroGraph index if dirty marker present. Runs `nice`d in the background; skipped if a sync is already running |
+| **patch-litter-scan** | (none) | command | <50ms | Scans the working tree for `*.rej` / `*.orig` — the fingerprint of a partially applied patch — and appends a paragraph to `target/.kiro-session-report` (one of several producers of that shared channel). Added 2026-09-22 after a delegated agent applied a patch to `embedded_vnc_types.rs` that only partly took, corrupting the file and leaving `.rej`/`.orig` behind, caught only when `verify.sh` failed minutes later. Deliberately does **not** flag "changed but not in the edit journal" — that is the normal state in a shared checkout and cost five wasted loops on 2026-09-06. Uses `git ls-files` (respects `.gitignore`, skips `target/`). Silent on a clean tree; fails open. Logic: `bin/patch-litter-scan.sh`. |
+| **kirograph-sync-if-dirty** | (none) | command | returns at once | Runs `bin/kirograph-sync.sh`, which `setsid`-detaches the sync so it outlives the turn (the JSON sets `timeout: 0`), then syncs at low priority if the dirty marker is present. Rewritten 2026-09-28: the old inline command ran the ~3-4 min sync in the hook foreground under the ignored-because-inside-`action` timeout, so the 60 s default cut every run off and the killed process left the lock behind — a week of `hook.log` held only "Database is locked" and no successful sync. The "already syncing?" check now matches the process by name, not a substring of its argv (which matched the hook's own shell). Each run brackets itself with an ISO timestamp in `.kirograph/hook.log`. |
 
 ## UserPromptSubmit
 
 | Hook | Matcher | Type | Latency | Side-effects |
 |------|---------|------|---------|--------------|
-| **session-report-flush** | (none) | command | <50ms | Prints `target/.kiro-session-report` to the agent, then deletes it. This is the delivery half of the free-report pattern: a command hook's stdout is forwarded only on `SessionStart`, `UserPromptSubmit` and `PreToolUse`, so the scan runs for nothing at `Stop` and its finding rides into a turn the user was starting anyway. One turn late, zero credits. Prints nothing when there is no report. Producers (`session-report`, `flatpak-manifest-check`) append; this is the sole consumer. Fails open. Logic: `bin/session-report.sh flush`. |
+| **session-report-flush** | (none) | command | <50ms | Prints `target/.kiro-session-report` to the agent, then deletes it. This is the delivery half of the free-report pattern: a command hook's stdout is forwarded only on `SessionStart`, `UserPromptSubmit` and `PreToolUse`, so the scan runs for nothing at `Stop` and its finding rides into a turn the user was starting anyway. One turn late, zero credits. Prints nothing when there is no report. Producers — `session-report`, `patch-litter-scan`, `flatpak-manifest-check`, `ai-doc-counts` and (since 2026-09-28) `translation-sync` — append; this is the sole consumer. Fails open. Logic: `bin/session-report.sh flush`. |
 
 ---
 
@@ -153,10 +155,9 @@ CPU-bound background process alive well past the end of a turn.
 
 While that process holds `.kirograph/kirograph.db.lock`, every graph MCP call answers
 **"KiroGraph not initialized. Run `kirograph init`"** — which is misleading. If such a sync
-is killed (session closed, `timeout`), the empty lock directory survives and *every*
-subsequent call keeps reporting "not initialized". That silently disabled KiroGraph in this
-repo for a week in July 2026. Note that `kirograph unlock` does not help: it looks for a
-lock *file*, while what is left behind is a *directory*.
+is killed (session closed, `timeout`), the lock survives and *every* subsequent call keeps
+reporting "not initialized". That silently disabled KiroGraph in this repo for a week in
+July 2026.
 
 Hardening in the four KiroGraph hooks:
 
@@ -164,9 +165,12 @@ Hardening in the four KiroGraph hooks:
   `kirograph` in a subdirectory reports "not initialized at <subdir>".
 - stdout/stderr go to `.kirograph/hook.log` (gitignored) instead of `2>/dev/null`; the very
   first log line already surfaced two silently skipped `Cargo.toml` dependencies.
-- the Stop hook exits early if `pgrep -f 'kirograph [s]ync'` matches, so two syncs never
-  race for the lock.
-- an *empty* `kirograph.db.lock` directory older than 30 min is deleted before syncing.
+- the Stop hook (`bin/kirograph-sync.sh`) runs `kirograph unlock` before syncing — the
+  current CLI releases the lock when its owning PID is dead, so it clears the stale one the
+  old `find -mmin +30 -empty` heuristic missed — and skips if a sync is genuinely running,
+  matched by process name so the check cannot match its own shell.
+- the sync is `setsid`-detached with `timeout: 0`, so the engine reaping the hook at the end
+  of the turn does not kill it mid-flight and leave the lock behind.
 
 ## Concurrency notes
 
@@ -202,9 +206,12 @@ When editing `Cargo.lock`:
 - Permissions, MCP config and other files under `.kiro/settings/` cannot be edited by the
   agent (`kiro-scope` deny). Reviewed copies live in `.kiro/config-templates/` and are
   applied by hand.
-- **Pending hand-apply (found 2026-09-02):** `.kiro/config-templates/mcp.json` passes
-  `--path /home/totoshko88/Documents/RustConn` to `kirograph serve`; the live
-  `.kiro/settings/mcp.json` does not. Without it the server resolves the project root
-  from its working directory, which is one of the documented causes of the bogus
-  "KiroGraph not initialized" in `kirograph.md`. The template is the corrected copy —
-  copy it over by hand, since the deny rule means no agent can.
+- **Pending hand-apply — `disabledTools` (2026-09-28):** `.kiro/config-templates/mcp.json`
+  now turns off KiroGraph's four write tools (`kirograph_str_replace`,
+  `kirograph_multi_str_replace`, `kirograph_insert_at`, `kirograph_ast_grep_rewrite`)
+  via `disabledTools`; the live `.kiro/settings/mcp.json` does not yet. They duplicate
+  the built-in write tools and, unlike those, reached no write hook — no
+  crate-boundary check, no journal entry — until the matchers were widened the same
+  day (belt and braces; the hooks cover them now too). Copy the template over by hand,
+  since the deny rule means no agent can. The earlier `--path` hand-apply from
+  2026-09-02 is **done** — both files now carry it.

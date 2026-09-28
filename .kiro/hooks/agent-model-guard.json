@@ -8,9 +8,9 @@
       "matcher": "^(fs_write|fs_append|str_replace|code)$",
       "action": {
         "type": "command",
-        "command": ".kiro/hooks/bin/agent-model-guard.sh",
-        "timeout": 10
-      }
+        "command": ".kiro/hooks/bin/agent-model-guard.sh"
+      },
+      "timeout": 10
     }
   ]
 }

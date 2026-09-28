@@ -64,6 +64,35 @@ dialog.set_close_response("cancel");
 
 For larger forms — `adw::Dialog` with custom content (Properties, Connection editor).
 
+### Dialog width
+
+`adw::Dialog` (the connection editor, autotype) sizes itself with
+`content_width` / `content_height` — set them directly (the editor is 600 wide).
+
+`adw::AlertDialog` has no `content_width`. It grows to fit its content, and with
+only a heading and body it stays narrow — right for a short question, too cramped
+for a dialog whose `extra_child` is there to be *read* (a paste preview, a
+generated command). Widen it through the child, not the dialog:
+
+```rust
+let scrolled = gtk4::ScrolledWindow::builder()
+    .min_content_width(520)   // the dialog grows to this
+    .max_content_width(560)
+    .min_content_height(120)
+    .max_content_height(280)
+    .child(&text_view)
+    .build();
+dialog.set_extra_child(Some(&scrolled));
+```
+
+Do **not** reach for `set_prefer_wide_layout` — that method does not exist on
+`AlertDialog` in our libadwaita bindings (it fails to compile; verified
+2026-09-28 on the safe-paste dialog). The `min_content_width` on the child is the
+whole mechanism. GNOME HIG allows a wider message dialog when the content warrants
+it, so 520–560 to match the editor's ballpark is in keeping, not an override. Most
+`AlertDialog`s live under `window/` and `terminal/`, which is why this note is here
+in the always-for-`rustconn/src` file and not in `dialogs-guide.md`.
+
 ## Header bars
 
 - `adw::HeaderBar` — standard; do not use `gtk::HeaderBar` directly in new widgets.

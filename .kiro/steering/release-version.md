@@ -7,6 +7,25 @@ The user wants to PREPARE a release (file edits only). Read the `rustconn` power
 
 **IMPORTANT — NO GIT:** This hook ONLY edits files. Do NOT run any git command (no `git add`, `git commit`, `git merge`, `git checkout`, `git tag`, `git push`). The actual merge → tag → push is performed manually by `scripts/release.sh` after development is complete. Your job ends at leaving a clean, consistent working tree for that script to validate.
 
+**Expected `--dry-run` failure — it is not a content error.** If you run
+`./scripts/release.sh --dry-run` to validate the prep (fine, and encouraged), it
+will end with one `[fail]`:
+
+```
+[fail] N derived changelog(s) predate the last CHANGELOG.md edit — propagate, then commit them together
+```
+
+That check compares **git commit timestamps**, not file contents: it sees that
+`CHANGELOG.md` and the five derived changelogs (`debian/changelog`, the three OBS
+files, the metainfo `<release>`) are not yet committed together. In this flow they
+are all still *uncommitted working-tree edits*, so the check cannot pass — and it
+is not the agent's job to make it, because committing is the maintainer's step.
+Everything above it is what validates your prep: the `[ok]` lines for version
+match, release-date consistency across CHANGELOG/Debian/OBS/spec, "all N packaging
+files synced", sibling path dependencies, and metainfo XML validity. If those are
+all `[ok]` and the only `[fail]` is this timestamp one, the prep is complete —
+report it as expected and hand off. Do **not** try to satisfy it by committing.
+
 Then perform ALL of the following steps:
 
 1. **Read version** from user message (e.g. "0.12.6"). If not provided, ask.

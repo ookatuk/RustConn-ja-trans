@@ -8,10 +8,10 @@
       "matcher": "Cargo\\.lock$",
       "action": {
         "type": "command",
-        "command": ".kiro/hooks/bin/flatpak-manifest-check.sh",
-        "timeout": 15
+        "command": ".kiro/hooks/bin/flatpak-manifest-check.sh"
       },
-      "enabled": true
+      "enabled": true,
+      "timeout": 15
     }
   ]
 }

@@ -99,4 +99,23 @@ if [ "$status" -ne 0 ]; then
     printf 'number and delete the matching check here.\n' >&2
 fi
 
+# Power-copy drift — a WARNING, never a failure. The workspace power lives in
+# .kiro/powers/rustconn/; Kiro installs a private copy at
+# ~/.kiro/powers/installed/rustconn/ that drifts silently (found stale since
+# 2026-08-01: it still said `forbid` and "16 languages"). Reinstalling the power
+# is a maintainer action and cannot be scripted from here, so this only points it
+# out. Skipped entirely when the installed copy is absent — that is the normal
+# state in CI and on a fresh checkout, and a missing copy is not drift.
+installed="$HOME/.kiro/powers/installed/rustconn"
+workspace=".kiro/powers/rustconn"
+if [ -d "$installed" ] && [ -d "$workspace" ]; then
+    if ! diff -rq "$workspace" "$installed" >/dev/null 2>&1; then
+        printf 'warn: installed power copy differs from %s\n' "$workspace" >&2
+        printf '      Reinstall the rustconn power so the two match (maintainer action):\n' >&2
+        diff -rq "$workspace" "$installed" 2>&1 | sed 's/^/      /' >&2
+    else
+        printf 'ok: installed power copy matches %s\n' "$workspace"
+    fi
+fi
+
 exit "$status"

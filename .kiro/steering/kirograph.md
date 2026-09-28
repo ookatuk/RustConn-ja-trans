@@ -30,10 +30,11 @@ Typical loop: `kirograph_context` to orient → `kirograph_node` to read →
 
 ## Known gotchas
 
-- `kirograph_impact`, `kirograph_files` and `kirograph_status` do **not** exist in this
-  server version. Use `kirograph_rename_preview` for blast radius, `kirograph_module_api`
-  or `kirograph_exec` + `ls` for file listings, and `kirograph status` via
-  `kirograph_exec` for index health.
+- `kirograph_impact` and `kirograph_files` do **not** exist in this server version — use
+  `kirograph_rename_preview` for blast radius, and `kirograph_module_api` or
+  `kirograph_exec` + `ls` for file listings. `kirograph_status` **does** exist (verified
+  2026-09-28) and reports index health directly; the CLI `kirograph status` via
+  `kirograph_exec` gives the same when the MCP server is unavailable.
 - **"KiroGraph not initialized" is usually a lie.** It also appears when the DB is locked
   (a stale, empty `.kirograph/kirograph.db.lock` directory left by a killed sync) or when
   the MCP server resolved a different project root. Check with

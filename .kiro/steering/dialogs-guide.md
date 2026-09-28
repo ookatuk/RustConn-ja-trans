@@ -33,3 +33,7 @@ Every icon-only button MUST have:
 ## Registration
 
 New dialog → add `pub mod` in `dialogs/mod.rs`
+
+Dialog width (`adw::Dialog` `content_width` vs widening an `AlertDialog` through
+its `extra_child`) is in `gnome-hig.md`, which loads for every `rustconn/src/**`
+file — most `AlertDialog`s are built under `window/` and `terminal/`, not here.

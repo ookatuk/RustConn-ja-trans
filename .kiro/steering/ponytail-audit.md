@@ -1,6 +1,6 @@
 ---
 inclusion: manual
-description: "Шукає надінженерію — що можна вилучити, спростити або замінити на std / GTK4 / наявну залежність. Ранжований список, один рядок на знахідку. Нічого не застосовує."
+description: "Hunts for over-engineering — what can be removed, simplified, or replaced with std / GTK4 / an existing dependency. A ranked list, one line per finding. Applies nothing."
 ---
 
 Audit RustConn for over-engineering. Adapted from the upstream `ponytail-review`

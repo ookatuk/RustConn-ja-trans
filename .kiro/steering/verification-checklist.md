@@ -1,6 +1,6 @@
 ---
 inclusion: manual
-description: "Ручна половина Definition of Done — те, що вимагає судження, а не команди: чи в тому крейті новий код, чи чесна межа в ponytail-маркері, чи потрібен i18n цьому рядку. Механічну половину виконує scripts/verify.sh."
+description: "The manual half of the Definition of Done — what needs judgement, not a command: whether new code is in the right crate, whether a ponytail marker names an honest ceiling, whether a string needs i18n. The mechanical half is run by scripts/verify.sh."
 ---
 
 # Verification Checklist

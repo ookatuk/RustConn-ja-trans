@@ -11,7 +11,13 @@
       "env": {
         "PATH": "/home/totoshko88/.local/bin:/home/linuxbrew/.linuxbrew/bin:/usr/local/bin:/usr/bin:/bin"
       },
-      "disabled": false
+      "disabled": false,
+      "disabledTools": [
+        "kirograph_str_replace",
+        "kirograph_multi_str_replace",
+        "kirograph_insert_at",
+        "kirograph_ast_grep_rewrite"
+      ]
     }
   }
 }

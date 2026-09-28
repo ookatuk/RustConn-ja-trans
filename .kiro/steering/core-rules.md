@@ -49,7 +49,9 @@ the caller lives.
 
 - No `unsafe` outside the `rustconn-*-sys` crates. Mechanically:
   `unsafe_code = "deny"` in `[workspace.lints.rust]`, re-opened by a crate-level
-  `#![expect(unsafe_code, reason = "…")]` in each of the three helpers. It is
+  `#![expect(unsafe_code, reason = "…")]` in each of the four helpers
+  (`rustconn-pty-sys`, `rustconn-locale-sys`, `rustconn-env-sys`,
+  `rustconn-dock-sys` — the crate table above is the source of that count). It is
   `deny` and not `forbid` on purpose — `forbid` cannot be overridden, so under it
   each helper had to declare its own `[lints]` table, which *replaces* the
   inherited one, and that left the only crates allowed to write `unsafe` as the
@@ -64,7 +66,7 @@ the caller lives.
 - Logging → `tracing`, never `println!`/`eprintln!`
 - i18n → `i18n()` / `i18n_f()` with `{}` placeholders for all user-facing strings
 - `display_name()` values used in UI → wrap in `i18n()` at the call site
-- After new i18n strings → `bash po/update-pot.sh` + `msgmerge --update` (17 languages)
+- After new i18n strings → `bash po/update-pot.sh` + `msgmerge --update` every catalogue (`ls po/*.po` is the count, never a number in prose)
 - Rust 2024 edition: let-chains instead of collapsible_if
 - Never `set_var`/`remove_var` (unsafe in Rust 2024). The one exception is
   `rustconn-env-sys::set_startup_var`, which may only be called from `main()`
@@ -153,31 +155,13 @@ maintainer had never read. Undoing it meant deleting a published release. The
 
 ## Quick Commands
 
-The whole mechanical Definition of Done is **one script** — reach for it before
-assembling a cargo chain by hand:
+The whole mechanical Definition of Done is **one script**, `scripts/verify.sh`.
+Its variants (`--tests`, `--quick`), the individual cargo/`typos`/i18n commands,
+the `--all-features` / inline-`sh -c ${PIPESTATUS}` / cache-hit-clippy traps and
+the `timeout=900000` note are in **`AGENTS.md` → Commands**, which is also loaded
+on every request — this file does not repeat them.
 
-```
-scripts/verify.sh --tests          # fmt + machete + clippy -D warnings + tests + i18n/boundary gates
-scripts/verify.sh                  # same, without the workspace test run
-scripts/verify.sh --quick          # fast gates only — right for .md / .po-only work
-```
-
-It is `#!/usr/bin/env bash` (not `sh`), forces a real clippy re-check, strips
-ANSI before scanning, and writes everything to `target/verify.log`. Do **not**
-hand-roll an inline `sh -c 'cargo … ; cargo …'` gate: under `/bin/sh` that trips
-on `${PIPESTATUS[...]}` and a cache-hit clippy passes silently — both traps
-`verify.sh` already handles. Pass `timeout=900000` when running it with `--tests`.
-
-The individual commands, when you need one in isolation:
-
-```
-cargo fmt --all                    # Format
-cargo clippy --all-targets         # Lint (0 warnings; never --all-features)
-cargo test --workspace             # ~3900 tests, ~45s of test time (~2.5 min with compile)
-typos                              # Spell check (config: typos.toml)
-bash po/update-pot.sh              # Regenerate POT after new i18n strings
-```
-
-Delegate the gate to the `rust-quality-check` sub-agent ("Run scripts/verify.sh
---tests") rather than running it in the main context. For quick single-file
-validation → `getDiagnostics`.
+What is *not* there and belongs here: delegate the gate to the
+`rust-quality-check` sub-agent ("Run scripts/verify.sh --tests") rather than
+running it in the main context, and for quick single-file validation reach for
+`getDiagnostics`.

@@ -1,6 +1,6 @@
 ---
 inclusion: manual
-description: "Готові шаблони specs для типових задач RustConn: новий протокол, новий діалог, баг-фікс, рефакторинг. Копіювати й заповнювати. Довідник — сам нічого не запускає."
+description: "Ready-made spec templates for typical RustConn tasks: a new protocol, a new dialog, a bug fix, a refactor. Copy and fill in. A reference — it runs nothing itself."
 ---
 
 # Spec Templates — RustConn

@@ -1,6 +1,6 @@
 ---
 inclusion: manual
-description: "Композує наявні ревʼю-агенти в один прохід: паралельні фокусовані ревʼю → нормалізація знахідок → скептичний фінальний прохід. Не новий агент, а порядок виклику."
+description: "Composes the existing review agents into one pass: parallel focused reviews → findings normalisation → a skeptical final pass. Not a new agent, but an order of invocation."
 ---
 
 # Code Review — composition

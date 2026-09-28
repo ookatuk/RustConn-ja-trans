@@ -35,7 +35,7 @@ The four steps it runs, for when you need to do one of them alone:
 1. `cargo fmt --check` — if formatting errors, run `cargo fmt --all`, report changes.
 2. `cargo clippy --all-targets -- -D warnings` — must produce 0 warnings. Fix and re-run if any.
 3. Before tests: `pgrep -f 'cargo test'` — if running, report "Tests already in progress, skipping" and stop.
-4. `cargo test --workspace` — run directly, NO pipes (no tail/grep). Use `timeout=900000`; the run is ~2.5 min wall (~45s tests + ~1m49s compile, ~3900 tests).
+4. `cargo test --workspace` — run directly, NO pipes (no tail/grep). Use `timeout=900000`; the run is ~2.5 min wall (~45s tests + ~1m49s compile).
 
 ### A cached clippy run reports zero warnings even when warnings exist
 

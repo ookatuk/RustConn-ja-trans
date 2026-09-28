@@ -7,9 +7,9 @@
       "description": "Scans the working tree for *.rej / *.orig files — the fingerprint of a partially applied patch, as left by an interrupted delegated agent on 2026-09-22 (a corrupted embedded_vnc_types.rs caught only when verify.sh failed minutes later). Command action on Stop, so it costs no credits; its stdout is not forwarded on Stop, so it appends to the shared target/.kiro-session-report channel that Session Report (deliver) prints on the next UserPromptSubmit. Deliberately does NOT flag \"changed but not in the edit journal\" — that signal is normal in a shared checkout and cost five wasted loops on 2026-09-06. Silent when the tree is clean; fails open. Logic: bin/patch-litter-scan.sh.",
       "action": {
         "type": "command",
-        "command": ".kiro/hooks/bin/patch-litter-scan.sh",
-        "timeout": 15
-      }
+        "command": ".kiro/hooks/bin/patch-litter-scan.sh"
+      },
+      "timeout": 15
     }
   ]
 }

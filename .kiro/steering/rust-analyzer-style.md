@@ -1,6 +1,7 @@
 ---
-inclusion: fileMatch
-fileMatchPattern: "**/*.rs"
+inclusion: auto
+name: rust-analyzer-style
+description: "Rust code-style defaults for new code in this workspace, adapted from the rust-analyzer style guide: prefer borrowed general types (&str/&[T]/&Path), preconditions in types, a config struct over many bool/Option params, private fields with borrowing getters and no setters, top-down file layout, control flow over clever combinators, type ascription over turbofish. Load when writing or refactoring Rust and deciding how to shape a signature, a type or a module."
 ---
 
 # rust-analyzer Style — RustConn Adaptation

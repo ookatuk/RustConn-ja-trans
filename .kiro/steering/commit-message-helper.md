@@ -1,6 +1,6 @@
 ---
 inclusion: manual
-description: "Генерує conventional commit повідомлення на основі поточного git diff. Формат: type(scope): description"
+description: "Generates a conventional commit message from the current git diff. Format: type(scope): description"
 ---
 
 Generate a conventional commit message for RustConn — **a message, not a commit**.

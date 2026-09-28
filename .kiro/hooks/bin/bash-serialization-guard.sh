@@ -24,6 +24,13 @@
 #   R3  starting cargo while another cargo holds the target-dir lock
 #   R4  a cargo build/test with no timeout headroom and no background handle,
 #       i.e. step 1 above
+#   R5  starting a second verify.sh/release.sh runner while one is already
+#       alive. Each spawns its own cargo, so R3 (which matches the cargo binary
+#       by name) fires only once the inner cargo starts — by then both runners
+#       have raced for the target-dir lock and interleaved their output into the
+#       shared log. Observed 2026-09-28: a wedged tty queued a nohup verify.sh
+#       that started alongside a second one, and target/verify.log came out with
+#       every line doubled.
 #
 # Fails OPEN on anything unexpected: a guard that blocks every shell call
 # because jq changed its output shape would be worse than the problem.
@@ -107,6 +114,30 @@ if [ "$starts_cargo" -eq 1 ]; then
             "  pid(s): $(printf '%s' "$running" | tr '\n' ' ')" \
             '  Inspect with: pgrep -af cargo' \
             '  Wait for it (its log file is the cheapest signal) rather than starting a second run.'
+    fi
+fi
+
+# --- R5: one verify.sh / release.sh runner at a time -----------------------
+# These wrappers each drive their own cargo, so R3 alone cannot catch two of
+# them starting together — it sees the cargo binary only once the inner run
+# begins. Match the script names on the command line, and refuse a start when
+# one is already running. `pgrep -f` is scoped to the two script names so it
+# cannot match this guard or a bare `cargo`; the `[v]`/`[r]` bracket keeps
+# pgrep from matching its own argument line.
+if printf '%s' "$cmd" | grep -qE '(verify|release)\.sh([[:space:]]|$)'; then
+    # `pgrep -f` matches against the full argument line, so the bracket idiom
+    # (`[v]erify`) keeps it from matching its own `pgrep -f …` invocation. The
+    # guard's own shell does not run either script, so there is no self-match to
+    # exclude beyond that.
+    running=$(pgrep -f '([v]erify|[r]elease)\.sh' 2>/dev/null | tr '\n' ' ' || true)
+    if [ -n "${running// /}" ]; then
+        block 'a verify.sh/release.sh runner is already running; a second one races it for the target-dir lock and interleaves both logs.' \
+            "  pid(s): $running" \
+            '  Inspect with: pgrep -af "verify.sh|release.sh"' \
+            '  Wait for the running one — read its log (target/verify.log or the' \
+            '  file you redirected to) rather than starting another. If the first' \
+            '  was a wedged/queued call that never really started, confirm with' \
+            '  pgrep before retrying.'
     fi
 fi
 

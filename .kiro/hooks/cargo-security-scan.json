@@ -8,10 +8,10 @@
       "matcher": "Cargo\\.lock$",
       "action": {
         "type": "command",
-        "command": ".kiro/hooks/bin/cargo-advisory-scan.sh",
-        "timeout": 120
+        "command": ".kiro/hooks/bin/cargo-advisory-scan.sh"
       },
-      "enabled": true
+      "enabled": true,
+      "timeout": 120
     }
   ]
 }

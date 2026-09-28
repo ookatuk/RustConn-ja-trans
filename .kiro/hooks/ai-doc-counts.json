@@ -8,9 +8,9 @@
       "matcher": "\\.kiro/(steering/[^/]*\\.md|hooks/[^/]*\\.json)$",
       "action": {
         "type": "command",
-        "command": ".kiro/hooks/bin/ai-doc-counts.sh",
-        "timeout": 15
-      }
+        "command": ".kiro/hooks/bin/ai-doc-counts.sh"
+      },
+      "timeout": 15
     }
   ]
 }

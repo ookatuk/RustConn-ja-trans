@@ -37,7 +37,7 @@ quirk. Measured, `$PATH` is byte-identical in bash, in `sh -c` and under
 | typos | `~/.cargo/bin/typos` |
 | gh | system, authenticated |
 | flatpak-builder | system |
-| kirograph | `~/.nvm/.../bin/kirograph` (when `.kirograph/` exists) |
+| kirograph | `~/.local/bin/kirograph` (when `.kirograph/` exists) |
 
 `typos` is in that table because `AGENTS.md` and `core-rules.md` both list the
 Definition-of-Done gate as a bare `typos`. Unlike a missing `cargo`, a missing
@@ -75,22 +75,24 @@ delete the file.
 - **The shell tool can lose its working directory** between calls. Start anything
   that depends on the repo root with
   `cd /home/totoshko88/Documents/RustConn || exit 1`.
-- **Empty output twice in a row** — stop retrying. Delegate to
-  `rust-quality-check`, or write to a log file and read it with the file-reading
-  tool.
+- **No `rc=` line twice in a row** — the terminal is busy or wedged. Stop sending
+  it commands; read the log with the file-reading tool, or start a fresh terminal
+  (option 4 below).
 - **A full `cargo test --workspace` is ~2.5 min wall** (~1m49s compile + ~45s of
-  tests, ~3900 tests). That is normal, not a hang. Read the run's own
-  `test result:` lines for the real count.
+  tests); `verify.sh --tests` takes about 4 min, because it cleans the workspace
+  crates first. That is normal, not a hang. The run's own `test result:` lines
+  give the count — do not write one into a rule, it goes stale.
 - **Never wait with `sleep`.** A sleep cannot observe another terminal, and if the
   terminal is busy the line queues behind the running job instead of executing.
 - **Pass an explicit `timeout`** to any cargo build or test — the tool default is
   120 000 ms, below the measured wall time. Use `timeout=900000`. Not 180 000;
   that is also below it.
 
-The `bash-serialization-guard` hook enforces the four of these that are
+The `bash-serialization-guard` hook enforces the five of these that are
 mechanically checkable: sleep waiting, piped cargo output, a second concurrent
-cargo, and a cargo run without timeout headroom. It fails open — a faster failure,
-never a substitute for knowing the rules.
+cargo, a second `verify.sh`/`release.sh` runner, and a cargo run without timeout
+headroom; `scripts/test-hooks.sh` asserts each one. It fails open — a faster
+failure, never a substitute for knowing the rules.
 
 ## Waiting without blocking the terminal
 
@@ -99,35 +101,42 @@ another command — not a status check, not an `echo`, not a `^C`. Read the log 
 
 **Wait for a command's own output before sending the next one — the tool
 returning is not the command finishing.** A `cargo` build or test regularly
-returns to you with `Exit Code: -1` and an empty body while the process is still
-alive in the tty; that is the 120 s tool timeout elapsing, not the job ending.
+returns to you with an empty body while the process is still alive in the tty.
 Firing the next command then queues it behind the running one, its output lands
 interleaved or lost, and you end up reasoning from a half-finished run — the exact
 mistake that made a fully green `verify.sh` look ambiguous and cost a round of
-re-runs. The rule is mechanical: a run is finished **only** when its `.rc`
-sentinel file exists (option 2) or the single blocking tool call has returned with
-real output (option 1). An `Exit Code: -1`, empty output, or a prompt line in the
-terminal buffer is **not** proof of completion — never treat it as one, and never
-send a follow-up command on that assumption. When in doubt, read the log/`.rc`
-file; do not poke the terminal.
+re-runs.
+
+**`Exit Code: -1` carries no information here.** This client reports it on
+nearly every call, finished or not — measured 2026-09-28, `echo done` printed its
+line and still came back `-1`. It means neither "timed out" nor "failed". The
+completion signal is one you put in the command yourself: end it with
+`; echo "rc=$?"`. An `rc=` line in the output means the command finished and
+gives its real status; no `rc=` line means it was still running when the tool
+returned. For anything long, the `.rc` sentinel file (option 2) is the signal.
+Never treat `-1`, empty output or a prompt line as completion, and never send a
+follow-up command on that assumption — read the log or the `.rc` file. Read it in
+a *later* call than the one that writes it: a read issued in the same parallel
+batch can run first and find nothing.
 
 Waiting on a background PID with `tail --pid=<pid> -f /dev/null` (or `wait`) is
-**not** a way around the 120 s tool cap: the call still returns `Exit Code: -1`
-with an empty body at 120 s while the process runs on. It is no better than
-option 1 and burns a call per 120 s. The `.rc` sentinel is the only completion
+**not** a way around this: the call still returns with an empty body while the
+process runs on, and burns a call each time. The `.rc` sentinel is the completion
 signal — read it (option 2), do not spin on the PID.
 
-Three ways out, cheapest first.
+Four ways out, cheapest first.
 
-**1. Wait inside the one tool call.** Almost always right.
+**1. Wait inside the one tool call.** Right for anything that finishes in a
+minute or two.
 
 ```bash
 cd /home/totoshko88/Documents/RustConn || exit 1
-cargo test --workspace > target/rc-test.log 2>&1
+~/.cargo/bin/cargo test --workspace > target/rc-test.log 2>&1; echo "rc=$?"
 ```
 
 with `timeout=900000`, then read `target/rc-test.log` (the file-reading tool takes
-line ranges, so a 20 k-line log costs nothing).
+line ranges, so a 20 k-line log costs nothing). No `rc=` line in the output means
+the call came back early — carry on as in option 2 and read the log.
 
 **2. Take a handle when you want to keep working.** Poll the filesystem, never the
 clock — the run is done exactly when the `.rc` file appears.
@@ -142,7 +151,32 @@ Pass `timeout=900000` here too: the call returns immediately so it is never
 reached, but the guard cannot tell a detached run from a foreground one and blocks
 the form without it.
 
-**3. Delegate.** `rust-quality-check` owns its own terminal.
+**3. Delegate.** `rust-quality-check` runs `verify.sh` detached and polls its
+`.rc` with the file-reading tool, so a long run costs you one call. It does **not**
+get a terminal of its own — sub-agents share the main one (`project-rules.md`), so
+delegating does not escape a wedged tty; that is what option 4 is for.
+
+**4. Start it in its own terminal with `control_bash_process`.** Reach for this
+when the main shell tty has *wedged* — not merely returned `Exit Code: -1`, but
+stopped running anything: a redirect that should create a file leaves none, and
+option 2's `nohup … & echo $? > …rc` never even writes its log, because the queued
+line is sitting in a busy tty and has not run yet. `control_bash_process` opens a
+fresh terminal that does not share that buffer, so the run actually starts.
+
+```
+control_bash_process(action="start",
+  command="cd /home/totoshko88/Documents/RustConn && rm -f target/rc-test.log target/rc-test.rc && PATH=\"$HOME/.cargo/bin:$PATH\" cargo test --workspace > target/rc-test.log 2>&1; echo $? > target/rc-test.rc")
+```
+
+Poll `target/rc-test.rc` with the file-reading tool exactly as in option 2, or read
+progress with `get_process_output`; `stop` the terminal when the `.rc` appears. It
+runs cargo directly rather than through the main shell, so **prepend the PATH
+yourself** — `~/.cargo/bin` is not on it (see the terminal-profile section). The
+tool warns that the command "does not appear to be a long-running process"; for a
+cargo build or a `verify.sh` run that warning is wrong — proceed. This is what
+recovered a wedged tty on 2026-09-28 after a queued `nohup verify.sh` refused to
+start; note the queued copy can still fire later, so R5 in
+`bash-serialization-guard` now refuses a second runner (see `hooks-map.md`).
 
 ## Cargo traps in this workspace
 

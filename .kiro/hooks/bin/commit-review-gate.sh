@@ -36,22 +36,31 @@ command -v jq >/dev/null 2>&1 || exit 0
 cmd=$(printf '%s' "$payload" | jq -r '.tool_input.command // ""' 2>/dev/null) || exit 0
 [ -n "$cmd" ] || exit 0
 
-# `git commit` in command position, stepping over leading wrappers, so that
-# `echo "run git commit"` and `grep -n 'git commit' docs/` are left alone. Same
-# shape as release-manual-only-guard.sh.
-commit_invocation='(^|[;&|(]|-c[[:space:]]+["'"'"']?)[[:space:]]*((nohup|exec|time|bash|sh)[[:space:]]+)*git([[:space:]]+-[^[:space:]]+)*[[:space:]]+commit([[:space:]]|$)'
-printf '%s' "$cmd" | grep -qE "$commit_invocation" || exit 0
-
-# `--dry-run` inspects; it does not record anything.
-printf '%s' "$cmd" | grep -qE '(^|[[:space:]])--dry-run([[:space:]]|$)' && exit 0
+# Find a real `git commit` with the same parser release-manual-only-guard.sh
+# uses, so `echo "run git commit"` and `grep -n 'git commit' docs/` are left alone
+# while `GIT_EDITOR=true git commit` and `git add a && git commit` are not. The
+# regex it replaced missed the NAME=value form (scripts/test-hooks.sh has the row).
+here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd) || exit 0
+committing=0
+while IFS=$'\t' read -r kind verb args; do
+    [ "$kind" = GIT ] && [ "$verb" = commit ] || continue
+    # `--dry-run` inspects; it does not record anything.
+    case " $args " in *" --dry-run "*) continue ;; esac
+    committing=1
+done < <(printf '%s' "$cmd" | awk -f "$here/lib/command-segments.awk" 2>/dev/null)
+[ "$committing" -eq 1 ] || exit 0
 
 repo=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0
-journal="$repo/target/.kiro-session-edits"
+# KIRO_EDIT_JOURNAL lets scripts/test-hooks.sh point the gate at a scratch journal.
+journal="${KIRO_EDIT_JOURNAL:-$repo/target/.kiro-session-edits}"
 [ -s "$journal" ] || exit 0
 
 needed=""
 
-if grep -qE '^rustconn-(pty|locale|env|dock)-sys/.*\.rs$' -- "$journal" 2>/dev/null; then
+# The crate-name shape, not a list: crate-boundary-guard.sh sanctions any
+# rustconn-<x>-sys crate, so a fifth one must get the review too. Cargo.toml is in
+# scope because a -sys crate's [lints] table is where its unsafe budget lives.
+if grep -qE '^rustconn-[a-z0-9-]+-sys/(.*\.rs|Cargo\.toml)$' -- "$journal" 2>/dev/null; then
     needed="$needed unsafe-reviewer (a rustconn-*-sys crate changed — the only sanctioned unsafe in the workspace);"
 fi
 

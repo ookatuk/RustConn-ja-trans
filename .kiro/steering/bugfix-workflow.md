@@ -1,7 +1,7 @@
 ---
 inclusion: auto
 name: bugfix-workflow
-description: "Порядок роботи над баг-фіксом: відтворити, знайти першопричину через context-gatherer, зафіксувати незмінну поведінку, лагодити спільну функцію а не один виклик, лишити тест. Застосовувати, коли запит — виправлення баг-репорту, регресії або дефекту."
+description: "Workflow for a bug fix: reproduce it, find the root cause via context-gatherer, pin the invariant behaviour with a test, fix the shared function rather than a single call site, and leave a test behind. Apply when the request is fixing a bug report, a regression, or a defect."
 ---
 
 # Bugfix Workflow

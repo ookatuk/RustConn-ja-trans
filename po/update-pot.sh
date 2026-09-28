@@ -98,3 +98,13 @@ awk '
   }
   { print }
 ' "${POTFILE}" > "${POTFILE}.tmp" && mv "${POTFILE}.tmp" "${POTFILE}"
+
+# Record the regenerated template in the agent edit journal, so a journal-scoped
+# `git add` stages it — a new i18n string means a POT change, and the PostToolUse
+# write hook never sees an xgettext write. Only when we rewrote the canonical
+# po/rustconn.pot: with an explicit output path this is check-pot-current.sh
+# writing a throwaway copy, which must not be staged.
+if [ -z "${1:-}" ] && [ -f scripts/lib/journal.sh ]; then
+    . scripts/lib/journal.sh
+    journal_add "${POTFILE}"
+fi

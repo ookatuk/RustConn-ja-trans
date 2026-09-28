@@ -203,6 +203,7 @@ unchanged=0
 prose=()
 norule=()
 missing=()
+written=()
 
 for f in "${TARGETS[@]}"; do
     if [ ! -f "$f" ]; then
@@ -240,8 +241,18 @@ for f in "${TARGETS[@]}"; do
 
     if [ "$WRITE" -eq 1 ]; then
         cat "$out" >"$f"
+        written+=("$f")
     fi
 done
+
+# Record the files this run actually rewrote in the agent edit journal, so a
+# journal-scoped `git add` stages the bump instead of dropping it (the packaging
+# files are otherwise invisible to the PostToolUse write hook). Dry run writes
+# nothing, so it records nothing.
+if [ "$WRITE" -eq 1 ] && [ "${#written[@]}" -gt 0 ] && [ -f scripts/lib/journal.sh ]; then
+    . scripts/lib/journal.sh
+    journal_add "${written[@]}"
+fi
 
 # ── Report ───────────────────────────────────────────────────────────────────
 printf '\n'

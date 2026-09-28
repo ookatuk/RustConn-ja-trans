@@ -95,3 +95,10 @@ fi
 cp "$FLATPAK_SOURCES" "$FLATHUB_SOURCES"
 printf 'Wrote %s and copied it to %s\n' "$FLATPAK_SOURCES" "$FLATHUB_SOURCES"
 printf 'Both manifests now match Cargo.lock. Commit them with the version bump.\n'
+
+# Record both regenerated files in the agent edit journal, so a journal-scoped
+# `git add` stages them with the version bump instead of leaving them behind.
+if [ -f scripts/lib/journal.sh ]; then
+    . scripts/lib/journal.sh
+    journal_add "$FLATPAK_SOURCES" "$FLATHUB_SOURCES"
+fi

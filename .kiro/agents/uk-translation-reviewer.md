@@ -1,8 +1,9 @@
 ---
 name: uk-translation-reviewer
 description: >
-  Reviews and corrects Ukrainian translations in po/uk.po according to the project's Ukrainian Style Guide.
-  Ensures authentic terminology (DSTU), imperative mood for UI actions, Kharkiv orthography, and proper formatting.
+  Reviews and corrects Ukrainian translations in po/uk.po against the rules in
+  this agent's own prompt: authentic terminology (DSTU), imperative mood for UI
+  actions, Kharkiv orthography, and proper formatting.
   Use this agent after editing po/uk.po or when adding new Ukrainian translations.
 tools: ["read", "write"]
 # The term table below looks like a lookup a cheap model could apply, but the
@@ -70,5 +71,5 @@ Follow traditional Ukrainian phonetic and morphological rules:
 ## Workflow
 1. Read the current `po/uk.po` file.
 2. Identify all `msgstr` entries that violate the rules above.
-3. Fix violations by replacing incorrect translations with correct ones following the style guide.
+3. Fix violations by replacing incorrect translations with correct ones following the rules above (they are the style guide — there is no separate file).
 4. Report what was changed and why.

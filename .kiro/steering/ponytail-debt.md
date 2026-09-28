@@ -1,6 +1,6 @@
 ---
 inclusion: manual
-description: "Збирає всі відкладені спрощення (`// ponytail:`) у крейтах в один леджер технічного боргу, щоб «later» не стало «never»."
+description: "Collects every deferred simplification (`// ponytail:`) across the crates into one technical-debt ledger, so that \"later\" does not become \"never\"."
 ---
 
 Run the ledger and review it:

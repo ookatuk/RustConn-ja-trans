@@ -23,13 +23,10 @@ When the workspace version in `Cargo.toml` is being bumped:
    - `packaging/obs/rustconn.changes` — OBS changes format
    - `packaging/obs/rustconn.spec` — add `%changelog` entry
    - `rustconn/assets/io.github.totoshko88.RustConn.metainfo.xml` — add `<release>` entry
-3. **Dependency updates** — run and record results:
-   ```bash
-   cargo update --dry-run    # preview
-   cargo update              # apply
-   cargo check --all-targets # verify
-   ```
-   Add updated crates to CHANGELOG.md `### Dependencies` section.
+3. **Dependency updates** — the full flow, including that you *report and ask
+   before applying* rather than running `cargo update` outright, is step 2 of
+   `release-version.md`. Do not preview-and-apply from here; follow that file, and
+   record any applied updates in CHANGELOG.md `### Dependencies`.
 4. **CLI version check** (if `scripts/check-cli-versions.sh` exists):
    ```bash
    ./scripts/check-cli-versions.sh
@@ -38,6 +35,6 @@ When the workspace version in `Cargo.toml` is being bumped:
 
 ## Important
 
-- Version-number propagation to packaging files (flatpak/flathub tags, dsc files, AppImage, docs, spec `Version:` field) is handled by the **manual `release-version` hook** during finalize — run it when testing is done.
-- YOU must handle all changelog/release-notes files manually — neither hook creates changelog entries
-- For full release process details, activate the `rustconn-dev` power and read `release.md` steering
+- Version-number propagation to packaging files (flatpak/flathub tags, dsc files, AppImage, docs, spec `Version:` field) is `scripts/bump-version.sh X.Y.Z --write` — see the **`release-version.md`** steering file (manual), which is the full checklist this file only summarises.
+- YOU must handle all changelog/release-notes files manually — no hook or script creates changelog entries.
+- For full release process details read `release.md` in the **`rustconn`** power (`kiro_powers` → readSteering), and `release-version.md` here. There is no `rustconn-dev` power; the installed one is `rustconn`.

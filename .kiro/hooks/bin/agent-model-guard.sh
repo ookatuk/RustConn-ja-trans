@@ -68,6 +68,14 @@ EOF
     exit 2
 }
 
+# fs_append adds to a profile that already exists: it cannot remove a field, and
+# the fragment it carries is not the profile. Treating its `text` as a whole file
+# blocked every appended rule until 2026-09-28 (a row in scripts/test-hooks.sh).
+tool=$(printf '%s' "$payload" | jq -r '.tool_name // ""' 2>/dev/null) || tool=""
+case "$tool" in
+fs_append | fsAppend) exit 0 ;;
+esac
+
 text=$(printf '%s' "$payload" | jq -r '.tool_input.text // ""' 2>/dev/null) || exit 0
 
 if [ -n "$text" ]; then
