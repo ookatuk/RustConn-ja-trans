@@ -389,6 +389,7 @@ impl ConnectionDialog {
             advanced_tab,
             wol_enabled_check,
             wol_mac_entry,
+            wol_get_mac_button,
             wol_broadcast_entry,
             wol_port_spin,
             wol_wait_spin,
@@ -421,6 +422,60 @@ impl ConnectionDialog {
         view_stack
             .add_titled(&advanced_tab, Some("advanced"), &i18n("Advanced"))
             .set_icon_name(Some("preferences-system-symbolic"));
+
+        // Wire the WOL "Get MAC" button: read the host's MAC from the local ARP
+        // cache and fill the field. The lookup resolves a hostname and reads
+        // /proc/net/arp — both blocking — so it runs off the main thread.
+        {
+            let host_entry_mac = host_entry.clone();
+            let mac_entry_fill = wol_mac_entry.clone();
+            let button = wol_get_mac_button.clone();
+            let dialog_for_mac = dialog.clone();
+            wol_get_mac_button.connect_clicked(move |_| {
+                let host = host_entry_mac.text().trim().to_string();
+                if host.is_empty() {
+                    crate::alert::show_error(
+                        &dialog_for_mac,
+                        &i18n("No host set"),
+                        &i18n("Enter the host address first, then detect its MAC."),
+                    );
+                    return;
+                }
+                button.set_sensitive(false);
+                let mac_entry_cb = mac_entry_fill.clone();
+                let button_cb = button.clone();
+                let dialog_cb = dialog_for_mac.clone();
+                crate::utils::spawn_blocking_with_callback(
+                    move || rustconn_core::wol::lookup_mac_for_host(&host),
+                    move |mac| {
+                        button_cb.set_sensitive(true);
+                        match mac {
+                            Some(mac) => {
+                                mac_entry_cb.set_text(&mac.to_string());
+                                if mac.is_locally_administered() {
+                                    crate::alert::show_error(
+                                        &dialog_cb,
+                                        &i18n("MAC address may be temporary"),
+                                        &i18n(
+                                            "This looks like a randomized (private) address, which changes periodically. Wake-on-LAN will stop working once it rotates — turn off the private address for this network on the target device, or read it again later.",
+                                        ),
+                                    );
+                                }
+                            }
+                            None => {
+                                crate::alert::show_error(
+                                    &dialog_cb,
+                                    &i18n("MAC address not found"),
+                                    &i18n(
+                                        "The host is not in this computer's ARP cache. It must be powered on and on the same local network. For a host beyond a router, read its MAC over an SSH session instead.",
+                                    ),
+                                );
+                            }
+                        }
+                    },
+                );
+            });
+        }
 
         let highlight_rules: Rc<RefCell<Vec<HighlightRule>>> = Rc::new(RefCell::new(Vec::new()));
 

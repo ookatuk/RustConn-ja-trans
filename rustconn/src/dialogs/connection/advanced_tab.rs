@@ -28,8 +28,9 @@ use crate::i18n::i18n;
 pub(super) fn create_advanced_tab() -> (
     GtkBox,
     CheckButton,
-    Entry,
-    Entry,
+    Entry,  // mac_entry
+    Button, // get_mac_button
+    Entry,  // broadcast_entry
     SpinButton,
     SpinButton,
     ColorDialogButton,
@@ -654,8 +655,23 @@ pub(super) fn create_advanced_tab() -> (
         .placeholder_text(i18n("AA:BB:CC:DD:EE:FF"))
         .build();
 
+    // "Get MAC" reads the address from the local ARP cache for the connection's
+    // host, so the user need not look it up by hand. Wired in build.rs, which
+    // has the host entry. Only useful on the same LAN segment; off Linux the
+    // core lookup returns nothing and the click reports that.
+    let get_mac_button = Button::builder()
+        .icon_name("edit-find-symbolic")
+        .valign(gtk4::Align::Center)
+        .tooltip_text(i18n("Detect the MAC address from this network"))
+        .build();
+    get_mac_button.add_css_class("flat");
+    get_mac_button.update_property(&[gtk4::accessible::Property::Label(&i18n(
+        "Detect MAC address",
+    ))]);
+
     let mac_row = adw::ActionRow::builder().title(i18n("MAC Address")).build();
     mac_row.add_suffix(&mac_entry);
+    mac_row.add_suffix(&get_mac_button);
     wol_expander.add_row(&mac_row);
 
     // MAC address format validation
@@ -745,6 +761,7 @@ pub(super) fn create_advanced_tab() -> (
         vbox,
         wol_enabled_check,
         mac_entry,
+        get_mac_button,
         broadcast_entry,
         port_spin,
         wait_spin,
