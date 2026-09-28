@@ -543,6 +543,32 @@ pub fn show_edit_group_dialog(
     // === SSH Settings Section (progressive disclosure per GNOME HIG) ===
     let ssh_settings_group = adw::PreferencesGroup::new();
 
+    // What this group would inherit from its ancestors, per field. Shown in
+    // each empty field's subtitle so a subgroup does not look as if it has no
+    // SSH settings when it actually inherits them from a group further up
+    // (issue #345). Resolved from the full group list, so it sees the whole
+    // ancestor chain, not just the immediate parent.
+    let inherited_ssh = {
+        let state_ref = state.borrow();
+        let all_groups = state_ref.list_groups_owned();
+        rustconn_core::connection::ssh_inheritance::resolve_inherited_group_ssh(
+            group_id,
+            &all_groups,
+        )
+    };
+    // Names a jump-host connection by its label for display, matching the
+    // dropdown wording ("name (host)" or just "name" when they match).
+    let jump_host_label = |id: uuid::Uuid| -> Option<String> {
+        let state_ref = state.borrow();
+        state_ref.get_connection(id).map(|c| {
+            if c.name == c.host {
+                c.name.clone()
+            } else {
+                format!("{} ({})", c.name, c.host)
+            }
+        })
+    };
+
     let ssh_expander = adw::ExpanderRow::builder()
         .title(i18n("SSH Settings"))
         .subtitle(i18n("SSH settings inherited by connections in this group"))
@@ -552,13 +578,24 @@ pub fn show_edit_group_dialog(
     // Jump Host used to open with the switch off, and because the off branch of
     // the save handler clears all five fields, the next save silently threw it
     // away.
-    let has_ssh_settings = group.ssh_auth_method.is_some()
+    let has_own_ssh_settings = group.ssh_auth_method.is_some()
         || group.ssh_key_path.is_some()
         || group.ssh_proxy_jump.is_some()
         || group.ssh_jump_host_id.is_some()
         || group.ssh_agent_socket.is_some();
-    ssh_expander.set_enable_expansion(has_ssh_settings);
-    ssh_expander.set_expanded(has_ssh_settings);
+    // Expand when the group carries its own SSH settings *or* inherits any from
+    // an ancestor, so an inherited-only group opens with its inheritance
+    // visible in the field subtitles rather than looking empty (issue #345).
+    let has_inherited_ssh = inherited_ssh.auth_method.is_some()
+        || inherited_ssh.key_path.is_some()
+        || inherited_ssh.proxy_jump.is_some()
+        || inherited_ssh.jump_host.is_some()
+        || inherited_ssh.agent_socket.is_some();
+    // The enable switch drives whether a save writes SSH fields, so it must
+    // track only the group's *own* settings — expansion opening to reveal
+    // inherited values must not make the group start saving them as its own.
+    ssh_expander.set_enable_expansion(has_own_ssh_settings);
+    ssh_expander.set_expanded(has_own_ssh_settings || has_inherited_ssh);
     ssh_settings_group.add(&ssh_expander);
 
     // Confirm before clearing SSH settings when the enable switch is toggled off.
@@ -633,6 +670,18 @@ pub fn show_edit_group_dialog(
         Some(SshAuthMethod::SecurityKey) => 5,
     };
     auth_method_row.set_selected(initial_auth_idx);
+    if group.ssh_auth_method.is_none()
+        && let Some(method) = &inherited_ssh.auth_method
+    {
+        let name = match method {
+            SshAuthMethod::Password => i18n("Password"),
+            SshAuthMethod::PublicKey => i18n("Public Key"),
+            SshAuthMethod::Agent => i18n("Agent"),
+            SshAuthMethod::KeyboardInteractive => i18n("Keyboard Interactive"),
+            SshAuthMethod::SecurityKey => i18n("Security Key"),
+        };
+        auth_method_row.set_subtitle(&i18n_f("Inherited from a parent group: {}", &[&name]));
+    }
     ssh_expander.add_row(&auth_method_row);
 
     // SSH Key Path with file chooser suffix button
@@ -652,6 +701,14 @@ pub fn show_edit_group_dialog(
         "Select SSH key file",
     ))]);
     ssh_key_path_row.add_suffix(&ssh_key_browse_btn);
+    if group.ssh_key_path.is_none()
+        && let Some(path) = &inherited_ssh.key_path
+    {
+        ssh_key_path_row.set_tooltip_text(Some(&i18n_f(
+            "Inherited from a parent group: {}",
+            &[&path.to_string_lossy()],
+        )));
+    }
     ssh_expander.add_row(&ssh_key_path_row);
 
     // Connect file chooser button
@@ -752,6 +809,12 @@ pub fn show_edit_group_dialog(
         .title(i18n("Jump Host"))
         .subtitle(i18n("Connect via another SSH connection"))
         .build();
+    if group.ssh_jump_host_id.is_none()
+        && let Some(inherited_id) = inherited_ssh.jump_host
+    {
+        let label = jump_host_label(inherited_id).unwrap_or_else(|| i18n("(unknown connection)"));
+        ssh_jump_host_row.set_subtitle(&i18n_f("Inherited from a parent group: {}", &[&label]));
+    }
     ssh_jump_host_row.add_suffix(&ssh_jump_host_dropdown);
     ssh_expander.add_row(&ssh_jump_host_row);
 
@@ -760,9 +823,14 @@ pub fn show_edit_group_dialog(
         .title(i18n("SSH Proxy Jump"))
         .text(group.ssh_proxy_jump.as_deref().unwrap_or_default())
         .build();
-    ssh_proxy_jump_row.set_tooltip_text(Some(&i18n(
-        "Manual ProxyJump (-J) — used when Jump Host is (None)",
-    )));
+    let proxy_jump_tooltip = if group.ssh_proxy_jump.is_none()
+        && let Some(proxy) = &inherited_ssh.proxy_jump
+    {
+        i18n_f("Inherited from a parent group: {}", &[proxy])
+    } else {
+        i18n("Manual ProxyJump (-J) — used when Jump Host is (None)")
+    };
+    ssh_proxy_jump_row.set_tooltip_text(Some(&proxy_jump_tooltip));
     ssh_expander.add_row(&ssh_proxy_jump_row);
 
     // SSH Agent Socket text field
@@ -770,6 +838,14 @@ pub fn show_edit_group_dialog(
         .title(i18n("SSH Agent Socket"))
         .text(group.ssh_agent_socket.as_deref().unwrap_or_default())
         .build();
+    if group.ssh_agent_socket.is_none()
+        && let Some(socket) = &inherited_ssh.agent_socket
+    {
+        ssh_agent_socket_row.set_tooltip_text(Some(&i18n_f(
+            "Inherited from a parent group: {}",
+            &[socket],
+        )));
+    }
     ssh_expander.add_row(&ssh_agent_socket_row);
 
     // SSH settings go on their own page (Page 2)

@@ -248,6 +248,62 @@ pub fn resolve_ssh_agent_socket(
     walk_group_chain(connection.group_id, groups, |g| g.ssh_agent_socket.clone())
 }
 
+/// The SSH settings a group inherits from its ancestor groups.
+///
+/// Each field is the first non-empty value found walking from the group's
+/// *parent* up to the root — the group's own values are deliberately excluded,
+/// because this describes what a group would inherit if it set nothing itself.
+///
+/// The group editor uses this to show, per field, where an empty field's
+/// effective value comes from. Without it a subgroup that inherits a bastion
+/// from two levels up looked as if it had no SSH settings at all, which is what
+/// issue #345 reported.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct InheritedGroupSsh {
+    /// Inherited authentication method, if any ancestor sets one.
+    pub auth_method: Option<SshAuthMethod>,
+    /// Inherited SSH key path, if any ancestor sets one.
+    pub key_path: Option<PathBuf>,
+    /// Inherited free-text `ProxyJump`, if any ancestor sets one.
+    pub proxy_jump: Option<String>,
+    /// Inherited reference jump-host connection, if any ancestor sets one.
+    ///
+    /// Named `jump_host` rather than `jump_host_id` on purpose: the
+    /// `check-jump-host-wiring.sh` gate forbids any `.jump_host_id` read under
+    /// `rustconn/src/window/`, and this struct is read there. The value is a
+    /// connection id all the same.
+    pub jump_host: Option<Uuid>,
+    /// Inherited SSH agent socket path, if any ancestor sets one.
+    pub agent_socket: Option<String>,
+}
+
+/// Resolves the SSH settings a group inherits from its ancestors.
+///
+/// Walks from the group's parent up to the root — the group with id `group_id`
+/// is not consulted, so a caller can compare a group's own empty field against
+/// the value it would inherit. Returns [`InheritedGroupSsh::default`] (all
+/// `None`) when the group is a root, is unknown, or no ancestor sets anything.
+///
+/// Each field is resolved independently, mirroring the per-field inheritance the
+/// connection resolvers above perform.
+#[must_use]
+pub fn resolve_inherited_group_ssh(
+    group_id: Uuid,
+    groups: &[ConnectionGroup],
+) -> InheritedGroupSsh {
+    // Start one level up: the group's own fields are shown separately.
+    let parent = find_group(group_id, groups).and_then(|g| g.parent_id);
+    InheritedGroupSsh {
+        auth_method: walk_group_chain(parent, groups, |g| g.ssh_auth_method.clone()),
+        key_path: walk_group_chain(parent, groups, |g| g.ssh_key_path.clone()),
+        proxy_jump: walk_group_chain(parent, groups, |g| {
+            non_blank_proxy_jump(g.ssh_proxy_jump.as_deref())
+        }),
+        jump_host: walk_group_chain(parent, groups, |g| g.ssh_jump_host_id),
+        agent_socket: walk_group_chain(parent, groups, |g| g.ssh_agent_socket.clone()),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::path::PathBuf;
@@ -842,5 +898,87 @@ mod tests {
         let groups = vec![group];
 
         assert_eq!(resolve_ssh_key_path(&conn, &groups), None);
+    }
+
+    // ── resolve_inherited_group_ssh: what a group inherits from its ancestors ──
+
+    #[test]
+    fn group_inherits_jump_host_from_grandparent_skipping_empty_parent() {
+        // Issue #345: proxy jump on the top group, empty middle group, leaf
+        // group must still surface it as inherited.
+        let mut group_a = ConnectionGroup::new("A".into());
+        group_a.ssh_proxy_jump = Some("bastion.example.com".into());
+        let group_b = ConnectionGroup::with_parent("B".into(), group_a.id);
+        let group_c = ConnectionGroup::with_parent("C".into(), group_b.id);
+        let leaf = group_c.id;
+        let groups = vec![group_a, group_b, group_c];
+
+        let inherited = resolve_inherited_group_ssh(leaf, &groups);
+        assert_eq!(inherited.proxy_jump, Some("bastion.example.com".into()));
+    }
+
+    #[test]
+    fn group_own_values_are_not_reported_as_inherited() {
+        // A group's own field is shown separately, so the ancestor walk must
+        // exclude it — otherwise the editor would label a group's own value
+        // "inherited".
+        let group_a = ConnectionGroup::new("A".into());
+        let mut group_b = ConnectionGroup::with_parent("B".into(), group_a.id);
+        group_b.ssh_proxy_jump = Some("own-bastion".into());
+        let own = group_b.id;
+        let groups = vec![group_a, group_b];
+
+        let inherited = resolve_inherited_group_ssh(own, &groups);
+        assert_eq!(
+            inherited.proxy_jump, None,
+            "the group's own proxy jump must not count as inherited"
+        );
+    }
+
+    #[test]
+    fn group_inherits_each_field_independently() {
+        let mut group_a = ConnectionGroup::new("A".into());
+        group_a.ssh_auth_method = Some(SshAuthMethod::PublicKey);
+        group_a.ssh_key_path = Some(PathBuf::from("/keys/root"));
+        let mut group_b = ConnectionGroup::with_parent("B".into(), group_a.id);
+        group_b.ssh_agent_socket = Some("/tmp/agent.sock".into());
+        let group_c = ConnectionGroup::with_parent("C".into(), group_b.id);
+        let leaf = group_c.id;
+        let groups = vec![group_a, group_b, group_c];
+
+        let inherited = resolve_inherited_group_ssh(leaf, &groups);
+        assert_eq!(inherited.auth_method, Some(SshAuthMethod::PublicKey));
+        assert_eq!(inherited.key_path, Some(PathBuf::from("/keys/root")));
+        assert_eq!(inherited.agent_socket, Some("/tmp/agent.sock".into()));
+        assert_eq!(inherited.proxy_jump, None);
+        assert_eq!(inherited.jump_host, None);
+    }
+
+    #[test]
+    fn root_group_inherits_nothing() {
+        let mut group_a = ConnectionGroup::new("A".into());
+        group_a.ssh_proxy_jump = Some("bastion".into());
+        let root = group_a.id;
+        let groups = vec![group_a];
+
+        assert_eq!(
+            resolve_inherited_group_ssh(root, &groups),
+            InheritedGroupSsh::default()
+        );
+    }
+
+    #[test]
+    fn nearest_ancestor_wins_for_inherited_group_ssh() {
+        // Both grandparent and parent set a proxy jump; the nearer one wins.
+        let mut group_a = ConnectionGroup::new("A".into());
+        group_a.ssh_proxy_jump = Some("far".into());
+        let mut group_b = ConnectionGroup::with_parent("B".into(), group_a.id);
+        group_b.ssh_proxy_jump = Some("near".into());
+        let group_c = ConnectionGroup::with_parent("C".into(), group_b.id);
+        let leaf = group_c.id;
+        let groups = vec![group_a, group_b, group_c];
+
+        let inherited = resolve_inherited_group_ssh(leaf, &groups);
+        assert_eq!(inherited.proxy_jump, Some("near".into()));
     }
 }

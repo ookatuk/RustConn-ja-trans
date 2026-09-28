@@ -5,7 +5,12 @@ All notable changes to RustConn will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.22.8] - 2026-09-27
+## [Unreleased]
+
+### Fixed
+- **Group SSH settings inherited from further than the immediate parent were invisible in the group editor (issue [#345](https://github.com/totoshko88/RustConn/issues/345))** — a subgroup that inherited a jump host, ProxyJump, SSH key, auth method or agent socket from a group two or more levels up opened with its "SSH Settings" section empty and collapsed, so the inheritance looked broken even though connections in the subgroup resolved it correctly at connect time.
+The resolver (`resolve_ssh_proxy_jump` and friends) always walked the full ancestor chain — a new test in `jump_chain.rs` confirms a grandparent's jump host is honoured — so this was a display gap, not a routing bug: the editor only ever read the group's *own* five SSH fields and never showed what it would inherit.
+The group editor now resolves the effective inherited value per field through a new `resolve_inherited_group_ssh` in `rustconn-core`, which walks from the group's parent to the root (the group's own values excluded), and shows it in each empty field's subtitle or tooltip as "Inherited from a parent group: …"; the SSH section now also expands when a group inherits settings even if it defines none of its own, while the enable switch still tracks only the group's own fields so revealing inherited values never makes the group start saving them as its own.
 
 ### Fixed
 - **Pinning a connection as a favorite did nothing (issue #344)** — the "Pin / Unpin" context-menu action set the favorite flag on a throwaway clone and then saved it through `update_connection`, whose "preserve fields the edit dialog does not expose" block immediately overwrote `is_pinned` and `pin_order` with the old stored values, so the change never reached storage.
