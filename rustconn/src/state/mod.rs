@@ -225,6 +225,14 @@ pub struct AppState {
     /// Whether the KeePass keyring load at startup failed or timed out.
     /// Checked once after the main window is shown to display a toast.
     kdbx_keyring_failed: bool,
+    /// Local record of where each connection last connected, to warn when a
+    /// shared connection has been re-pointed (see `rustconn_core::connection::
+    /// routing_memory`). `RefCell` so the check/remember path can update it
+    /// through a shared borrow; persisted outside the synced catalog.
+    routing_memory: std::cell::RefCell<rustconn_core::connection::RoutingMemory>,
+    /// Connections whose changed route the user accepted this session, so a
+    /// confirmed re-point does not ask again until the app restarts.
+    confirmed_reroutes: std::cell::RefCell<std::collections::HashSet<Uuid>>,
 }
 
 /// Bundles the parameters needed for blocking credential resolution.
@@ -605,6 +613,10 @@ impl AppState {
             workspace_manager,
             folder_tracker: Arc::new(std::sync::Mutex::new(FolderConnectionTracker::new())),
             kdbx_keyring_failed,
+            routing_memory: std::cell::RefCell::new(
+                rustconn_core::connection::RoutingMemory::load_default(),
+            ),
+            confirmed_reroutes: std::cell::RefCell::new(std::collections::HashSet::new()),
         })
     }
 
@@ -665,6 +677,84 @@ impl AppState {
         self.ask_answers
             .get(&connection_id)
             .map_or(&[], Vec::as_slice)
+    }
+
+    // ========== Routing Memory (re-point detection) ==========
+
+    /// Builds the current effective [`Route`] for a connection.
+    ///
+    /// Resolves the bastion the same way the launcher does, so an inherited or
+    /// global jump host is part of the route and a change to it is caught.
+    #[must_use]
+    fn current_route(&self, conn: &Connection) -> rustconn_core::connection::Route {
+        let groups = self.list_groups_owned();
+        let network = self.settings().network.clone();
+        let jump =
+            rustconn_core::connection::resolve_proxy_jump_value(conn, &[], &groups, &network)
+                .unwrap_or_default();
+        let password_source = match &conn.password_source {
+            rustconn_core::models::PasswordSource::None => "none".to_string(),
+            rustconn_core::models::PasswordSource::Vault => "vault".to_string(),
+            rustconn_core::models::PasswordSource::Prompt => "prompt".to_string(),
+            rustconn_core::models::PasswordSource::Inherit => "inherit".to_string(),
+            rustconn_core::models::PasswordSource::Variable(name) => format!("variable:{name}"),
+            rustconn_core::models::PasswordSource::Script(_) => "script".to_string(),
+        };
+        rustconn_core::connection::Route {
+            host: conn.host.clone(),
+            port: conn.port,
+            username: conn.username.clone().unwrap_or_default(),
+            password_source,
+            jump,
+        }
+    }
+
+    /// Checks whether a connection's route changed since it last connected.
+    ///
+    /// Returns the verdict and the current route (so the caller can remember it
+    /// on success without recomputing). A connection the user already confirmed
+    /// this session, or one on a non-shared catalog, should be treated as
+    /// unchanged by the caller — this only reports the raw comparison.
+    #[must_use]
+    pub fn check_route(
+        &self,
+        conn: &Connection,
+    ) -> (
+        rustconn_core::connection::RouteVerdict,
+        rustconn_core::connection::Route,
+    ) {
+        let route = self.current_route(conn);
+        let verdict = self.routing_memory.borrow().check(conn.id, &route);
+        (verdict, route)
+    }
+
+    /// Returns `true` when the user already accepted this connection's changed
+    /// route during this session.
+    #[must_use]
+    pub fn reroute_confirmed(&self, connection_id: Uuid) -> bool {
+        self.confirmed_reroutes.borrow().contains(&connection_id)
+    }
+
+    /// Marks a connection's changed route as accepted for the rest of the
+    /// session, so the warning is not shown again until restart.
+    pub fn confirm_reroute(&self, connection_id: Uuid) {
+        self.confirmed_reroutes.borrow_mut().insert(connection_id);
+    }
+
+    /// Records a connection's route as the last one connected to, and persists
+    /// the routing memory.
+    ///
+    /// Call only after a connection actually starts, so a failed attempt cannot
+    /// launder a re-point into the record. A persistence failure is logged, not
+    /// surfaced — the in-memory record still protects the current session.
+    pub fn remember_route(&self, connection_id: Uuid, route: rustconn_core::connection::Route) {
+        {
+            let mut mem = self.routing_memory.borrow_mut();
+            mem.remember(connection_id, route);
+        }
+        if let Err(e) = self.routing_memory.borrow().save_default() {
+            tracing::warn!(error = %e, "Failed to persist connection routing memory");
+        }
     }
 
     // ========== Connection Operations ==========

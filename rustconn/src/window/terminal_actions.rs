@@ -114,7 +114,7 @@ impl MainWindow {
         let session_bridges_paste = self.session_split_bridges.clone();
         paste_action.connect_activate(move |_, _| {
             if let Some(terminal) = focused_pane_terminal(&notebook_clone, &session_bridges_paste) {
-                terminal.paste_clipboard();
+                crate::terminal::safe_paste::paste_into_terminal(&terminal);
                 return;
             }
             // No split: the active tab is the session (also the RDP/VNC path).

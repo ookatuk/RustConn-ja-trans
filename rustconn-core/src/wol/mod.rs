@@ -10,6 +10,10 @@ use std::str::FromStr;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
+pub mod arp;
+
+pub use arp::{lookup_mac, lookup_mac_for_host};
+
 /// Errors related to Wake On LAN operations
 #[derive(Debug, Error)]
 pub enum WolError {
@@ -95,6 +99,19 @@ impl MacAddress {
             "{:02X}-{:02X}-{:02X}-{:02X}-{:02X}-{:02X}",
             self.0[0], self.0[1], self.0[2], self.0[3], self.0[4], self.0[5]
         )
+    }
+
+    /// Returns `true` when this is a locally administered address.
+    ///
+    /// Bit 0x02 of the first octet is the "locally administered" bit. Modern
+    /// phones, laptops and Macs default to a randomized (locally administered)
+    /// Wi-Fi address that changes every couple of weeks, so a MAC read from the
+    /// ARP cache with this bit set will likely stop working — worth warning
+    /// about before it is saved for Wake-on-LAN. A software-assigned address on
+    /// a VM or container has the same bit set but does not rotate.
+    #[must_use]
+    pub const fn is_locally_administered(&self) -> bool {
+        self.0[0] & 0x02 != 0
     }
 }
 

@@ -57,6 +57,11 @@ pub fn configure_terminal_with_settings(terminal: &Terminal, settings: &Terminal
         setup_copy_on_select(terminal);
     }
 
+    // Record the multi-line-paste confirmation preference so every paste path
+    // (Ctrl+V, the context menu, split-view and detached-window paste) reads
+    // one global source. Set before the shortcut controller reads it.
+    super::safe_paste::set_confirm_multiline_paste(settings.confirm_multiline_paste);
+
     // Keyboard shortcuts (Copy/Paste + font zoom)
     setup_keyboard_shortcuts(terminal);
     setup_font_zoom(terminal);
@@ -198,7 +203,7 @@ fn setup_keyboard_shortcuts(terminal: &Terminal) {
                     return glib::Propagation::Stop;
                 }
                 Some('v') => {
-                    term.paste_clipboard();
+                    super::safe_paste::paste_into_terminal(&term);
                     return glib::Propagation::Stop;
                 }
                 _ => (),
@@ -290,7 +295,7 @@ pub fn setup_context_menu(terminal: &Terminal, snippet_section: &Rc<gtk4::gio::M
     let term_paste = terminal.clone();
     let action_paste = gio::SimpleAction::new("paste", None);
     action_paste.connect_activate(move |_, _| {
-        term_paste.paste_clipboard();
+        super::safe_paste::paste_into_terminal(&term_paste);
     });
     action_group.add_action(&action_paste);
 

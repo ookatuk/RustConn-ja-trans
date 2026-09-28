@@ -6,7 +6,7 @@
 #
 
 Name:           rustconn
-Version:        0.22.8
+Version:        0.22.9
 Release:        0
 # rpmlint caps Summary at 79 characters (summary-too-long, badness 200); the
 # protocol list belongs in %description, which has room for all of it. Kept in
@@ -389,6 +389,14 @@ done
 %{_datadir}/icons/hicolor/*/apps/io.github.totoshko88.RustConn.*
 
 %changelog
+* Mon Sep 28 2026 Anton Isaiev <totoshko88@gmail.com> - 0.22.9-0
+- Version bump to 0.22.9
+- Added: a multi-line terminal paste shows a preview and asks for confirmation first, guarding against pastejacking; single-line pastes are unchanged and it can be turned off with the confirm_multiline_paste setting
+- Added: the connection editor can detect a host's MAC address for Wake-on-LAN from the local ARP cache with a "Get MAC" button (Linux only, same LAN segment), warning when the address is a randomized private one
+- Added: a connection whose route changed since it last connected warns before carrying stored credentials there, catching a silently re-pointed shared connection; the record is kept locally, out of the synced catalog
+- Fixed: SSH settings inherited from further than the immediate parent are now shown in the group editor instead of looking empty (issue #345)
+- Dependencies: vnc-rs 0.5.3 to 0.6.0, tokio-rustls 0.26.5 to 0.26.6
+
 * Sun Sep 27 2026 Anton Isaiev <totoshko88@gmail.com> - 0.22.8-0
 - Version bump to 0.22.8
 - Fixed: pinning a connection as a favorite now persists so the Favorites group appears (issue #344)

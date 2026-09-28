@@ -184,6 +184,16 @@ pub struct TerminalSettings {
     /// On Linux this setting is ignored — Alt always sends ESC sequences.
     #[serde(default)]
     pub option_is_meta: bool,
+    /// Confirm before pasting clipboard text that spans multiple lines.
+    ///
+    /// A multi-line paste runs every line the moment the newline arrives, so
+    /// text copied from a web page can carry a hidden command that executes
+    /// before it can be read (a "pastejacking" trap). When `true` (default), a
+    /// paste containing a newline shows a preview and waits for confirmation;
+    /// single-line pastes are never interrupted. When `false`, every paste goes
+    /// straight to the terminal as before.
+    #[serde(default = "default_true")]
+    pub confirm_multiline_paste: bool,
 }
 
 fn default_font_family() -> String {
@@ -275,6 +285,7 @@ impl Default for TerminalSettings {
             max_scrollback_on_reconnect: None,
             close_on_clean_exit: false,
             option_is_meta: false,
+            confirm_multiline_paste: true,
         }
     }
 }

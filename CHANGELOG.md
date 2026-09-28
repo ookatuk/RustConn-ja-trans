@@ -5,6 +5,25 @@ All notable changes to RustConn will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.22.9] - 2026-09-28
+
+### Added
+- **A multi-line paste into the terminal now asks for confirmation first** — clipboard text that spans more than one line runs every line the instant its newline reaches the shell, so a command copied from a web page can carry a hidden second line (`curl … | sh` after an innocent first line) that executes before it can be read — the "pastejacking" trap.
+Pasting clipboard text that contains an interior newline now shows a preview of the content, with a count of any elided lines, and waits for a "Paste" confirmation; a single line (or one with only a trailing newline, the ordinary "copied a whole line" case) is pasted immediately as before, so the common path is unchanged.
+The guard covers every paste route — Ctrl+V, the context-menu Paste, and the split-view and detached-window paste actions — through one shared `safe_paste::paste_into_terminal`, and can be turned off with the new `confirm_multiline_paste` terminal setting (on by default).
+- **The connection editor can now detect a host's MAC address for Wake-on-LAN** — the Wake-on-LAN section's MAC field required typing the address by hand, which few people know offhand, making the whole feature awkward to reach.
+A "Get MAC" button beside the field now reads the address from this computer's ARP cache for the connection's host (resolving a hostname first), filling it in one click. It works for a host that is powered on and on the same local network segment; a host beyond a router, or an offline one, is reported as not found with a note to read the MAC over SSH instead. When the detected address is a randomized (private) Wi-Fi address — which rotates every couple of weeks — the editor warns that Wake-on-LAN will stop working once it changes. The ARP read is Linux-only and never sends anything on the network; the lookup and parsing live in `rustconn-core::wol::arp` with unit tests.
+- **A connection whose route changed since it last connected now warns before carrying your credentials there** — in a shared, synced catalog someone who may edit a connection but not reveal its password could re-point it at a machine of their own and wait for you to connect with the stored secret, sending it to them.
+RustConn now records — on this computer only, kept out of the synced catalog — the host, port, account, credential source and jump host each connection last connected to. When any of those changed since, connecting first shows a "Routing changed" dialog with the previous and current route side by side; "Connect Anyway" accepts it for the session, "Cancel" leaves the connection untouched and sends nothing. The first connection is recorded silently, the record updates only on a launch that actually starts (so a failed attempt cannot launder a re-point in), and a route the user accepts is not asked about again until restart. The comparison and its local store live in `rustconn-core::connection::routing_memory` with unit tests.
+
+### Fixed
+- **Group SSH settings inherited from further than the immediate parent were invisible in the group editor (issue [#345](https://github.com/totoshko88/RustConn/issues/345))** — a subgroup that inherited a jump host, ProxyJump, SSH key, auth method or agent socket from a group two or more levels up opened with its "SSH Settings" section empty and collapsed, so the inheritance looked broken even though connections in the subgroup resolved it correctly at connect time.
+The resolver (`resolve_ssh_proxy_jump` and friends) always walked the full ancestor chain — a new test in `jump_chain.rs` confirms a grandparent's jump host is honoured — so this was a display gap, not a routing bug: the editor only ever read the group's *own* five SSH fields and never showed what it would inherit.
+The group editor now resolves the effective inherited value per field through a new `resolve_inherited_group_ssh` in `rustconn-core`, which walks from the group's parent to the root (the group's own values excluded), and shows it in each empty field's subtitle or tooltip as "Inherited from a parent group: …"; the SSH section now also expands when a group inherits settings even if it defines none of its own, while the enable switch still tracks only the group's own fields so revealing inherited values never makes the group start saving them as its own.
+
+### Dependencies
+- **Updated**: vnc-rs 0.5.3 → 0.6.0, tokio-rustls 0.26.5 → 0.26.6.
+
 ## [0.22.8] - 2026-09-27
 
 ### Fixed

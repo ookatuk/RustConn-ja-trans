@@ -2507,6 +2507,33 @@ impl MainWindow {
             return types::ConnectionStartResult::Failed;
         };
 
+        // Re-point guard: if this connection now goes somewhere other than the
+        // last time it connected — a different host, account, credential source
+        // or jump host — ask before carrying the saved credentials there. This
+        // catches a shared connection silently re-pointed by someone who may
+        // edit it but not read its password (see routing_memory). The check is
+        // skipped once the user has confirmed the change this session.
+        if !state_ref.reroute_confirmed(connection_id) {
+            let (verdict, current) = state_ref.check_route(conn);
+            if let rustconn_core::connection::RouteVerdict::Changed(previous) = verdict {
+                let conn_name = conn.name.clone();
+                drop(state_ref);
+                Self::show_reroute_warning(
+                    state,
+                    notebook,
+                    sidebar,
+                    monitoring,
+                    connection_id,
+                    &conn_name,
+                    &previous,
+                    &current,
+                );
+                // The dialog drives the retry; this attempt stops here without
+                // marking the sidebar failed.
+                return types::ConnectionStartResult::Pending;
+            }
+        }
+
         // Auto-WoL: send magic packet before connecting if configured
         // Fire-and-forget on background thread to avoid blocking GTK
         if let Some(wol_config) = conn.get_wol_config() {
@@ -2860,10 +2887,107 @@ impl MainWindow {
             });
         }
 
-        match session_id {
+        let result = match session_id {
             Some(sid) => types::ConnectionStartResult::Started(sid),
             None if may_be_pending => types::ConnectionStartResult::Pending,
             None => types::ConnectionStartResult::Failed,
+        };
+
+        // Record where this connection went, so a later re-point is noticed.
+        // Only for a launch that actually started (or is asynchronously
+        // starting) — a failed launch must not overwrite the known-good route,
+        // or a re-point followed by a deliberate failure could launder itself in.
+        if matches!(
+            result,
+            types::ConnectionStartResult::Started(_) | types::ConnectionStartResult::Pending
+        ) && let Ok(state_ref) = state.try_borrow()
+            && let Some(conn) = state_ref.get_connection(connection_id)
+        {
+            let (_, route) = state_ref.check_route(conn);
+            drop(state_ref);
+            state.borrow().remember_route(connection_id, route);
+        }
+
+        result
+    }
+
+    /// Shows the "routing changed" warning and, on confirmation, retries the
+    /// connection.
+    ///
+    /// Presents the previous and current route side by side. "Cancel" leaves
+    /// the connection untouched and clears the sidebar's "connecting" state;
+    /// "Connect anyway" records the acceptance for this session and starts the
+    /// connection again, which now passes the guard.
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "mirrors the launch entry points it must call back into"
+    )]
+    fn show_reroute_warning(
+        state: &SharedAppState,
+        notebook: &SharedNotebook,
+        sidebar: &SharedSidebar,
+        monitoring: &types::SharedMonitoring,
+        connection_id: Uuid,
+        conn_name: &str,
+        previous: &rustconn_core::connection::Route,
+        current: &rustconn_core::connection::Route,
+    ) {
+        use crate::i18n::{i18n, i18n_f};
+
+        let describe = |r: &rustconn_core::connection::Route| -> String {
+            let mut who = if r.username.is_empty() {
+                r.host.clone()
+            } else {
+                format!("{}@{}", r.username, r.host)
+            };
+            if r.port != 22 {
+                who = format!("{who}:{}", r.port);
+            }
+            if !r.jump.is_empty() {
+                who = i18n_f("{} (via {})", &[&who, &r.jump]);
+            }
+            who
+        };
+
+        let body = i18n_f(
+            "This connection no longer goes where it did.\n\nPreviously connected to:\n{}\n\nNow points to:\n{}\n\nIf you did not make this change, cancel — connecting could send saved credentials to a different machine.",
+            &[&describe(previous), &describe(current)],
+        );
+
+        let dialog = adw::AlertDialog::new(
+            Some(&i18n_f("Routing changed for “{}”", &[conn_name])),
+            Some(&body),
+        );
+        dialog.add_response("cancel", &i18n("Cancel"));
+        dialog.add_response("connect", &i18n("Connect Anyway"));
+        dialog.set_response_appearance("connect", adw::ResponseAppearance::Destructive);
+        dialog.set_default_response(Some("cancel"));
+        dialog.set_close_response("cancel");
+
+        let state_cb = state.clone();
+        let notebook_cb = notebook.clone();
+        let sidebar_cb = sidebar.clone();
+        let monitoring_cb = Rc::clone(monitoring);
+        dialog.connect_response(None, move |_, response| {
+            if response == "connect" {
+                state_cb.borrow().confirm_reroute(connection_id);
+                Self::start_connection(
+                    &state_cb,
+                    &notebook_cb,
+                    &sidebar_cb,
+                    &monitoring_cb,
+                    connection_id,
+                );
+            } else {
+                // Cancelled — undo the "connecting" indication the click set.
+                sidebar_cb.update_connection_status(&connection_id.to_string(), "disconnected");
+            }
+        });
+
+        if let Some(root) = notebook.widget().root() {
+            dialog.present(Some(&root));
+        } else {
+            dialog.present(None::<&gtk4::Widget>);
         }
     }
 

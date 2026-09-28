@@ -26,6 +26,7 @@ pub mod mdns;
 pub mod mptcp;
 mod port_check;
 mod retry;
+pub mod routing_memory;
 pub mod spa;
 pub mod ssh_inheritance;
 mod ssh_prompt;
@@ -53,6 +54,7 @@ pub use mptcp::{
 };
 pub use port_check::{PortCheckError, PortCheckResult, check_port, check_port_async};
 pub use retry::{DEFAULT_BACKOFF_MULTIPLIER, RetryConfig, RetryState};
+pub use routing_memory::{Route, RouteVerdict, RoutingMemory, routing_memory_path};
 pub use spa::{SpaError, SpaResult, build_spa_packet, send_spa};
 pub use ssh_prompt::looks_like_password_prompt;
 pub use virtual_scroll::SelectionState;
