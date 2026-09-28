@@ -8,7 +8,7 @@ msgstr ""
 "Project-Id-Version: rustconn 0.22.8\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-09-28 11:46+0900\n"
-"PO-Revision-Date: 2026-09-28 13:27+0900\n"
+"PO-Revision-Date: 2026-09-28 14:49+0900\n"
 "Last-Translator: ookatu <okatuhumi@gmail.com>\n"
 "Language-Team: Japanese\n"
 "Language: ja\n"
@@ -377,23 +377,23 @@ msgstr "カスタム"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:90
 msgid "DEV"
-msgstr "開発"
+msgstr "DEV"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:91
 msgid "QA"
-msgstr "品質保証"
+msgstr "QA"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:92
 msgid "STAGE"
-msgstr "ステージ"
+msgstr "STAGE"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:93
 msgid "PROD"
-msgstr "製品"
+msgstr "PROD"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:94
 msgid "DEMO"
-msgstr "デモ"
+msgstr "DEMO"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:103
 msgid "Preset"
@@ -453,11 +453,11 @@ msgstr "SSHを使用しCPU、RAM、ディスク、ネットワークのメトリ
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:313
 msgid "Session Recording"
-msgstr "セッションを録画中"
+msgstr "セッションの記録"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:317
 msgid "Record Session"
-msgstr "セッションを録画"
+msgstr "セッションを記録"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:318
 msgid "Save terminal output to file"
@@ -609,7 +609,7 @@ msgstr "送信元IP"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:554
 msgid "Resolve Public"
-msgstr "接続元情報を解決"
+msgstr "パブリックIP"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:555
 msgid "Explicit"
@@ -653,7 +653,7 @@ msgstr "Wake On LAN"
 #: rustconn/src/dialogs/connection/advanced_tab.rs:637
 #: rustconn/src/dialogs/connection/advanced_tab.rs:645
 msgid "Send magic packet before connecting"
-msgstr "接続する前にマジックパケットを送信する"
+msgstr "接続する前に起動を促すマジックパケットを送信する"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:644
 msgid "Enable WOL"
@@ -691,7 +691,7 @@ msgstr "待機時間 (秒)"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:730
 msgid "Time to wait for boot"
-msgstr "ブートの待機時間"
+msgstr "起動するまでの待機時間"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:845
 #: rustconn/src/dialogs/connection/advanced_tab.rs:847
@@ -740,7 +740,7 @@ msgstr "強調表示ルールを削除"
 #: rustconn/src/dialogs/connection/automation_tab.rs:92
 #: rustconn/src/window/edit_group.rs:1065
 msgid "Expect Rules"
-msgstr "期待する文字のルール"
+msgstr "自動送信のルール"
 
 #: rustconn/src/dialogs/connection/automation_tab.rs:93
 #: rustconn/src/window/edit_group.rs:1066
@@ -759,7 +759,7 @@ msgstr ""
 #: rustconn/src/dialogs/connection/automation_tab.rs:117
 #: rustconn/src/window/edit_group.rs:1088
 msgid "No expect rules"
-msgstr "期待する文字のルールはありません。"
+msgstr "自動送信のルールはありません。"
 
 #: rustconn/src/dialogs/connection/automation_tab.rs:128
 #: rustconn/src/window/edit_group.rs:1104
@@ -778,7 +778,7 @@ msgstr "パターンテスター"
 
 #: rustconn/src/dialogs/connection/automation_tab.rs:176
 msgid "Test text against expect rule patterns"
-msgstr "期待する文字のルールパターンとテスト対象のテキストをテスト"
+msgstr "自動送信のルールパターンとテスト対象のテキストをテスト"
 
 #: rustconn/src/dialogs/connection/automation_tab.rs:183
 msgid "Test text against patterns"
@@ -837,8 +837,8 @@ msgstr "パスワードの入力プロンプト"
 #: rustconn/src/dialogs/connection/automation_tab.rs:295
 msgid "Expected text; empty detects Password: in every supported language"
 msgstr ""
-"プロンプトの文字を指定してください。 空欄の場合、サポートされている言語の"
-"Password: を検知します。"
+"プロンプトの文字を指定してください。空欄の場合、サポートされている言語の"
+"Password: や、パスワード: を検知します。"
 
 #: rustconn/src/dialogs/connection/automation_tab.rs:313
 msgid "Login Timeout (seconds)"
