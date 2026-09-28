@@ -430,7 +430,7 @@ fn install_detached_window_actions(detached: &DetachedSessionWindow, handles: &D
         if let Some(notebook) = notebook_paste.upgrade()
             && let Some(terminal) = notebook.get_terminal(session_id)
         {
-            terminal.paste_clipboard();
+            crate::terminal::safe_paste::paste_into_terminal(&terminal);
         }
     });
     window.add_action(&paste_action);

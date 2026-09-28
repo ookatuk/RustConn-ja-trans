@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: rustconn 0.12.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-09-27 01:46+0300\n"
+"POT-Creation-Date: 2026-09-28 13:16+0300\n"
 "PO-Revision-Date: 2026-04-25 10:46+0000\n"
 "Last-Translator: RustConn Team\n"
 "Language-Team: Dutch\n"
@@ -18,7 +18,7 @@ msgstr ""
 "Generated-By: Babel 2.10.3\n"
 
 #: rustconn/src/alert.rs:15 rustconn/src/alert.rs:54 rustconn/src/alert.rs:64
-#: rustconn/src/app.rs:1805 rustconn/src/toast.rs:246
+#: rustconn/src/app.rs:1841 rustconn/src/toast.rs:246
 msgid "OK"
 msgstr "OK"
 
@@ -35,8 +35,8 @@ msgstr "OK"
 #: rustconn/src/dialogs/settings/keybindings_tab.rs:174
 #: rustconn/src/dialogs/settings/mod.rs:573
 #: rustconn/src/dialogs/settings/ssh_agent_tab.rs:448
-#: rustconn/src/dialogs/settings/terminal_tab.rs:788
-#: rustconn/src/dialogs/settings/terminal_tab.rs:838
+#: rustconn/src/dialogs/settings/terminal_tab.rs:792
+#: rustconn/src/dialogs/settings/terminal_tab.rs:842
 #: rustconn/src/dialogs/statistics.rs:85
 #: rustconn/src/dialogs/template_manager.rs:190
 #: rustconn/src/dialogs/tunnel.rs:722
@@ -44,14 +44,15 @@ msgstr "OK"
 #: rustconn/src/dialogs/variable_setup.rs:85
 #: rustconn/src/dialogs/workspace.rs:236 rustconn/src/dialogs/workspace.rs:290
 #: rustconn/src/embedded_rdp/autotype.rs:166
+#: rustconn/src/terminal/safe_paste.rs:155
 #: rustconn/src/terminal/tab_menu.rs:219 rustconn/src/terminal/tab_menu.rs:480
 #: rustconn/src/vault_ops.rs:315 rustconn/src/window/batch_edit.rs:69
 #: rustconn/src/window/connection_dialogs.rs:1081
-#: rustconn/src/window/edit_group.rs:1811
-#: rustconn/src/window/edit_group.rs:1859
+#: rustconn/src/window/edit_group.rs:1887
+#: rustconn/src/window/edit_group.rs:1935
 #: rustconn/src/window/group_broadcast.rs:379 rustconn/src/window/mod.rs:3720
-#: rustconn/src/window/operations.rs:82 rustconn/src/window/operations.rs:457
-#: rustconn/src/window/operations.rs:640 rustconn/src/window/sessions.rs:339
+#: rustconn/src/window/operations.rs:82 rustconn/src/window/operations.rs:456
+#: rustconn/src/window/operations.rs:639 rustconn/src/window/sessions.rs:339
 #: rustconn/src/window/workspaces.rs:548
 msgid "Cancel"
 msgstr "Annuleren"
@@ -68,12 +69,12 @@ msgstr "Niet opslaan"
 #: rustconn/src/dialogs/connection/dialog/populate.rs:90
 #: rustconn/src/dialogs/connection/dialog/populate.rs:92
 #: rustconn/src/dialogs/connection_wizard/auth_page.rs:177
-#: rustconn/src/dialogs/settings/terminal_tab.rs:839
+#: rustconn/src/dialogs/settings/terminal_tab.rs:843
 #: rustconn/src/dialogs/smart_folder.rs:82
 #: rustconn/src/dialogs/smart_folder.rs:83 rustconn/src/dialogs/snippet.rs:419
 #: rustconn/src/dialogs/template.rs:2788
 #: rustconn/src/dialogs/tunnel_builder/mod.rs:194
-#: rustconn/src/dialogs/variables.rs:131 rustconn/src/dialogs/widgets.rs:565
+#: rustconn/src/dialogs/variables.rs:131 rustconn/src/dialogs/widgets.rs:597
 #: rustconn/src/window/edit_group.rs:48 rustconn/src/window/edit_group.rs:49
 #: rustconn/src/window/workspaces.rs:549
 msgid "Save"
@@ -95,7 +96,7 @@ msgstr ""
 msgid "Settings"
 msgstr "Instellingen"
 
-#: rustconn/src/app.rs:1391
+#: rustconn/src/app.rs:1427
 msgid ""
 "{} is selected, but the system keyring is not accessible. Run: sudo snap "
 "connect rustconn:password-manager-service — or open Settings, then Secrets, "
@@ -105,7 +106,7 @@ msgstr ""
 "sudo snap connect rustconn:password-manager-service — of open Instellingen "
 "en vervolgens Geheimen om een andere backend te kiezen."
 
-#: rustconn/src/app.rs:1396
+#: rustconn/src/app.rs:1432
 msgid ""
 "{} is selected, but it cannot store passwords yet: {}. Open Settings, then "
 "Secrets."
@@ -113,7 +114,7 @@ msgstr ""
 "{} is geselecteerd, maar kan nog geen wachtwoorden opslaan: {}. Open "
 "Instellingen en vervolgens Geheimen."
 
-#: rustconn/src/app.rs:1701
+#: rustconn/src/app.rs:1737
 msgid ""
 "Modern connection manager for Linux with a GTK4/Wayland-native interface. "
 "Manage SSH, RDP, VNC, SPICE, Telnet, Serial, Kubernetes, and Zero Trust "
@@ -124,35 +125,35 @@ msgstr ""
 "verbindingen vanuit één applicatie."
 
 #. Translators: Replace this with your name and language, e.g. "John Doe (German)"
-#: rustconn/src/app.rs:1737
+#: rustconn/src/app.rs:1773
 msgid "translator-credits"
 msgstr "RustConn-team (Nederlands)"
 
-#: rustconn/src/app.rs:1744
+#: rustconn/src/app.rs:1780
 msgid "User Guide"
 msgstr "Gebruikershandleiding"
 
-#: rustconn/src/app.rs:1748
+#: rustconn/src/app.rs:1784
 msgid "Installation"
 msgstr "Installatie"
 
-#: rustconn/src/app.rs:1752
+#: rustconn/src/app.rs:1788
 msgid "Releases"
 msgstr "Releases"
 
-#: rustconn/src/app.rs:1756
+#: rustconn/src/app.rs:1792
 msgid "Changelog"
 msgstr "Wijzigingslogboek"
 
-#: rustconn/src/app.rs:1766
+#: rustconn/src/app.rs:1802
 msgid "Special Thanks"
 msgstr "Speciale dank"
 
-#: rustconn/src/app.rs:1781
+#: rustconn/src/app.rs:1817
 msgid "Made in Ukraine"
 msgstr "Made in Ukraine"
 
-#: rustconn/src/app.rs:1782
+#: rustconn/src/app.rs:1818
 msgid "All contributors and supporters"
 msgstr "Alle bijdragers en ondersteuners"
 
@@ -161,7 +162,7 @@ msgid "{} — RustConn"
 msgstr "{} — RustConn"
 
 #: rustconn/src/detached_window.rs:140 rustconn/src/embedded_rdp/mod.rs:761
-#: rustconn/src/embedded_rdp/mod.rs:2037
+#: rustconn/src/embedded_rdp/mod.rs:2038
 #: rustconn/src/embedded_rdp/polling_handlers.rs:69
 #: rustconn/src/embedded_vnc/ui.rs:142
 #: rustconn/src/terminal/session_lifecycle.rs:393
@@ -182,7 +183,7 @@ msgstr ""
 "‘{}’ heeft het volgende nodig voordat er verbinding kan worden gemaakt."
 
 #: rustconn/src/dialogs/ask_prompt.rs:102 rustconn/src/dialogs/history.rs:105
-#: rustconn/src/dialogs/widgets.rs:570 rustconn/src/sidebar_ui.rs:345
+#: rustconn/src/dialogs/widgets.rs:602 rustconn/src/sidebar_ui.rs:346
 #: rustconn/src/smart_folder_ui.rs:431 rustconn/src/window/edit_dialogs.rs:751
 #: rustconn/src/window/edit_dialogs.rs:752
 msgid "Connect"
@@ -220,13 +221,13 @@ msgstr "Nieuw cluster"
 #: rustconn/src/dialogs/cluster.rs:68 rustconn/src/dialogs/cluster.rs:69
 #: rustconn/src/dialogs/connection/dialog/construction.rs:138
 #: rustconn/src/dialogs/connection/dialog/construction.rs:139
-#: rustconn/src/dialogs/settings/terminal_tab.rs:789
+#: rustconn/src/dialogs/settings/terminal_tab.rs:793
 #: rustconn/src/dialogs/smart_folder.rs:87
 #: rustconn/src/dialogs/smart_folder.rs:88 rustconn/src/dialogs/snippet.rs:86
 #: rustconn/src/dialogs/snippet.rs:87 rustconn/src/dialogs/template.rs:143
 #: rustconn/src/dialogs/template.rs:144
 #: rustconn/src/dialogs/tunnel_builder/step_review.rs:191
-#: rustconn/src/dialogs/widgets.rs:566
+#: rustconn/src/dialogs/widgets.rs:598
 #: rustconn/src/window/connection_dialogs.rs:397
 #: rustconn/src/window/connection_dialogs.rs:398
 msgid "Create"
@@ -237,10 +238,10 @@ msgid "Cluster Details"
 msgstr "Clusterdetails"
 
 #: rustconn/src/dialogs/cluster.rs:105
-#: rustconn/src/dialogs/connection/advanced_tab.rs:856
+#: rustconn/src/dialogs/connection/advanced_tab.rs:843
 #: rustconn/src/dialogs/connection/general_tab.rs:99
 #: rustconn/src/dialogs/connection_wizard/connection_page.rs:104
-#: rustconn/src/dialogs/export.rs:382 rustconn/src/dialogs/settings/mod.rs:1847
+#: rustconn/src/dialogs/export.rs:382 rustconn/src/dialogs/settings/mod.rs:1848
 #: rustconn/src/dialogs/smart_folder.rs:121 rustconn/src/dialogs/snippet.rs:192
 #: rustconn/src/dialogs/template.rs:511
 #: rustconn/src/dialogs/tunnel_builder/step_review.rs:78
@@ -272,8 +273,8 @@ msgstr "Selecteer verbindingen om in dit cluster op te nemen"
 msgid "Filter connections…"
 msgstr "Verbindingen filteren…"
 
-#: rustconn/src/dialogs/cluster.rs:231 rustconn/src/sidebar_ui.rs:868
-#: rustconn/src/terminal/config.rs:255
+#: rustconn/src/dialogs/cluster.rs:231 rustconn/src/sidebar_ui.rs:876
+#: rustconn/src/terminal/config.rs:260
 msgid "Select All"
 msgstr "Alles selecteren"
 
@@ -336,7 +337,7 @@ msgstr "Dit cluster wordt permanent verwijderd."
 #: rustconn/src/dialogs/template_manager.rs:113
 #: rustconn/src/dialogs/template_manager.rs:191
 #: rustconn/src/dialogs/tunnel.rs:723 rustconn/src/dialogs/workspace.rs:118
-#: rustconn/src/dialogs/workspace.rs:291 rustconn/src/sidebar_ui.rs:456
+#: rustconn/src/dialogs/workspace.rs:291 rustconn/src/sidebar_ui.rs:464
 #: rustconn/src/smart_folder_ui.rs:399 rustconn/src/smart_folder_ui.rs:441
 #: rustconn/src/window/clusters.rs:435 rustconn/src/window/operations.rs:137
 #: rustconn/src/window/snippets.rs:413 rustconn/src/window/snippets.rs:503
@@ -405,13 +406,13 @@ msgid "Quick color presets for environment identification"
 msgstr "Snelle kleurvoorinstellingen voor omgevingsidentificatie"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:119
-#: rustconn/src/dialogs/connection/advanced_tab.rs:902
-#: rustconn/src/dialogs/settings/terminal_tab.rs:862
+#: rustconn/src/dialogs/connection/advanced_tab.rs:889
+#: rustconn/src/dialogs/settings/terminal_tab.rs:866
 msgid "Background"
 msgstr "Achtergrond"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:127
-#: rustconn/src/dialogs/settings/terminal_tab.rs:863
+#: rustconn/src/dialogs/settings/terminal_tab.rs:867
 msgid "Foreground"
 msgstr "Voorgrond"
 
@@ -642,13 +643,13 @@ msgstr "Geen markeringsregels"
 #: rustconn/src/dialogs/connection/advanced_tab.rs:621
 #: rustconn/src/dialogs/connection/automation_tab.rs:163
 #: rustconn/src/dialogs/settings/mod.rs:363
-#: rustconn/src/window/edit_group.rs:1174
+#: rustconn/src/window/edit_group.rs:1250
 msgid "Add Rule"
 msgstr "Regel toevoegen"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:636
 #: rustconn/src/dialogs/shortcuts.rs:159 rustconn/src/dialogs/wol.rs:37
-#: rustconn/src/sidebar_ui.rs:412 rustconn/src/smart_folder_ui.rs:438
+#: rustconn/src/sidebar_ui.rs:420 rustconn/src/smart_folder_ui.rs:438
 msgid "Wake On LAN"
 msgstr "Wake On LAN"
 
@@ -695,12 +696,12 @@ msgstr "Wachttijd (sec.)"
 msgid "Time to wait for boot"
 msgstr "Wachttijd voor opstarten"
 
-#: rustconn/src/dialogs/connection/advanced_tab.rs:858
-#: rustconn/src/dialogs/connection/advanced_tab.rs:860
+#: rustconn/src/dialogs/connection/advanced_tab.rs:845
+#: rustconn/src/dialogs/connection/advanced_tab.rs:847
 msgid "Rule name"
 msgstr "Regelnaam"
 
-#: rustconn/src/dialogs/connection/advanced_tab.rs:866
+#: rustconn/src/dialogs/connection/advanced_tab.rs:853
 msgid ""
 "Regular expression, for example (?i)\\bINFO\\b. Set the colour in the fields "
 "to the right."
@@ -708,51 +709,51 @@ msgstr ""
 "Reguliere expressie, bijvoorbeeld (?i)\\bINFO\\b. Stel de kleur in de velden "
 "rechts in."
 
-#: rustconn/src/dialogs/connection/advanced_tab.rs:869
-#: rustconn/src/dialogs/connection/advanced_tab.rs:873
-#: rustconn/src/dialogs/settings/mod.rs:1867
+#: rustconn/src/dialogs/connection/advanced_tab.rs:856
+#: rustconn/src/dialogs/connection/advanced_tab.rs:860
+#: rustconn/src/dialogs/settings/mod.rs:1868
 msgid "Pattern (regex)"
 msgstr "Patroon (regex)"
 
-#: rustconn/src/dialogs/connection/advanced_tab.rs:888
+#: rustconn/src/dialogs/connection/advanced_tab.rs:875
 #: rustconn/src/dialogs/settings/terminal_tab.rs:220
 #: rustconn/src/dialogs/settings/terminal_tab.rs:257
 msgid "Underline"
 msgstr "Onderstreping"
 
-#: rustconn/src/dialogs/connection/advanced_tab.rs:917
-#: rustconn/src/dialogs/connection/advanced_tab.rs:920
-#: rustconn/src/dialogs/settings/mod.rs:1811
-#: rustconn/src/dialogs/settings/mod.rs:1813
+#: rustconn/src/dialogs/connection/advanced_tab.rs:904
+#: rustconn/src/dialogs/connection/advanced_tab.rs:907
+#: rustconn/src/dialogs/settings/mod.rs:1812
+#: rustconn/src/dialogs/settings/mod.rs:1814
 msgid "Enable rule"
 msgstr "Regel inschakelen"
 
-#: rustconn/src/dialogs/connection/advanced_tab.rs:925
+#: rustconn/src/dialogs/connection/advanced_tab.rs:912
 #: rustconn/src/dialogs/connection/dialog/rows.rs:285
 #: rustconn/src/dialogs/connection/dialog/rows.rs:287
-#: rustconn/src/dialogs/settings/mod.rs:1828
-#: rustconn/src/window/edit_group.rs:1977
-#: rustconn/src/window/edit_group.rs:1979
+#: rustconn/src/dialogs/settings/mod.rs:1829
+#: rustconn/src/window/edit_group.rs:2053
+#: rustconn/src/window/edit_group.rs:2055
 msgid "Delete rule"
 msgstr "Regel verwijderen"
 
-#: rustconn/src/dialogs/connection/advanced_tab.rs:929
-#: rustconn/src/dialogs/settings/mod.rs:1832
+#: rustconn/src/dialogs/connection/advanced_tab.rs:916
+#: rustconn/src/dialogs/settings/mod.rs:1833
 msgid "Delete highlight rule"
 msgstr "Markeerregel verwijderen"
 
 #: rustconn/src/dialogs/connection/automation_tab.rs:92
-#: rustconn/src/window/edit_group.rs:1065
+#: rustconn/src/window/edit_group.rs:1141
 msgid "Expect Rules"
 msgstr "Verwachtingsregels"
 
 #: rustconn/src/dialogs/connection/automation_tab.rs:93
-#: rustconn/src/window/edit_group.rs:1066
+#: rustconn/src/window/edit_group.rs:1142
 msgid "Auto-respond to terminal patterns (priority order)"
 msgstr "Automatisch reageren op terminalpatronen (prioriteitsvolgorde)"
 
 #: rustconn/src/dialogs/connection/automation_tab.rs:104
-#: rustconn/src/window/edit_group.rs:1075
+#: rustconn/src/window/edit_group.rs:1151
 msgid ""
 "Responses support ${password}, ${username}, and ${VARIABLE_NAME} "
 "placeholders resolved at connection time"
@@ -761,22 +762,22 @@ msgstr ""
 "plaatshouders die bij verbinding worden ingevuld"
 
 #: rustconn/src/dialogs/connection/automation_tab.rs:117
-#: rustconn/src/window/edit_group.rs:1088
+#: rustconn/src/window/edit_group.rs:1164
 msgid "No expect rules"
 msgstr "Geen expect-regels"
 
 #: rustconn/src/dialogs/connection/automation_tab.rs:128
-#: rustconn/src/window/edit_group.rs:1104
+#: rustconn/src/window/edit_group.rs:1180
 msgid "From Template"
 msgstr "Uit sjabloon"
 
 #: rustconn/src/dialogs/connection/automation_tab.rs:129
-#: rustconn/src/window/edit_group.rs:1105
+#: rustconn/src/window/edit_group.rs:1181
 msgid "Add rules from a built-in template"
 msgstr "Regels toevoegen uit een ingebouwd sjabloon"
 
 #: rustconn/src/dialogs/connection/automation_tab.rs:175
-#: rustconn/src/window/edit_group.rs:1220
+#: rustconn/src/window/edit_group.rs:1296
 msgid "Pattern Tester"
 msgstr "Patroontester"
 
@@ -789,18 +790,18 @@ msgid "Test text against patterns"
 msgstr "Tekst testen tegen patronen"
 
 #: rustconn/src/dialogs/connection/automation_tab.rs:186
-#: rustconn/src/window/edit_group.rs:1237
+#: rustconn/src/window/edit_group.rs:1313
 msgid "Test Input"
 msgstr "Testinvoer"
 
 #: rustconn/src/dialogs/connection/automation_tab.rs:191
-#: rustconn/src/window/edit_group.rs:1231
-#: rustconn/src/window/edit_group.rs:1252
+#: rustconn/src/window/edit_group.rs:1307
+#: rustconn/src/window/edit_group.rs:1328
 msgid "Enter text to test"
 msgstr "Voer tekst in om te testen"
 
 #: rustconn/src/dialogs/connection/automation_tab.rs:197
-#: rustconn/src/window/edit_group.rs:1241
+#: rustconn/src/window/edit_group.rs:1317
 msgid "Result"
 msgstr "Resultaat"
 
@@ -935,7 +936,7 @@ msgid "e.g., ChromaTerm for syntax highlighting"
 msgstr "bijv. ChromaTerm voor syntaxismarkering"
 
 #: rustconn/src/dialogs/connection/automation_tab.rs:470
-#: rustconn/src/window/edit_group.rs:1812
+#: rustconn/src/window/edit_group.rs:1888
 msgid "Enable"
 msgstr "Inschakelen"
 
@@ -1120,8 +1121,8 @@ msgid "Logging"
 msgstr "Logboek"
 
 #: rustconn/src/dialogs/connection/dialog/build.rs:381
-#: rustconn/src/i18n_markers.rs:33 rustconn/src/window/edit_group.rs:989
-#: rustconn/src/window/edit_group.rs:1435
+#: rustconn/src/i18n_markers.rs:33 rustconn/src/window/edit_group.rs:1065
+#: rustconn/src/window/edit_group.rs:1511
 msgid "Automation"
 msgstr "Automatisering"
 
@@ -1454,7 +1455,7 @@ msgstr ""
 "Opzoeksleutel: {}"
 
 #: rustconn/src/dialogs/connection/dialog/populate.rs:45
-#: rustconn/src/window/edit_group.rs:662
+#: rustconn/src/window/edit_group.rs:719
 msgid "Select SSH Key"
 msgstr "SSH-sleutel selecteren"
 
@@ -1540,52 +1541,52 @@ msgid "Protected value (masked)"
 msgstr "Beschermde waarde (gemaskeerd)"
 
 #: rustconn/src/dialogs/connection/dialog/rows.rs:272
-#: rustconn/src/window/edit_group.rs:1965
+#: rustconn/src/window/edit_group.rs:2041
 msgid "Move up (higher priority)"
 msgstr "Omhoog (hogere prioriteit)"
 
 #: rustconn/src/dialogs/connection/dialog/rows.rs:274
-#: rustconn/src/window/edit_group.rs:1967
+#: rustconn/src/window/edit_group.rs:2043
 msgid "Move rule up"
 msgstr "Regel omhoog verplaatsen"
 
 #: rustconn/src/dialogs/connection/dialog/rows.rs:278
-#: rustconn/src/window/edit_group.rs:1971
+#: rustconn/src/window/edit_group.rs:2047
 msgid "Move down (lower priority)"
 msgstr "Omlaag (lagere prioriteit)"
 
 #: rustconn/src/dialogs/connection/dialog/rows.rs:281
-#: rustconn/src/window/edit_group.rs:1973
+#: rustconn/src/window/edit_group.rs:2049
 msgid "Move rule down"
 msgstr "Regel omlaag verplaatsen"
 
 #: rustconn/src/dialogs/connection/dialog/rows.rs:296
-#: rustconn/src/window/edit_group.rs:1988
+#: rustconn/src/window/edit_group.rs:2064
 msgid "Pattern:"
 msgstr "Patroon:"
 
 #: rustconn/src/dialogs/connection/dialog/rows.rs:302
-#: rustconn/src/window/edit_group.rs:1994
+#: rustconn/src/window/edit_group.rs:2070
 msgid "Regex pattern (e.g., password:\\s*$)"
 msgstr "Regex-patroon (bijv. password:\\s*$)"
 
 #: rustconn/src/dialogs/connection/dialog/rows.rs:303
-#: rustconn/src/window/edit_group.rs:1995
+#: rustconn/src/window/edit_group.rs:2071
 msgid "Regular expression to match against terminal output"
 msgstr "Reguliere expressie om te matchen met terminaluitvoer"
 
 #: rustconn/src/dialogs/connection/dialog/rows.rs:312
-#: rustconn/src/window/edit_group.rs:2004
+#: rustconn/src/window/edit_group.rs:2080
 msgid "Response:"
 msgstr "Antwoord:"
 
 #: rustconn/src/dialogs/connection/dialog/rows.rs:318
-#: rustconn/src/window/edit_group.rs:2010
+#: rustconn/src/window/edit_group.rs:2086
 msgid "Text to send (e.g., ${password}\\n)"
 msgstr "Te verzenden tekst (bijv. ${password}\\n)"
 
 #: rustconn/src/dialogs/connection/dialog/rows.rs:320
-#: rustconn/src/window/edit_group.rs:2012
+#: rustconn/src/window/edit_group.rs:2088
 msgid ""
 "Response to send when pattern matches. Use ${password}, ${username}, or $"
 "{VAR_NAME} for variables."
@@ -1594,84 +1595,84 @@ msgstr ""
 "{password}, ${username} of ${VAR_NAME} voor variabelen."
 
 #: rustconn/src/dialogs/connection/dialog/rows.rs:328
-#: rustconn/src/window/edit_group.rs:2020
+#: rustconn/src/window/edit_group.rs:2096
 msgid "Insert a variable placeholder"
 msgstr "Een variabele-plaatshouder invoegen"
 
 #: rustconn/src/dialogs/connection/dialog/rows.rs:331
-#: rustconn/src/window/edit_group.rs:2022
+#: rustconn/src/window/edit_group.rs:2098
 msgid "Insert variable"
 msgstr "Variabele invoegen"
 
 #: rustconn/src/dialogs/connection/dialog/rows.rs:342
-#: rustconn/src/window/edit_group.rs:2034
+#: rustconn/src/window/edit_group.rs:2110
 msgid "Built-in"
 msgstr "Ingebouwd"
 
 #: rustconn/src/dialogs/connection/dialog/rows.rs:349
-#: rustconn/src/window/edit_group.rs:2041
+#: rustconn/src/window/edit_group.rs:2117
 msgid "Connection password"
 msgstr "Verbindingswachtwoord"
 
 #: rustconn/src/dialogs/connection/dialog/rows.rs:350
-#: rustconn/src/window/edit_group.rs:2042
+#: rustconn/src/window/edit_group.rs:2118
 msgid "Connection username"
 msgstr "Verbindingsgebruikersnaam"
 
 #: rustconn/src/dialogs/connection/dialog/rows.rs:351
-#: rustconn/src/window/edit_group.rs:2043
+#: rustconn/src/window/edit_group.rs:2119
 msgid "Connection host"
 msgstr "Verbindingshost"
 
 #: rustconn/src/dialogs/connection/dialog/rows.rs:352
-#: rustconn/src/window/edit_group.rs:2044
+#: rustconn/src/window/edit_group.rs:2120
 msgid "Connection port"
 msgstr "Verbindingspoort"
 
 #: rustconn/src/dialogs/connection/dialog/rows.rs:380
 #: rustconn/src/dialogs/password_generator.rs:224
-#: rustconn/src/window/edit_group.rs:2074
+#: rustconn/src/window/edit_group.rs:2150
 msgid "Special"
 msgstr "Speciaal"
 
 #: rustconn/src/dialogs/connection/dialog/rows.rs:390
-#: rustconn/src/window/edit_group.rs:2084
+#: rustconn/src/window/edit_group.rs:2160
 msgid "Newline (Enter key)"
 msgstr "Nieuwe regel (Enter-toets)"
 
 #: rustconn/src/dialogs/connection/dialog/rows.rs:421
-#: rustconn/src/window/edit_group.rs:2115
+#: rustconn/src/window/edit_group.rs:2191
 msgid "Priority:"
 msgstr "Prioriteit:"
 
 #: rustconn/src/dialogs/connection/dialog/rows.rs:430
-#: rustconn/src/window/edit_group.rs:2124
+#: rustconn/src/window/edit_group.rs:2200
 msgid "Higher priority rules are checked first"
 msgstr "Regels met hogere prioriteit worden eerst gecontroleerd"
 
 #: rustconn/src/dialogs/connection/dialog/rows.rs:434
-#: rustconn/src/window/edit_group.rs:2128
+#: rustconn/src/window/edit_group.rs:2204
 msgid "Timeout:"
 msgstr "Time-out:"
 
 #: rustconn/src/dialogs/connection/dialog/rows.rs:443
-#: rustconn/src/window/edit_group.rs:2137
+#: rustconn/src/window/edit_group.rs:2213
 msgid "Timeout in milliseconds (0 = no timeout)"
 msgstr "Timeout in milliseconden (0 = geen timeout)"
 
 #: rustconn/src/dialogs/connection/dialog/rows.rs:447
 #: rustconn/src/dialogs/settings/ui_tab.rs:499
-#: rustconn/src/window/edit_group.rs:2141
+#: rustconn/src/window/edit_group.rs:2217
 msgid "Enabled"
 msgstr "Ingeschakeld"
 
 #: rustconn/src/dialogs/connection/dialog/rows.rs:452
-#: rustconn/src/window/edit_group.rs:2145
+#: rustconn/src/window/edit_group.rs:2221
 msgid "One-shot"
 msgstr "Eenmalig"
 
 #: rustconn/src/dialogs/connection/dialog/rows.rs:454
-#: rustconn/src/window/edit_group.rs:2147
+#: rustconn/src/window/edit_group.rs:2223
 msgid "Fire only once, then remove the rule"
 msgstr "Slechts één keer activeren, daarna de regel verwijderen"
 
@@ -1730,7 +1731,7 @@ msgid "(Inherited from global - override value below)"
 msgstr "(Overgenomen van globaal — waarde hieronder overschrijven)"
 
 #: rustconn/src/dialogs/connection/general_tab.rs:90
-#: rustconn/src/window/edit_group.rs:1391
+#: rustconn/src/window/edit_group.rs:1467
 msgid "Identity"
 msgstr "Identiteit"
 
@@ -1893,12 +1894,12 @@ msgstr "Overnemen"
 #: rustconn/src/dialogs/tunnel_builder/mod.rs:427
 #: rustconn/src/dialogs/tunnel_builder/step_review.rs:276
 #: rustconn/src/window/connection_dialogs.rs:507
-#: rustconn/src/window/edit_group.rs:251 rustconn/src/window/edit_group.rs:616
+#: rustconn/src/window/edit_group.rs:251 rustconn/src/window/edit_group.rs:653
 msgid "None"
 msgstr "Geen"
 
 #: rustconn/src/dialogs/connection/general_tab.rs:278
-#: rustconn/src/window/edit_group.rs:917
+#: rustconn/src/window/edit_group.rs:993
 msgid "Script"
 msgstr "Script"
 
@@ -1992,7 +1993,7 @@ msgstr "Groep"
 #: rustconn/src/dialogs/export.rs:424 rustconn/src/dialogs/snippet.rs:199
 #: rustconn/src/dialogs/template.rs:515
 #: rustconn/src/window/connection_dialogs.rs:852
-#: rustconn/src/window/edit_group.rs:1358
+#: rustconn/src/window/edit_group.rs:1434
 msgid "Description"
 msgstr "Beschrijving"
 
@@ -2005,7 +2006,7 @@ msgid "Registered"
 msgstr "Geregistreerd"
 
 #: rustconn/src/dialogs/connection/general_tab.rs:541
-#: rustconn/src/window/edit_group.rs:1426
+#: rustconn/src/window/edit_group.rs:1502
 msgid "Dynamic"
 msgstr "Dynamisch"
 
@@ -2454,7 +2455,9 @@ msgstr "Opnieuw verbinden bij formaat wijzigen"
 msgid ""
 "Full reconnect instead of dynamic resize (Embedded client). For legacy "
 "servers or fixed resolution"
-msgstr "Volledige herverbinding in plaats van dynamisch formaat wijzigen (ingebedde client). Voor oudere servers of vaste resolutie"
+msgstr ""
+"Volledige herverbinding in plaats van dynamisch formaat wijzigen (ingebedde "
+"client). Voor oudere servers of vaste resolutie"
 
 #: rustconn/src/dialogs/connection/rdp.rs:453
 #: rustconn/src/dialogs/connection/vnc.rs:294
@@ -2584,7 +2587,7 @@ msgstr "Indien afwijkend van verbindingsgebruikersnaam"
 #: rustconn/src/dialogs/tunnel_builder/step_connection.rs:111
 #: rustconn/src/dialogs/tunnel_builder/step_connection.rs:439
 #: rustconn/src/dialogs/widgets.rs:56 rustconn/src/window/edit_dialogs.rs:775
-#: rustconn/src/window/edit_group.rs:702
+#: rustconn/src/window/edit_group.rs:759
 msgid "(None)"
 msgstr "(Geen)"
 
@@ -2595,7 +2598,7 @@ msgstr "(Geen)"
 #: rustconn/src/dialogs/connection_wizard/connection_page.rs:147
 #: rustconn/src/dialogs/tunnel_builder/step_connection.rs:102
 #: rustconn/src/dialogs/tunnel_builder/step_review.rs:90
-#: rustconn/src/window/edit_group.rs:752
+#: rustconn/src/window/edit_group.rs:809
 msgid "Jump Host"
 msgstr "Tussenhost"
 
@@ -3164,17 +3167,20 @@ msgstr ""
 #: rustconn/src/dialogs/template.rs:630
 #: rustconn/src/window/connection_dialogs.rs:517
 #: rustconn/src/window/edit_dialogs.rs:843
-#: rustconn/src/window/edit_group.rs:268 rustconn/src/window/edit_group.rs:617
+#: rustconn/src/window/edit_group.rs:268 rustconn/src/window/edit_group.rs:654
+#: rustconn/src/window/edit_group.rs:677
 msgid "Password"
 msgstr "Wachtwoord"
 
 #: rustconn/src/dialogs/connection/ssh.rs:300
-#: rustconn/src/dialogs/template.rs:631 rustconn/src/window/edit_group.rs:618
+#: rustconn/src/dialogs/template.rs:631 rustconn/src/window/edit_group.rs:655
+#: rustconn/src/window/edit_group.rs:678
 msgid "Public Key"
 msgstr "Publieke sleutel"
 
 #: rustconn/src/dialogs/connection/ssh.rs:301
-#: rustconn/src/dialogs/template.rs:632 rustconn/src/window/edit_group.rs:620
+#: rustconn/src/dialogs/template.rs:632 rustconn/src/window/edit_group.rs:657
+#: rustconn/src/window/edit_group.rs:680
 msgid "Keyboard Interactive"
 msgstr "Toetsenbord interactief"
 
@@ -3215,7 +3221,8 @@ msgid "File"
 msgstr "Bestand"
 
 #: rustconn/src/dialogs/connection/ssh.rs:321
-#: rustconn/src/dialogs/template.rs:652 rustconn/src/window/edit_group.rs:619
+#: rustconn/src/dialogs/template.rs:652 rustconn/src/window/edit_group.rs:656
+#: rustconn/src/window/edit_group.rs:679
 msgid "Agent"
 msgstr "Agent"
 
@@ -3274,7 +3281,7 @@ msgid "Key file not found"
 msgstr "Sleutelbestand niet gevonden"
 
 #: rustconn/src/dialogs/connection/ssh.rs:574
-#: rustconn/src/window/edit_group.rs:753
+#: rustconn/src/window/edit_group.rs:810
 msgid "Connect via another SSH connection"
 msgstr "Verbinding via een andere SSH-verbinding"
 
@@ -3423,7 +3430,7 @@ msgid "Key=Value, comma-separated (-o flags)"
 msgstr "Sleutel=Waarde, kommagescheiden (-o vlaggen)"
 
 #: rustconn/src/dialogs/connection/ssh.rs:719
-#: rustconn/src/window/edit_group.rs:770
+#: rustconn/src/window/edit_group.rs:838
 msgid "SSH Agent Socket"
 msgstr "SSH-agent-socket"
 
@@ -4156,8 +4163,8 @@ msgstr "Uw sjablonen"
 
 #: rustconn/src/dialogs/connection_wizard/mod.rs:453
 #: rustconn/src/dialogs/connection_wizard/protocol_page.rs:224
-#: rustconn/src/dialogs/shortcuts.rs:162 rustconn/src/sidebar_ui.rs:434
-#: rustconn/src/sidebar_ui.rs:471 rustconn/src/split_view/bridge.rs:1830
+#: rustconn/src/dialogs/shortcuts.rs:162 rustconn/src/sidebar_ui.rs:442
+#: rustconn/src/sidebar_ui.rs:479 rustconn/src/split_view/bridge.rs:1830
 #: rustconn/src/window/ui.rs:75 rustconn/src/window/ui.rs:269
 msgid "New Connection"
 msgstr "Nieuwe verbinding"
@@ -4208,9 +4215,9 @@ msgstr "Wachtwoordzin van het portable bestand"
 
 #: rustconn/src/dialogs/credential_transfer.rs:142
 #: rustconn/src/dialogs/credential_transfer.rs:458
-#: rustconn/src/dialogs/shortcuts.rs:178 rustconn/src/dialogs/widgets.rs:569
+#: rustconn/src/dialogs/shortcuts.rs:178 rustconn/src/dialogs/widgets.rs:601
 #: rustconn/src/embedded_rdp/mod.rs:578 rustconn/src/embedded_vnc/ui.rs:51
-#: rustconn/src/terminal/config.rs:252
+#: rustconn/src/terminal/config.rs:257
 msgid "Copy"
 msgstr "Kopiëren"
 
@@ -4333,7 +4340,7 @@ msgstr "Kopiëren gestopt"
 #: rustconn/src/dialogs/recording.rs:804 rustconn/src/dialogs/recording.rs:816
 #: rustconn/src/dialogs/settings/cloud_sync_tab.rs:238
 #: rustconn/src/dialogs/tunnel_builder/mod.rs:618
-#: rustconn/src/dialogs/widgets.rs:564 rustconn/src/terminal/tab_menu.rs:481
+#: rustconn/src/dialogs/widgets.rs:596 rustconn/src/terminal/tab_menu.rs:481
 #: rustconn/src/vault_ops.rs:65 rustconn/src/window/mod.rs:3721
 msgid "Close"
 msgstr "Sluiten"
@@ -4368,7 +4375,7 @@ msgid "Export Connections"
 msgstr "Verbindingen exporteren"
 
 #: rustconn/src/dialogs/export.rs:101 rustconn/src/dialogs/export.rs:102
-#: rustconn/src/dialogs/shortcuts.rs:166 rustconn/src/dialogs/widgets.rs:567
+#: rustconn/src/dialogs/shortcuts.rs:166 rustconn/src/dialogs/widgets.rs:599
 msgid "Export"
 msgstr "Exporteren"
 
@@ -4660,7 +4667,7 @@ msgstr "Export voltooid"
 #: rustconn/src/dialogs/import/sources.rs:1427
 #: rustconn/src/dialogs/import/sources.rs:1543
 #: rustconn/src/dialogs/import/sources.rs:1697
-#: rustconn/src/dialogs/widgets.rs:573
+#: rustconn/src/dialogs/widgets.rs:605
 msgid "Done"
 msgstr "Gereed"
 
@@ -4778,7 +4785,7 @@ msgid "Failed"
 msgstr "Mislukt"
 
 #: rustconn/src/dialogs/history.rs:33 rustconn/src/dialogs/shortcuts.rs:156
-#: rustconn/src/sidebar_ui.rs:921
+#: rustconn/src/sidebar_ui.rs:929
 msgid "Connection History"
 msgstr "Verbindingsgeschiedenis"
 
@@ -4811,7 +4818,7 @@ msgid "All connection history entries will be permanently removed."
 msgstr "Alle verbindingsgeschiedenisvermeldingen worden permanent verwijderd."
 
 #: rustconn/src/dialogs/history.rs:200 rustconn/src/terminal/playback.rs:255
-#: rustconn/src/window/edit_group.rs:597 rustconn/src/window/edit_group.rs:1025
+#: rustconn/src/window/edit_group.rs:634 rustconn/src/window/edit_group.rs:1101
 msgid "Clear"
 msgstr "Wissen"
 
@@ -4845,8 +4852,8 @@ msgstr "Verbindingen importeren"
 
 #: rustconn/src/dialogs/import/mod.rs:61 rustconn/src/dialogs/import/mod.rs:62
 #: rustconn/src/dialogs/settings/cloud_sync_tab.rs:184
-#: rustconn/src/dialogs/shortcuts.rs:165 rustconn/src/dialogs/widgets.rs:568
-#: rustconn/src/split_view/bridge.rs:1844 rustconn/src/window/edit_group.rs:813
+#: rustconn/src/dialogs/shortcuts.rs:165 rustconn/src/dialogs/widgets.rs:600
+#: rustconn/src/split_view/bridge.rs:1844 rustconn/src/window/edit_group.rs:889
 msgid "Import"
 msgstr "Importeren"
 
@@ -5252,8 +5259,8 @@ msgstr "RustConn-bestand selecteren"
 
 #: rustconn/src/dialogs/import/sources.rs:678
 #: rustconn/src/dialogs/settings/cloud_sync_tab.rs:38
-#: rustconn/src/window/edit_group.rs:815 rustconn/src/window/edit_group.rs:866
-#: rustconn/src/window/edit_group.rs:1410
+#: rustconn/src/window/edit_group.rs:891 rustconn/src/window/edit_group.rs:942
+#: rustconn/src/window/edit_group.rs:1486
 msgid "Cloud Sync"
 msgstr "Cloudsynchronisatie"
 
@@ -5898,8 +5905,8 @@ msgid "Enter a new display name for this recording."
 msgstr "Voer een nieuwe weergavenaam in voor deze opname."
 
 #: rustconn/src/dialogs/recording.rs:509 rustconn/src/dialogs/workspace.rs:126
-#: rustconn/src/dialogs/workspace.rs:237 rustconn/src/sidebar_ui.rs:305
-#: rustconn/src/sidebar_ui.rs:349 rustconn/src/window/edit_dialogs.rs:308
+#: rustconn/src/dialogs/workspace.rs:237 rustconn/src/sidebar_ui.rs:306
+#: rustconn/src/sidebar_ui.rs:357 rustconn/src/window/edit_dialogs.rs:308
 msgid "Rename"
 msgstr "Hernoemen"
 
@@ -5954,7 +5961,7 @@ msgstr "Import mislukt"
 #: rustconn/src/window/connection_dialogs.rs:1027
 #: rustconn/src/window/edit_dialogs.rs:381
 #: rustconn/src/window/edit_dialogs.rs:485
-#: rustconn/src/window/edit_group.rs:1738
+#: rustconn/src/window/edit_group.rs:1814
 msgid "Error"
 msgstr "Fout"
 
@@ -6022,7 +6029,7 @@ msgid "Choose sync directory"
 msgstr "Kies synchronisatiemap"
 
 #: rustconn/src/dialogs/settings/cloud_sync_tab.rs:69
-#: rustconn/src/window/edit_group.rs:1878
+#: rustconn/src/window/edit_group.rs:1954
 msgid "Select Sync Directory"
 msgstr "Synchronisatiemap selecteren"
 
@@ -6350,11 +6357,11 @@ msgstr "Wachtwoordzin gewijzigd. Wachtwoorden opnieuw versleuteld: {}"
 msgid "Failed to start"
 msgstr "Starten mislukt"
 
-#: rustconn/src/dialogs/settings/mod.rs:1587
+#: rustconn/src/dialogs/settings/mod.rs:1588
 msgid "Passphrase was not saved"
 msgstr "Wachtwoordzin is niet opgeslagen"
 
-#: rustconn/src/dialogs/settings/mod.rs:1589
+#: rustconn/src/dialogs/settings/mod.rs:1590
 msgid ""
 "The passphrase for the portable file was not confirmed, so it was not saved. "
 "Everything else you changed was. Open Secrets again and type the passphrase "
@@ -6364,11 +6371,11 @@ msgstr ""
 "niet opgeslagen. Al uw andere wijzigingen wel. Open Geheimen opnieuw en typ "
 "de wachtwoordzin in beide velden."
 
-#: rustconn/src/dialogs/settings/mod.rs:1794
+#: rustconn/src/dialogs/settings/mod.rs:1795
 msgid "Untitled rule"
 msgstr "Naamloze regel"
 
-#: rustconn/src/dialogs/settings/mod.rs:1874
+#: rustconn/src/dialogs/settings/mod.rs:1875
 msgid ""
 "Regular expression, for example (?i)\\bINFO\\b. Set the colour in the fields "
 "below."
@@ -7250,7 +7257,7 @@ msgstr "Geen database geselecteerd"
 
 #: rustconn/src/dialogs/settings/secrets_tab/mod.rs:2646
 #: rustconn/src/embedded_rdp/ui.rs:169 rustconn/src/embedded_vnc/ui.rs:331
-#: rustconn/src/sidebar/view.rs:739
+#: rustconn/src/sidebar/view.rs:746
 msgid "Connected"
 msgstr "Verbonden"
 
@@ -7456,7 +7463,7 @@ msgid "Size"
 msgstr "Grootte"
 
 #: rustconn/src/dialogs/settings/terminal_tab.rs:76
-#: rustconn/src/dialogs/settings/terminal_tab.rs:867
+#: rustconn/src/dialogs/settings/terminal_tab.rs:871
 msgid "Colors"
 msgstr "Kleuren"
 
@@ -7486,7 +7493,7 @@ msgid "Custom themes"
 msgstr "Aangepaste thema's"
 
 #: rustconn/src/dialogs/settings/terminal_tab.rs:211
-#: rustconn/src/dialogs/settings/terminal_tab.rs:864
+#: rustconn/src/dialogs/settings/terminal_tab.rs:868
 msgid "Cursor"
 msgstr "Cursor"
 
@@ -7638,8 +7645,8 @@ msgstr ""
 #: rustconn/src/dialogs/settings/ui_tab.rs:437
 #: rustconn/src/dialogs/settings/ui_tab.rs:722
 #: rustconn/src/dialogs/shortcuts.rs:168
-#: rustconn/src/split_view/adapter.rs:1519 rustconn/src/tray.rs:229
-#: rustconn/src/tray.rs:587 rustconn/src/window/ui.rs:276
+#: rustconn/src/split_view/adapter.rs:1519 rustconn/src/tray.rs:258
+#: rustconn/src/tray.rs:645 rustconn/src/window/ui.rs:276
 msgid "Local Shell"
 msgstr "Lokale shell"
 
@@ -7655,91 +7662,91 @@ msgstr "Standaard systeemshell"
 msgid "e.g. fish, bash --norc, neofetch &amp;&amp; bash"
 msgstr "bijv. fish, bash --norc, neofetch &amp;&amp; bash"
 
-#: rustconn/src/dialogs/settings/terminal_tab.rs:758
+#: rustconn/src/dialogs/settings/terminal_tab.rs:762
 msgid "Follow System"
 msgstr "Systeem volgen"
 
-#: rustconn/src/dialogs/settings/terminal_tab.rs:782
+#: rustconn/src/dialogs/settings/terminal_tab.rs:786
 msgid "New Custom Theme"
 msgstr "Nieuw aangepast thema"
 
-#: rustconn/src/dialogs/settings/terminal_tab.rs:783
+#: rustconn/src/dialogs/settings/terminal_tab.rs:787
 msgid "Enter a name for the new theme"
 msgstr "Voer een naam in voor het nieuwe thema"
 
-#: rustconn/src/dialogs/settings/terminal_tab.rs:793
+#: rustconn/src/dialogs/settings/terminal_tab.rs:797
 msgid "Theme name"
 msgstr "Themanaam"
 
-#: rustconn/src/dialogs/settings/terminal_tab.rs:833
+#: rustconn/src/dialogs/settings/terminal_tab.rs:837
 msgid "{} — Theme Editor"
 msgstr "{} — Thema-editor"
 
-#: rustconn/src/dialogs/settings/terminal_tab.rs:875
+#: rustconn/src/dialogs/settings/terminal_tab.rs:879
 msgid "Palette"
 msgstr "Palet"
 
-#: rustconn/src/dialogs/settings/terminal_tab.rs:879
+#: rustconn/src/dialogs/settings/terminal_tab.rs:883
 msgid "Black"
 msgstr "Zwart"
 
-#: rustconn/src/dialogs/settings/terminal_tab.rs:880
+#: rustconn/src/dialogs/settings/terminal_tab.rs:884
 msgid "Red"
 msgstr "Rood"
 
-#: rustconn/src/dialogs/settings/terminal_tab.rs:881
+#: rustconn/src/dialogs/settings/terminal_tab.rs:885
 msgid "Green"
 msgstr "Groen"
 
-#: rustconn/src/dialogs/settings/terminal_tab.rs:882
+#: rustconn/src/dialogs/settings/terminal_tab.rs:886
 msgid "Yellow"
 msgstr "Geel"
 
-#: rustconn/src/dialogs/settings/terminal_tab.rs:883
+#: rustconn/src/dialogs/settings/terminal_tab.rs:887
 msgid "Blue"
 msgstr "Blauw"
 
-#: rustconn/src/dialogs/settings/terminal_tab.rs:884
+#: rustconn/src/dialogs/settings/terminal_tab.rs:888
 msgid "Magenta"
 msgstr "Magenta"
 
-#: rustconn/src/dialogs/settings/terminal_tab.rs:885
+#: rustconn/src/dialogs/settings/terminal_tab.rs:889
 msgid "Cyan"
 msgstr "Cyaan"
 
-#: rustconn/src/dialogs/settings/terminal_tab.rs:886
+#: rustconn/src/dialogs/settings/terminal_tab.rs:890
 msgid "White"
 msgstr "Wit"
 
-#: rustconn/src/dialogs/settings/terminal_tab.rs:887
+#: rustconn/src/dialogs/settings/terminal_tab.rs:891
 msgid "Bright Black"
 msgstr "Helder zwart"
 
-#: rustconn/src/dialogs/settings/terminal_tab.rs:888
+#: rustconn/src/dialogs/settings/terminal_tab.rs:892
 msgid "Bright Red"
 msgstr "Helder rood"
 
-#: rustconn/src/dialogs/settings/terminal_tab.rs:889
+#: rustconn/src/dialogs/settings/terminal_tab.rs:893
 msgid "Bright Green"
 msgstr "Helder groen"
 
-#: rustconn/src/dialogs/settings/terminal_tab.rs:890
+#: rustconn/src/dialogs/settings/terminal_tab.rs:894
 msgid "Bright Yellow"
 msgstr "Helder geel"
 
-#: rustconn/src/dialogs/settings/terminal_tab.rs:891
+#: rustconn/src/dialogs/settings/terminal_tab.rs:895
 msgid "Bright Blue"
 msgstr "Helder blauw"
 
-#: rustconn/src/dialogs/settings/terminal_tab.rs:892
+#: rustconn/src/dialogs/settings/terminal_tab.rs:896
 msgid "Bright Magenta"
 msgstr "Helder magenta"
 
-#: rustconn/src/dialogs/settings/terminal_tab.rs:893
+#: rustconn/src/dialogs/settings/terminal_tab.rs:897
 msgid "Bright Cyan"
 msgstr "Helder cyaan"
 
-#: rustconn/src/dialogs/settings/terminal_tab.rs:894
+#: rustconn/src/dialogs/settings/terminal_tab.rs:898
 msgid "Bright White"
 msgstr "Helder wit"
 
@@ -8090,8 +8097,8 @@ msgstr "Gesplitste weergave"
 msgid "View"
 msgstr "Weergave"
 
-#: rustconn/src/dialogs/shortcuts.rs:154 rustconn/src/tray.rs:258
-#: rustconn/src/tray.rs:600 rustconn/src/window/ui.rs:355
+#: rustconn/src/dialogs/shortcuts.rs:154 rustconn/src/tray.rs:287
+#: rustconn/src/tray.rs:658 rustconn/src/window/ui.rs:355
 msgid "Quit"
 msgstr "Afsluiten"
 
@@ -8103,20 +8110,20 @@ msgstr "Statistieken"
 msgid "SSH Tunnel Manager"
 msgstr "SSH-tunnelbeheer"
 
-#: rustconn/src/dialogs/shortcuts.rs:164 rustconn/src/sidebar_ui.rs:472
-#: rustconn/src/sidebar_ui.rs:829 rustconn/src/window/connection_dialogs.rs:390
+#: rustconn/src/dialogs/shortcuts.rs:164 rustconn/src/sidebar_ui.rs:480
+#: rustconn/src/sidebar_ui.rs:837 rustconn/src/window/connection_dialogs.rs:390
 #: rustconn/src/window/ui.rs:89 rustconn/src/window/ui.rs:274
 msgid "New Group"
 msgstr "Nieuwe groep"
 
-#: rustconn/src/dialogs/shortcuts.rs:167 rustconn/src/sidebar_ui.rs:470
+#: rustconn/src/dialogs/shortcuts.rs:167 rustconn/src/sidebar_ui.rs:478
 #: rustconn/src/split_view/bridge.rs:1837
 #: rustconn/src/window/edit_dialogs.rs:744 rustconn/src/window/ui.rs:68
 #: rustconn/src/window/ui.rs:275
 msgid "Quick Connect"
 msgstr "Snelverbinding"
 
-#: rustconn/src/dialogs/shortcuts.rs:169 rustconn/src/sidebar_ui.rs:838
+#: rustconn/src/dialogs/shortcuts.rs:169 rustconn/src/sidebar_ui.rs:846
 msgid "Move to Group"
 msgstr "Verplaatsen naar groep"
 
@@ -8137,7 +8144,8 @@ msgid "Command Palette (Commands)"
 msgstr "Opdrachtenpalet (opdrachten)"
 
 #: rustconn/src/dialogs/shortcuts.rs:179 rustconn/src/embedded_rdp/mod.rs:586
-#: rustconn/src/embedded_vnc/ui.rs:62 rustconn/src/terminal/config.rs:253
+#: rustconn/src/embedded_vnc/ui.rs:62 rustconn/src/terminal/config.rs:258
+#: rustconn/src/terminal/safe_paste.rs:156
 msgid "Paste"
 msgstr "Plakken"
 
@@ -8157,7 +8165,7 @@ msgstr "Volgend tabblad"
 msgid "Previous Tab"
 msgstr "Vorig tabblad"
 
-#: rustconn/src/dialogs/shortcuts.rs:184 rustconn/src/terminal/mod.rs:479
+#: rustconn/src/dialogs/shortcuts.rs:184 rustconn/src/terminal/mod.rs:480
 msgid "Tab Overview"
 msgstr "Tabbladoverzicht"
 
@@ -8233,7 +8241,7 @@ msgstr "Sneltoetsen zoeken…"
 msgid "Edit Smart Folder"
 msgstr "Slimme map bewerken"
 
-#: rustconn/src/dialogs/smart_folder.rs:67 rustconn/src/sidebar_ui.rs:473
+#: rustconn/src/dialogs/smart_folder.rs:67 rustconn/src/sidebar_ui.rs:481
 #: rustconn/src/smart_folder_ui.rs:69
 msgid "New Smart Folder"
 msgstr "Nieuwe slimme map"
@@ -8723,7 +8731,7 @@ msgid "All"
 msgstr "Alle"
 
 #: rustconn/src/dialogs/template_manager.rs:69
-#: rustconn/src/window/edit_group.rs:1402
+#: rustconn/src/window/edit_group.rs:1478
 msgid "SSH"
 msgstr "SSH"
 
@@ -8750,14 +8758,14 @@ msgstr ""
 "Maak een sjabloon om snel nieuwe verbindingen in te stellen met vooraf "
 "gedefinieerde instellingen."
 
-#: rustconn/src/dialogs/template_manager.rs:109 rustconn/src/sidebar_ui.rs:315
-#: rustconn/src/sidebar_ui.rs:437 rustconn/src/smart_folder_ui.rs:397
+#: rustconn/src/dialogs/template_manager.rs:109 rustconn/src/sidebar_ui.rs:316
+#: rustconn/src/sidebar_ui.rs:445 rustconn/src/smart_folder_ui.rs:397
 #: rustconn/src/smart_folder_ui.rs:433 rustconn/src/window/snippets.rs:407
 msgid "Edit"
 msgstr "Bewerken"
 
 #: rustconn/src/dialogs/template_manager.rs:117
-#: rustconn/src/dialogs/widgets.rs:572
+#: rustconn/src/dialogs/widgets.rs:604
 msgid "Use Template"
 msgstr "Sjabloon gebruiken"
 
@@ -9288,31 +9296,34 @@ msgid ""
 "Hexadecimal colour such as #00AAFF, drawn as an underline under the match. "
 "Leave empty for none. To recolour the text itself, give the connection an "
 "Output Filter such as ChromaTerm."
-msgstr "Hexadecimale kleur, bijvoorbeeld #00AAFF, waarmee de overeenkomst wordt onderstreept. Laat leeg voor geen onderstreping. Geef de verbinding een uitvoerfilter zoals ChromaTerm om de tekst zelf te kleuren."
+msgstr ""
+"Hexadecimale kleur, bijvoorbeeld #00AAFF, waarmee de overeenkomst wordt "
+"onderstreept. Laat leeg voor geen onderstreping. Geef de verbinding een "
+"uitvoerfilter zoals ChromaTerm om de tekst zelf te kleuren."
 
 #: rustconn/src/dialogs/widgets.rs:520
 msgid "Hexadecimal colour such as #402020. Leave empty for no background."
 msgstr ""
 "Hexadecimale kleur, bijvoorbeeld #402020. Laat leeg voor geen achtergrond."
 
-#: rustconn/src/dialogs/widgets.rs:571 rustconn/src/dialogs/wol.rs:44
+#: rustconn/src/dialogs/widgets.rs:603 rustconn/src/dialogs/wol.rs:44
 #: rustconn/src/dialogs/wol.rs:45 rustconn/src/window/sessions.rs:341
 msgid "Send"
 msgstr "Verzenden"
 
-#: rustconn/src/dialogs/widgets.rs:584
+#: rustconn/src/dialogs/widgets.rs:616
 msgid "JavaScript"
 msgstr "JavaScript"
 
-#: rustconn/src/dialogs/widgets.rs:585
+#: rustconn/src/dialogs/widgets.rs:617
 msgid "Enable or disable JavaScript execution in the embedded browser"
 msgstr "JavaScript-uitvoering in de ingebedde browser in- of uitschakelen"
 
-#: rustconn/src/dialogs/widgets.rs:586
+#: rustconn/src/dialogs/widgets.rs:618
 msgid "Navigation Toolbar"
 msgstr "Navigatiebalk"
 
-#: rustconn/src/dialogs/widgets.rs:588
+#: rustconn/src/dialogs/widgets.rs:620
 msgid ""
 "Turn off to remove the floating toolbar and its reveal arrow. Keyboard "
 "shortcuts for back, forward, reload and zoom still work."
@@ -9320,11 +9331,11 @@ msgstr ""
 "Schakel uit om de zwevende werkbalk en de bijbehorende pijl te verwijderen. "
 "Sneltoetsen voor terug, vooruit, herladen en zoomen blijven werken."
 
-#: rustconn/src/dialogs/widgets.rs:590
+#: rustconn/src/dialogs/widgets.rs:622
 msgid "Private / Incognito Mode"
 msgstr "Privé-/incognitomodus"
 
-#: rustconn/src/dialogs/widgets.rs:591
+#: rustconn/src/dialogs/widgets.rs:623
 msgid "Open URL in a private browsing window (Firefox, Chrome, Brave)"
 msgstr "URL openen in een privévenster (Firefox, Chrome, Brave)"
 
@@ -9428,7 +9439,7 @@ msgid "Connecting…"
 msgstr "Verbinden…"
 
 #: rustconn/src/embedded.rs:76 rustconn/src/embedded.rs:80
-#: rustconn/src/sidebar_ui.rs:341
+#: rustconn/src/sidebar_ui.rs:342
 msgid "Disconnect"
 msgstr "Verbinding verbreken"
 
@@ -9844,14 +9855,14 @@ msgid "Save files from remote clipboard"
 msgstr "Bestanden opslaan van extern klembord"
 
 #: rustconn/src/embedded_rdp/mod.rs:764 rustconn/src/embedded_vnc/ui.rs:145
-#: rustconn/src/split_view/adapter.rs:1432 rustconn/src/terminal/mod.rs:1325
+#: rustconn/src/split_view/adapter.rs:1432 rustconn/src/terminal/mod.rs:1326
 #: rustconn/src/terminal/session_lifecycle.rs:406
 #: rustconn/src/terminal/tab_menu.rs:826
 msgid "Reconnect"
 msgstr "Opnieuw verbinden"
 
 #: rustconn/src/embedded_rdp/mod.rs:766 rustconn/src/embedded_vnc/ui.rs:147
-#: rustconn/src/terminal/mod.rs:1327
+#: rustconn/src/terminal/mod.rs:1328
 #: rustconn/src/terminal/session_lifecycle.rs:408
 msgid "Reconnect to this session"
 msgstr "Opnieuw verbinden met deze sessie"
@@ -9904,19 +9915,19 @@ msgstr ""
 msgid "Run"
 msgstr "Uitvoeren"
 
-#: rustconn/src/embedded_rdp/mod.rs:1543
+#: rustconn/src/embedded_rdp/mod.rs:1542
 msgid "Select folder to save files"
 msgstr "Map selecteren om bestanden op te slaan"
 
-#: rustconn/src/embedded_rdp/mod.rs:1574
+#: rustconn/src/embedded_rdp/mod.rs:1587
 msgid "Downloading…"
 msgstr "Downloaden…"
 
-#: rustconn/src/embedded_rdp/mod.rs:1604
+#: rustconn/src/embedded_rdp/mod.rs:1605
 msgid "Downloading files…"
 msgstr "Bestanden downloaden…"
 
-#: rustconn/src/embedded_rdp/mod.rs:2022
+#: rustconn/src/embedded_rdp/mod.rs:2023
 msgid "Connection may have been lost while the computer slept"
 msgstr ""
 "De verbinding is mogelijk verbroken terwijl de computer in slaapstand stond"
@@ -9926,32 +9937,32 @@ msgstr ""
 msgid "Copy remote clipboard to local"
 msgstr "Extern klembord naar lokaal kopiëren"
 
-#: rustconn/src/embedded_rdp/polling_handlers.rs:225
-#: rustconn/src/embedded_rdp/polling_handlers.rs:397
+#: rustconn/src/embedded_rdp/polling_handlers.rs:240
+#: rustconn/src/embedded_rdp/polling_handlers.rs:457
 msgid "Save {} Files"
 msgstr "{} bestanden opslaan"
 
-#: rustconn/src/embedded_rdp/polling_handlers.rs:227
+#: rustconn/src/embedded_rdp/polling_handlers.rs:242
 msgid "Save {} files from remote clipboard"
 msgstr "{} bestanden opslaan van extern klembord"
 
-#: rustconn/src/embedded_rdp/polling_handlers.rs:312
+#: rustconn/src/embedded_rdp/polling_handlers.rs:372
 msgid "Downloaded {}/{} files"
 msgstr "{}/{} bestanden gedownload"
 
-#: rustconn/src/embedded_rdp/polling_handlers.rs:402
+#: rustconn/src/embedded_rdp/polling_handlers.rs:462
 msgid "Saved {} files"
 msgstr "{} bestanden opgeslagen"
 
-#: rustconn/src/embedded_rdp/polling_handlers.rs:405
+#: rustconn/src/embedded_rdp/polling_handlers.rs:465
 msgid "Saved {} files, {} could not be saved"
 msgstr "{} bestanden opgeslagen, {} konden niet worden opgeslagen"
 
-#: rustconn/src/embedded_rdp/polling_handlers.rs:455
+#: rustconn/src/embedded_rdp/polling_handlers.rs:522
 msgid "RTT: {} ms | {} | MPTCP"
 msgstr "RTT: {} ms | {} | MPTCP"
 
-#: rustconn/src/embedded_rdp/polling_handlers.rs:460
+#: rustconn/src/embedded_rdp/polling_handlers.rs:527
 msgid "RTT: {} ms | {}"
 msgstr "RTT: {} ms | {}"
 
@@ -9986,7 +9997,7 @@ msgid "RDP session running in external window"
 msgstr "RDP-sessie draait in extern venster"
 
 #: rustconn/src/embedded_rdp/ui.rs:177 rustconn/src/session/vnc.rs:342
-#: rustconn/src/sidebar/view.rs:750
+#: rustconn/src/sidebar/view.rs:757
 msgid "Connection failed"
 msgstr "Verbinding mislukt"
 
@@ -10334,39 +10345,39 @@ msgstr "⚠ Monitoring gestopt — metrieken kunnen verouderd zijn"
 msgid "Filter by {} protocol"
 msgstr "Filteren op {}-protocol"
 
-#: rustconn/src/sidebar/mod.rs:143
+#: rustconn/src/sidebar/mod.rs:151
 msgid "Search… (? for help)"
 msgstr "Zoeken… (? voor hulp)"
 
-#: rustconn/src/sidebar/mod.rs:147
+#: rustconn/src/sidebar/mod.rs:155
 msgid "Search connections"
 msgstr "Verbindingen zoeken"
 
-#: rustconn/src/sidebar/mod.rs:155
+#: rustconn/src/sidebar/mod.rs:163
 msgid "Search pending…"
 msgstr "Zoeken in behandeling…"
 
-#: rustconn/src/sidebar/mod.rs:162 rustconn/src/sidebar/mod.rs:165
+#: rustconn/src/sidebar/mod.rs:170 rustconn/src/sidebar/mod.rs:173
 msgid "Search syntax help"
 msgstr "Hulp bij zoeksyntaxis"
 
-#: rustconn/src/sidebar/mod.rs:181 rustconn/src/sidebar/mod.rs:185
+#: rustconn/src/sidebar/mod.rs:189 rustconn/src/sidebar/mod.rs:193
 msgid "Toggle protocol filters"
 msgstr "Protocolfilters in-/uitschakelen"
 
-#: rustconn/src/sidebar/mod.rs:624
+#: rustconn/src/sidebar/mod.rs:632
 msgid "Connection list"
 msgstr "Verbindingslijst"
 
-#: rustconn/src/sidebar/mod.rs:1929
+#: rustconn/src/sidebar/mod.rs:1937
 msgid "Open Password Vault (Active)"
 msgstr "Wachtwoordkluis openen (actief)"
 
-#: rustconn/src/sidebar/mod.rs:1934
+#: rustconn/src/sidebar/mod.rs:1942
 msgid "Password Vault Not Found"
 msgstr "Wachtwoordkluis niet gevonden"
 
-#: rustconn/src/sidebar/mod.rs:1937
+#: rustconn/src/sidebar/mod.rs:1945
 msgid "Password Vault Disabled"
 msgstr "Wachtwoordkluis uitgeschakeld"
 
@@ -10398,215 +10409,219 @@ msgstr "protocol:{}: Filteren op protocol"
 msgid "group:{}: Search in group"
 msgstr "group:{}: Zoeken in groep"
 
-#: rustconn/src/sidebar/view.rs:204
-msgid "Pinned"
-msgstr "Vastgezet"
+#: rustconn/src/sidebar/view.rs:208 rustconn/src/sidebar/view.rs:211
+msgid "Favorite"
+msgstr "Favoriet"
 
-#: rustconn/src/sidebar/view.rs:215
+#: rustconn/src/sidebar/view.rs:222
 msgid "Has notes"
 msgstr "Heeft notities"
 
-#: rustconn/src/sidebar/view.rs:224 rustconn/src/sidebar/view.rs:226
+#: rustconn/src/sidebar/view.rs:231 rustconn/src/sidebar/view.rs:233
 msgid "Recording session"
 msgstr "Sessie wordt opgenomen"
 
-#: rustconn/src/sidebar/view.rs:241 rustconn/src/sidebar/view.rs:243
+#: rustconn/src/sidebar/view.rs:248 rustconn/src/sidebar/view.rs:250
 msgid "Running in external window"
 msgstr "Actief in een extern venster"
 
-#: rustconn/src/sidebar/view.rs:260 rustconn/src/sidebar/view.rs:262
+#: rustconn/src/sidebar/view.rs:267 rustconn/src/sidebar/view.rs:269
 msgid "Part of a split view"
 msgstr "Onderdeel van een gesplitste weergave"
 
-#: rustconn/src/sidebar/view.rs:610
+#: rustconn/src/sidebar/view.rs:617
 msgid "Master — synced to cloud"
 msgstr "Master — gesynchroniseerd naar de cloud"
 
-#: rustconn/src/sidebar/view.rs:612
+#: rustconn/src/sidebar/view.rs:619
 msgid "Import — synced from cloud"
 msgstr "Import — gesynchroniseerd vanuit de cloud"
 
-#: rustconn/src/sidebar/view.rs:636
+#: rustconn/src/sidebar/view.rs:643
 msgid "Sync error: {}"
 msgstr "Synchronisatiefout: {}"
 
-#: rustconn/src/sidebar/view.rs:744
+#: rustconn/src/sidebar/view.rs:751
 msgid "Connecting"
 msgstr "Verbinden"
 
-#: rustconn/src/sidebar_ui.rs:300
+#: rustconn/src/sidebar_ui.rs:301
 msgid "Connect All"
 msgstr "Alles verbinden"
 
-#: rustconn/src/sidebar_ui.rs:311
+#: rustconn/src/sidebar_ui.rs:312
 msgid "New Connection in Group"
 msgstr "Nieuwe verbinding in groep"
 
-#: rustconn/src/sidebar_ui.rs:319
+#: rustconn/src/sidebar_ui.rs:320
 msgid "Sync Now"
 msgstr "Nu synchroniseren"
 
-#: rustconn/src/sidebar_ui.rs:323
+#: rustconn/src/sidebar_ui.rs:324
 msgid "Enable Cloud Sync…"
 msgstr "Cloudsynchronisatie inschakelen…"
 
-#: rustconn/src/sidebar_ui.rs:331
+#: rustconn/src/sidebar_ui.rs:332
 msgid "Refresh Dynamic Folder"
 msgstr "Dynamische map vernieuwen"
 
-#: rustconn/src/sidebar_ui.rs:346
-msgid "Pin / Unpin"
-msgstr "Vastpinnen / Losmaken"
+#: rustconn/src/sidebar_ui.rs:350
+msgid "Remove from Favorites"
+msgstr "Uit favorieten verwijderen"
 
-#: rustconn/src/sidebar_ui.rs:351
+#: rustconn/src/sidebar_ui.rs:352
+msgid "Add to Favorites"
+msgstr "Aan favorieten toevoegen"
+
+#: rustconn/src/sidebar_ui.rs:359
 msgid "Duplicate"
 msgstr "Dupliceren"
 
-#: rustconn/src/sidebar_ui.rs:355
+#: rustconn/src/sidebar_ui.rs:363
 msgid "Duplicate via Wizard…"
 msgstr "Dupliceren via wizard…"
 
-#: rustconn/src/sidebar_ui.rs:359
+#: rustconn/src/sidebar_ui.rs:367
 msgid "Move to Group…"
 msgstr "Verplaatsen naar groep…"
 
-#: rustconn/src/sidebar_ui.rs:380
+#: rustconn/src/sidebar_ui.rs:388
 msgid "Open new session"
 msgstr "Nieuwe sessie openen"
 
-#: rustconn/src/sidebar_ui.rs:387 rustconn/src/smart_folder_ui.rs:435
+#: rustconn/src/sidebar_ui.rs:395 rustconn/src/smart_folder_ui.rs:435
 msgid "Copy Username"
 msgstr "Gebruikersnaam kopiëren"
 
-#: rustconn/src/sidebar_ui.rs:391 rustconn/src/smart_folder_ui.rs:436
+#: rustconn/src/sidebar_ui.rs:399 rustconn/src/smart_folder_ui.rs:436
 msgid "Copy Password"
 msgstr "Wachtwoord kopiëren"
 
-#: rustconn/src/sidebar_ui.rs:395
+#: rustconn/src/sidebar_ui.rs:403
 msgid "Run Snippet…"
 msgstr "Fragment uitvoeren…"
 
-#: rustconn/src/sidebar_ui.rs:402
+#: rustconn/src/sidebar_ui.rs:410
 msgid "Session Log…"
 msgstr "Sessielogboek…"
 
-#: rustconn/src/sidebar_ui.rs:406
+#: rustconn/src/sidebar_ui.rs:414
 msgid "Open SFTP"
 msgstr "SFTP openen"
 
-#: rustconn/src/sidebar_ui.rs:408
+#: rustconn/src/sidebar_ui.rs:416
 msgid "Open Browser via Tunnel"
 msgstr "Browser openen via tunnel"
 
-#: rustconn/src/sidebar_ui.rs:414 rustconn/src/smart_folder_ui.rs:439
+#: rustconn/src/sidebar_ui.rs:422 rustconn/src/smart_folder_ui.rs:439
 msgid "Check if Online"
 msgstr "Beschikbaarheid controleren"
 
-#: rustconn/src/sidebar_ui.rs:421
+#: rustconn/src/sidebar_ui.rs:429
 msgid "Stop Recording"
 msgstr "Opname stoppen"
 
-#: rustconn/src/sidebar_ui.rs:426
+#: rustconn/src/sidebar_ui.rs:434
 msgid "Start Recording"
 msgstr "Opname starten"
 
-#: rustconn/src/sidebar_ui.rs:446
+#: rustconn/src/sidebar_ui.rs:454
 msgid "Stop tracking"
 msgstr "Volgen stoppen"
 
-#: rustconn/src/sidebar_ui.rs:475
+#: rustconn/src/sidebar_ui.rs:483
 msgid "Import…"
 msgstr "Importeren…"
 
-#: rustconn/src/sidebar_ui.rs:476
+#: rustconn/src/sidebar_ui.rs:484
 msgid "Export…"
 msgstr "Exporteren…"
 
-#: rustconn/src/sidebar_ui.rs:832
+#: rustconn/src/sidebar_ui.rs:840
 msgid "Create new group"
 msgstr "Nieuwe groep aanmaken"
 
-#: rustconn/src/sidebar_ui.rs:841
+#: rustconn/src/sidebar_ui.rs:849
 msgid "Move selected connections to group"
 msgstr "Geselecteerde verbindingen naar groep verplaatsen"
 
-#: rustconn/src/sidebar_ui.rs:848
+#: rustconn/src/sidebar_ui.rs:856
 msgid "Create Cluster"
 msgstr "Cluster aanmaken"
 
-#: rustconn/src/sidebar_ui.rs:851
+#: rustconn/src/sidebar_ui.rs:859
 msgid "Create cluster from selected connections"
 msgstr "Cluster aanmaken van geselecteerde verbindingen"
 
-#: rustconn/src/sidebar_ui.rs:858 rustconn/src/window/batch_edit.rs:46
+#: rustconn/src/sidebar_ui.rs:866 rustconn/src/window/batch_edit.rs:46
 msgid "Batch Edit"
 msgstr "Bulkbewerking"
 
-#: rustconn/src/sidebar_ui.rs:861
+#: rustconn/src/sidebar_ui.rs:869
 msgid "Edit selected connections together"
 msgstr "Geselecteerde verbindingen samen bewerken"
 
-#: rustconn/src/sidebar_ui.rs:871
+#: rustconn/src/sidebar_ui.rs:879
 msgid "Select all connections"
 msgstr "Alle verbindingen selecteren"
 
-#: rustconn/src/sidebar_ui.rs:878
+#: rustconn/src/sidebar_ui.rs:886
 msgid "Clear Selection"
 msgstr "Selectie wissen"
 
-#: rustconn/src/sidebar_ui.rs:880
+#: rustconn/src/sidebar_ui.rs:888
 msgid "Clear selection"
 msgstr "Selectie wissen"
 
-#: rustconn/src/sidebar_ui.rs:887 rustconn/src/window/ui.rs:82
+#: rustconn/src/sidebar_ui.rs:895 rustconn/src/window/ui.rs:82
 msgid "Delete Selected"
 msgstr "Geselecteerde verwijderen"
 
-#: rustconn/src/sidebar_ui.rs:890
+#: rustconn/src/sidebar_ui.rs:898
 msgid "Delete selected connections"
 msgstr "Geselecteerde verbindingen verwijderen"
 
-#: rustconn/src/sidebar_ui.rs:912
+#: rustconn/src/sidebar_ui.rs:920
 msgid "Group operations mode"
 msgstr "Modus voor groepsbewerkingen"
 
-#: rustconn/src/sidebar_ui.rs:915
+#: rustconn/src/sidebar_ui.rs:923
 msgid "Enable group operations mode for multi-select"
 msgstr "Groepsbewerkingsmodus inschakelen voor meervoudige selectie"
 
-#: rustconn/src/sidebar_ui.rs:924
+#: rustconn/src/sidebar_ui.rs:932
 msgid "View connection history"
 msgstr "Verbindingsgeschiedenis bekijken"
 
-#: rustconn/src/sidebar_ui.rs:930
+#: rustconn/src/sidebar_ui.rs:938
 msgid "Sort alphabetically"
 msgstr "Alfabetisch sorteren"
 
-#: rustconn/src/sidebar_ui.rs:933
+#: rustconn/src/sidebar_ui.rs:941
 msgid "Sort connections alphabetically"
 msgstr "Verbindingen alfabetisch sorteren"
 
-#: rustconn/src/sidebar_ui.rs:939
+#: rustconn/src/sidebar_ui.rs:947
 msgid "Sort by recent usage"
 msgstr "Sorteren op recent gebruik"
 
-#: rustconn/src/sidebar_ui.rs:942
+#: rustconn/src/sidebar_ui.rs:950
 msgid "Sort connections by recent usage"
 msgstr "Verbindingen sorteren op recent gebruik"
 
-#: rustconn/src/sidebar_ui.rs:948
+#: rustconn/src/sidebar_ui.rs:956
 msgid "Open password vault"
 msgstr "Wachtwoordkluis openen"
 
-#: rustconn/src/sidebar_ui.rs:952
+#: rustconn/src/sidebar_ui.rs:960
 msgid "Open password vault for credential management"
 msgstr "Wachtwoordkluis openen voor inloggegevensbeheer"
 
-#: rustconn/src/sidebar_ui.rs:958
+#: rustconn/src/sidebar_ui.rs:966
 msgid "Toggle smart folders"
 msgstr "Slimme mappen in-/uitschakelen"
 
-#: rustconn/src/sidebar_ui.rs:961
+#: rustconn/src/sidebar_ui.rs:969
 msgid "Show or hide smart folders panel"
 msgstr "Paneel met slimme mappen tonen of verbergen"
 
@@ -10791,38 +10806,38 @@ msgstr "Alle tabbladen worden al weergegeven in deze gesplitste weergave"
 msgid "Select a tab to display"
 msgstr "Selecteer een tabblad om weer te geven"
 
-#: rustconn/src/terminal/config.rs:347
+#: rustconn/src/terminal/config.rs:352
 msgid "Execute Snippet…"
 msgstr "Fragment uitvoeren…"
 
-#: rustconn/src/terminal/mod.rs:475
+#: rustconn/src/terminal/mod.rs:476
 msgid "Tab Overview (Ctrl+Shift+O)"
 msgstr "Tabbladoverzicht (Ctrl+Shift+O)"
 
-#: rustconn/src/terminal/mod.rs:492 rustconn/src/terminal/tab_lifecycle.rs:35
+#: rustconn/src/terminal/mod.rs:493 rustconn/src/terminal/tab_lifecycle.rs:35
 #: rustconn/src/terminal/tab_lifecycle.rs:50 rustconn/src/window/mod.rs:3297
 msgid "Welcome"
 msgstr "Welkom"
 
-#: rustconn/src/terminal/mod.rs:1029
+#: rustconn/src/terminal/mod.rs:1030
 msgid "Output filter '{}' is not installed; session output is not filtered"
 msgstr ""
 "Uitvoerfilter “{}” is niet geïnstalleerd; de sessie-uitvoer wordt niet "
 "gefilterd"
 
-#: rustconn/src/terminal/mod.rs:1319
+#: rustconn/src/terminal/mod.rs:1320
 msgid "Command not found: {}"
 msgstr "Opdracht niet gevonden: {}"
 
-#: rustconn/src/terminal/mod.rs:1321
+#: rustconn/src/terminal/mod.rs:1322
 msgid "Failed to start '{}'"
 msgstr "Kan “{}” niet starten"
 
-#: rustconn/src/terminal/mod.rs:1343
+#: rustconn/src/terminal/mod.rs:1344
 msgid "'{}' is not installed"
 msgstr "“{}” is niet geïnstalleerd"
 
-#: rustconn/src/terminal/mod.rs:1346
+#: rustconn/src/terminal/mod.rs:1347
 msgid "Failed to start '{}': {}"
 msgstr "Kan “{}” niet starten: {}"
 
@@ -10865,6 +10880,20 @@ msgstr "Afspelen: {}"
 #: rustconn/src/terminal/recording.rs:351
 msgid "●REC"
 msgstr "●OPN"
+
+#: rustconn/src/terminal/safe_paste.rs:121
+msgid "…and {} more lines"
+msgstr "…en nog {} regels"
+
+#: rustconn/src/terminal/safe_paste.rs:131
+msgid "Paste multiple lines?"
+msgstr "Meerdere regels plakken?"
+
+#: rustconn/src/terminal/safe_paste.rs:133
+msgid ""
+"The clipboard holds more than one line. Each line runs as soon as it is "
+"pasted — check it before continuing."
+msgstr "Het klembord bevat meer dan één regel. Elke regel wordt uitgevoerd zodra deze wordt geplakt — controleer dit voordat u doorgaat."
 
 #: rustconn/src/terminal/session_lifecycle.rs:183
 msgid "Reconnected at {}"
@@ -10992,35 +11021,40 @@ msgstr "Ongedaan maken"
 msgid "Retry"
 msgstr "Opnieuw proberen"
 
-#: rustconn/src/tray.rs:146
+#: rustconn/src/tray.rs:149
 msgid "{} active session(s)"
 msgstr "{} actieve sessie(s)"
 
-#: rustconn/src/tray.rs:152
+#: rustconn/src/tray.rs:155
 msgid "No active sessions"
 msgstr "Geen actieve sessies"
 
-#: rustconn/src/tray.rs:185 rustconn/src/tray.rs:528
+#: rustconn/src/tray.rs:189 rustconn/src/tray.rs:566
 msgid "Hide Window"
 msgstr "Venster verbergen"
 
-#: rustconn/src/tray.rs:187 rustconn/src/tray.rs:530
+#: rustconn/src/tray.rs:191 rustconn/src/tray.rs:568
 msgid "Show Window"
 msgstr "Venster tonen"
 
-#: rustconn/src/tray.rs:214 rustconn/src/tray.rs:546
+#: rustconn/src/tray.rs:220 rustconn/src/tray.rs:585
+#: rustconn/src/window/sorting.rs:194
+msgid "Favorites"
+msgstr "Favorieten"
+
+#: rustconn/src/tray.rs:243 rustconn/src/tray.rs:604
 msgid "Recent Connections"
 msgstr "Recente verbindingen"
 
-#: rustconn/src/tray.rs:222 rustconn/src/tray.rs:581
+#: rustconn/src/tray.rs:251 rustconn/src/tray.rs:639
 msgid "Quick Connect…"
 msgstr "Snel verbinden…"
 
-#: rustconn/src/tray.rs:238 rustconn/src/tray.rs:565
+#: rustconn/src/tray.rs:267 rustconn/src/tray.rs:623
 msgid "{} Active Session(s)"
 msgstr "{} actieve sessie(s)"
 
-#: rustconn/src/tray.rs:251 rustconn/src/tray.rs:594
+#: rustconn/src/tray.rs:280 rustconn/src/tray.rs:652
 #: rustconn/src/window/ui.rs:354
 msgid "About RustConn"
 msgstr "Over RustConn"
@@ -11143,7 +11177,7 @@ msgstr "Alleen aangevinkte velden worden op de selectie toegepast"
 msgid "Apply group change"
 msgstr "Groepswijziging toepassen"
 
-#: rustconn/src/window/batch_edit.rs:90 rustconn/src/window/operations.rs:720
+#: rustconn/src/window/batch_edit.rs:90 rustconn/src/window/operations.rs:719
 msgid "(No Group)"
 msgstr "(Geen groep)"
 
@@ -11317,12 +11351,12 @@ msgid "Select Vault to load password"
 msgstr "Selecteer kluis om wachtwoord te laden"
 
 #: rustconn/src/window/connection_dialogs.rs:853
-#: rustconn/src/window/edit_group.rs:1359
+#: rustconn/src/window/edit_group.rs:1435
 msgid "Notes, contacts, project info"
 msgstr "Notities, contacten, projectinfo"
 
 #: rustconn/src/window/connection_dialogs.rs:893
-#: rustconn/src/window/edit_group.rs:1476
+#: rustconn/src/window/edit_group.rs:1552
 msgid "Group name cannot be empty"
 msgstr "Groepsnaam mag niet leeg zijn"
 
@@ -11677,7 +11711,7 @@ msgid "Name cannot be empty"
 msgstr "Naam mag niet leeg zijn"
 
 #: rustconn/src/window/edit_dialogs.rs:360
-#: rustconn/src/window/edit_group.rs:1535
+#: rustconn/src/window/edit_group.rs:1611
 msgid "Group with name '{}' already exists"
 msgstr "Groep met naam '{}' bestaat al"
 
@@ -11709,106 +11743,116 @@ msgstr "Het verplaatsen van een groep verplaatst alle inhoud"
 msgid "KeePass database not configured"
 msgstr "KeePass-database niet geconfigureerd"
 
-#: rustconn/src/window/edit_group.rs:547
+#: rustconn/src/window/edit_group.rs:573
 msgid "SSH Settings"
 msgstr "SSH-instellingen"
 
-#: rustconn/src/window/edit_group.rs:548
+#: rustconn/src/window/edit_group.rs:574
 msgid "SSH settings inherited by connections in this group"
 msgstr "SSH-instellingen overgenomen door verbindingen in deze groep"
 
-#: rustconn/src/window/edit_group.rs:589
+#: rustconn/src/window/edit_group.rs:626
 msgid "Clear SSH Settings?"
 msgstr "SSH-instellingen wissen?"
 
-#: rustconn/src/window/edit_group.rs:591
+#: rustconn/src/window/edit_group.rs:628
 msgid ""
 "Disabling will clear all SSH settings for this group. This cannot be undone."
 msgstr ""
 "Uitschakelen wist alle SSH-instellingen voor deze groep. Dit kan niet "
 "ongedaan worden gemaakt."
 
-#: rustconn/src/window/edit_group.rs:596 rustconn/src/window/edit_group.rs:1024
+#: rustconn/src/window/edit_group.rs:633 rustconn/src/window/edit_group.rs:1100
 msgid "Keep"
 msgstr "Behouden"
 
-#: rustconn/src/window/edit_group.rs:621
+#: rustconn/src/window/edit_group.rs:658 rustconn/src/window/edit_group.rs:681
 msgid "Security Key"
 msgstr "Beveiligingssleutel"
 
-#: rustconn/src/window/edit_group.rs:624
+#: rustconn/src/window/edit_group.rs:661
 msgid "SSH Authentication Method"
 msgstr "SSH-authenticatiemethode"
 
-#: rustconn/src/window/edit_group.rs:640
+#: rustconn/src/window/edit_group.rs:683 rustconn/src/window/edit_group.rs:708
+#: rustconn/src/window/edit_group.rs:816 rustconn/src/window/edit_group.rs:829
+#: rustconn/src/window/edit_group.rs:845
+msgid "Inherited from a parent group: {}"
+msgstr "Overgenomen van een bovenliggende groep: {}"
+
+#: rustconn/src/window/edit_group.rs:689
 msgid "SSH Key Path"
 msgstr "SSH-sleutelpad"
 
-#: rustconn/src/window/edit_group.rs:650 rustconn/src/window/edit_group.rs:652
+#: rustconn/src/window/edit_group.rs:699 rustconn/src/window/edit_group.rs:701
 msgid "Select SSH key file"
 msgstr "SSH-sleutelbestand selecteren"
 
-#: rustconn/src/window/edit_group.rs:760
+#: rustconn/src/window/edit_group.rs:815
+msgid "(unknown connection)"
+msgstr "(onbekende verbinding)"
+
+#: rustconn/src/window/edit_group.rs:823
 msgid "SSH Proxy Jump"
 msgstr "SSH Proxy Jump"
 
-#: rustconn/src/window/edit_group.rs:764
+#: rustconn/src/window/edit_group.rs:831
 msgid "Manual ProxyJump (-J) — used when Jump Host is (None)"
 msgstr "Handmatige ProxyJump (-J) — gebruikt wanneer Jump Host (Geen) is"
 
-#: rustconn/src/window/edit_group.rs:813
+#: rustconn/src/window/edit_group.rs:889
 msgid "Not synced"
 msgstr "Niet gesynchroniseerd"
 
-#: rustconn/src/window/edit_group.rs:813
+#: rustconn/src/window/edit_group.rs:889
 msgid "Master"
 msgstr "Master"
 
-#: rustconn/src/window/edit_group.rs:882
+#: rustconn/src/window/edit_group.rs:958
 msgid "Sync File"
 msgstr "Synchronisatiebestand"
 
-#: rustconn/src/window/edit_group.rs:890
+#: rustconn/src/window/edit_group.rs:966
 msgid "Last Synced"
 msgstr "Laatst gesynchroniseerd"
 
-#: rustconn/src/window/edit_group.rs:909
+#: rustconn/src/window/edit_group.rs:985
 msgid "Dynamic Folder"
 msgstr "Dynamische map"
 
-#: rustconn/src/window/edit_group.rs:910
+#: rustconn/src/window/edit_group.rs:986
 msgid "Generate connections from a script"
 msgstr "Verbindingen genereren vanuit een script"
 
-#: rustconn/src/window/edit_group.rs:925
+#: rustconn/src/window/edit_group.rs:1001
 msgid "Shell command executed via sh -c"
 msgstr "Shell-opdracht uitgevoerd via sh -c"
 
-#: rustconn/src/window/edit_group.rs:929
+#: rustconn/src/window/edit_group.rs:1005
 msgid "Working Directory"
 msgstr "Werkmap"
 
-#: rustconn/src/window/edit_group.rs:941
+#: rustconn/src/window/edit_group.rs:1017
 msgid "Timeout (seconds)"
 msgstr "Time-out (seconden)"
 
-#: rustconn/src/window/edit_group.rs:957
+#: rustconn/src/window/edit_group.rs:1033
 msgid "Refresh Interval (seconds)"
 msgstr "Vernieuwingsinterval (seconden)"
 
-#: rustconn/src/window/edit_group.rs:958
+#: rustconn/src/window/edit_group.rs:1034
 msgid "0 = manual only"
 msgstr "0 = alleen handmatig"
 
-#: rustconn/src/window/edit_group.rs:991
+#: rustconn/src/window/edit_group.rs:1067
 msgid "Expect rules and post-login scripts inherited by connections"
 msgstr "Expect-regels en post-login-scripts overgenomen door verbindingen"
 
-#: rustconn/src/window/edit_group.rs:1017
+#: rustconn/src/window/edit_group.rs:1093
 msgid "Clear Automation?"
 msgstr "Automatisering wissen?"
 
-#: rustconn/src/window/edit_group.rs:1019
+#: rustconn/src/window/edit_group.rs:1095
 msgid ""
 "Disabling will clear all expect rules and post-login scripts for this group. "
 "This cannot be undone."
@@ -11816,55 +11860,55 @@ msgstr ""
 "Uitschakelen wist alle expect-regels en post-login-scripts voor deze groep. "
 "Dit kan niet ongedaan worden gemaakt."
 
-#: rustconn/src/window/edit_group.rs:1186
+#: rustconn/src/window/edit_group.rs:1262
 msgid "Clear All"
 msgstr "Alles wissen"
 
-#: rustconn/src/window/edit_group.rs:1188
+#: rustconn/src/window/edit_group.rs:1264
 msgid "Remove all expect rules"
 msgstr "Alle expect-regels verwijderen"
 
-#: rustconn/src/window/edit_group.rs:1221
+#: rustconn/src/window/edit_group.rs:1297
 msgid "Test text against your expect rules"
 msgstr "Tekst testen met uw expect-regels"
 
-#: rustconn/src/window/edit_group.rs:1228
+#: rustconn/src/window/edit_group.rs:1304
 msgid "Enter text to test against patterns"
 msgstr "Voer tekst in om te testen met patronen"
 
-#: rustconn/src/window/edit_group.rs:1265
+#: rustconn/src/window/edit_group.rs:1341
 msgid "Match: pattern '{}' → response '{}'"
 msgstr "Overeenkomst: patroon '{}' → antwoord '{}'"
 
-#: rustconn/src/window/edit_group.rs:1277
+#: rustconn/src/window/edit_group.rs:1353
 msgid "No match"
 msgstr "Geen overeenkomst"
 
-#: rustconn/src/window/edit_group.rs:1292
+#: rustconn/src/window/edit_group.rs:1368
 msgid "Post-login Scripts"
 msgstr "Post-login-scripts"
 
-#: rustconn/src/window/edit_group.rs:1294
+#: rustconn/src/window/edit_group.rs:1370
 msgid "Commands executed after login (inherited by connections)"
 msgstr "Opdrachten uitgevoerd na inloggen (overgenomen door verbindingen)"
 
-#: rustconn/src/window/edit_group.rs:1302
+#: rustconn/src/window/edit_group.rs:1378
 msgid "No post-login scripts"
 msgstr "Geen post-login-scripts"
 
-#: rustconn/src/window/edit_group.rs:1311
+#: rustconn/src/window/edit_group.rs:1387
 msgid "Add Script"
 msgstr "Script toevoegen"
 
-#: rustconn/src/window/edit_group.rs:1509
+#: rustconn/src/window/edit_group.rs:1585
 msgid "Select a variable"
 msgstr "Selecteer een variabele"
 
-#: rustconn/src/window/edit_group.rs:1658
+#: rustconn/src/window/edit_group.rs:1734
 msgid "Dynamic Folder script cannot be empty"
 msgstr "Script voor dynamische map mag niet leeg zijn"
 
-#: rustconn/src/window/edit_group.rs:1806
+#: rustconn/src/window/edit_group.rs:1882
 msgid ""
 "This group will be exported to {}. Other team members with read access can "
 "import it."
@@ -11872,19 +11916,19 @@ msgstr ""
 "Deze groep wordt geëxporteerd naar {}. Andere teamleden met leestoegang "
 "kunnen het importeren."
 
-#: rustconn/src/window/edit_group.rs:1810
+#: rustconn/src/window/edit_group.rs:1886
 msgid "Enable Cloud Sync?"
 msgstr "Cloudsynchronisatie inschakelen?"
 
-#: rustconn/src/window/edit_group.rs:1843
+#: rustconn/src/window/edit_group.rs:1919
 msgid "Choose Directory"
 msgstr "Kies map"
 
-#: rustconn/src/window/edit_group.rs:1850
+#: rustconn/src/window/edit_group.rs:1926
 msgid "Set Up Cloud Sync"
 msgstr "Cloudsynchronisatie instellen"
 
-#: rustconn/src/window/edit_group.rs:1852
+#: rustconn/src/window/edit_group.rs:1928
 msgid ""
 "Choose a directory synced with your cloud service (Google Drive, Nextcloud, "
 "Syncthing, etc.)"
@@ -11892,16 +11936,16 @@ msgstr ""
 "Kies een map gesynchroniseerd met uw cloudservice (Google Drive, Nextcloud, "
 "Syncthing, enz.)"
 
-#: rustconn/src/window/edit_group.rs:2367
+#: rustconn/src/window/edit_group.rs:2443
 msgid "Shell command (e.g., export TERM=xterm-256color)"
 msgstr "Shell-opdracht (bijv. export TERM=xterm-256color)"
 
-#: rustconn/src/window/edit_group.rs:2368
+#: rustconn/src/window/edit_group.rs:2444
 msgid "Command to execute after login"
 msgstr "Opdracht om uit te voeren na inloggen"
 
-#: rustconn/src/window/edit_group.rs:2378
-#: rustconn/src/window/edit_group.rs:2381
+#: rustconn/src/window/edit_group.rs:2454
+#: rustconn/src/window/edit_group.rs:2457
 msgid "Delete script"
 msgstr "Script verwijderen"
 
@@ -11932,7 +11976,7 @@ msgstr ""
 "gefocuste tabblad"
 
 #: rustconn/src/window/groups.rs:56 rustconn/src/window/groups.rs:62
-#: rustconn/src/window/operations.rs:627 rustconn/src/window/operations.rs:642
+#: rustconn/src/window/operations.rs:626 rustconn/src/window/operations.rs:641
 msgid "Move"
 msgstr "Verplaatsen"
 
@@ -11940,7 +11984,7 @@ msgstr "Verplaatsen"
 msgid "Move '{}' to:"
 msgstr "'{}' verplaatsen naar:"
 
-#: rustconn/src/window/groups.rs:112 rustconn/src/window/operations.rs:722
+#: rustconn/src/window/groups.rs:112 rustconn/src/window/operations.rs:721
 msgid "(Root Level)"
 msgstr "(Hoofdniveau)"
 
@@ -12161,7 +12205,7 @@ msgstr "Groep «{}» verwijderen?"
 msgid "Keep Connections"
 msgstr "Verbindingen behouden"
 
-#: rustconn/src/window/operations.rs:84 rustconn/src/window/operations.rs:458
+#: rustconn/src/window/operations.rs:84 rustconn/src/window/operations.rs:457
 msgid "Delete All"
 msgstr "Alles verwijderen"
 
@@ -12185,107 +12229,107 @@ msgstr "Verbinding gedupliceerd"
 msgid "Failed to duplicate connection"
 msgstr "Kan verbinding niet dupliceren"
 
-#: rustconn/src/window/operations.rs:358
+#: rustconn/src/window/operations.rs:357
 msgid "Connection copied to clipboard"
 msgstr "Verbinding gekopieerd naar klembord"
 
-#: rustconn/src/window/operations.rs:366
+#: rustconn/src/window/operations.rs:365
 msgid "Failed to copy connection"
 msgstr "Kan verbinding niet kopiëren"
 
-#: rustconn/src/window/operations.rs:385
+#: rustconn/src/window/operations.rs:384
 msgid "Nothing to paste - copy a connection first"
 msgstr "Niets om te plakken - kopieer eerst een verbinding"
 
-#: rustconn/src/window/operations.rs:403
+#: rustconn/src/window/operations.rs:402
 msgid "Connection pasted"
 msgstr "Verbinding geplakt"
 
-#: rustconn/src/window/operations.rs:412
+#: rustconn/src/window/operations.rs:411
 msgid "Failed to paste connection"
 msgstr "Kan verbinding niet plakken"
 
-#: rustconn/src/window/operations.rs:432
+#: rustconn/src/window/operations.rs:431
 msgid "• {} (connection)"
 msgstr "• {} (verbinding)"
 
-#: rustconn/src/window/operations.rs:435
+#: rustconn/src/window/operations.rs:434
 msgid "• {} (group)"
 msgstr "• {} (groep)"
 
-#: rustconn/src/window/operations.rs:451
+#: rustconn/src/window/operations.rs:450
 msgid "Are you sure you want to delete {}?"
 msgstr "Weet u zeker dat u {} wilt verwijderen?"
 
-#: rustconn/src/window/operations.rs:453
+#: rustconn/src/window/operations.rs:452
 msgid "Connections in deleted groups will become ungrouped."
 msgstr "Verbindingen in verwijderde groepen worden ongegroepeerd."
 
-#: rustconn/src/window/operations.rs:456
+#: rustconn/src/window/operations.rs:455
 msgid "Delete Selected Items?"
 msgstr "Geselecteerde items verwijderen?"
 
-#: rustconn/src/window/operations.rs:517
+#: rustconn/src/window/operations.rs:516
 msgid "Successfully deleted {} item(s)."
 msgstr "{} item(s) succesvol verwijderd."
 
-#: rustconn/src/window/operations.rs:525
+#: rustconn/src/window/operations.rs:524
 msgid "Deletion Partially Complete"
 msgstr "Verwijdering gedeeltelijk voltooid"
 
-#: rustconn/src/window/operations.rs:528
+#: rustconn/src/window/operations.rs:527
 msgid "Deleted {} item(s)."
 msgstr "{} item(s) verwijderd."
 
-#: rustconn/src/window/operations.rs:530
+#: rustconn/src/window/operations.rs:529
 msgid "Failed to delete {} item(s):"
 msgstr "Kan {} item(s) niet verwijderen:"
 
-#: rustconn/src/window/operations.rs:551 rustconn/src/window/operations.rs:597
+#: rustconn/src/window/operations.rs:550 rustconn/src/window/operations.rs:596
 msgid "No Selection"
 msgstr "Geen selectie"
 
-#: rustconn/src/window/operations.rs:552
+#: rustconn/src/window/operations.rs:551
 msgid "Select one or more items to delete."
 msgstr "Selecteer een of meer items om te verwijderen."
 
-#: rustconn/src/window/operations.rs:564
+#: rustconn/src/window/operations.rs:563
 msgid "{} connection(s)"
 msgstr "{} verbinding(en)"
 
-#: rustconn/src/window/operations.rs:565
+#: rustconn/src/window/operations.rs:564
 msgid "{} group(s)"
 msgstr "{} groep(en)"
 
-#: rustconn/src/window/operations.rs:567
+#: rustconn/src/window/operations.rs:566
 msgid "{} connection(s) and {} group(s)"
 msgstr "{} verbinding(en) en {} groep(en)"
 
-#: rustconn/src/window/operations.rs:598
+#: rustconn/src/window/operations.rs:597
 msgid "Please select one or more items to move."
 msgstr "Selecteer een of meer items om te verplaatsen."
 
-#: rustconn/src/window/operations.rs:656
+#: rustconn/src/window/operations.rs:655
 msgid "Select destination for {} connection(s) and {} group(s):"
 msgstr "Selecteer bestemming voor {} verbinding(en) en {} groep(en):"
 
-#: rustconn/src/window/operations.rs:664
+#: rustconn/src/window/operations.rs:663
 msgid "Select a group for {} connection(s):"
 msgstr "Selecteer een groep voor {} verbinding(en):"
 
-#: rustconn/src/window/operations.rs:669
+#: rustconn/src/window/operations.rs:668
 msgid "Select parent for {} group(s):"
 msgstr "Selecteer bovenliggende voor {} groep(en):"
 
-#: rustconn/src/window/operations.rs:804
+#: rustconn/src/window/operations.rs:803
 msgid "Move Partially Complete"
 msgstr "Verplaatsing gedeeltelijk voltooid"
 
-#: rustconn/src/window/operations.rs:807
+#: rustconn/src/window/operations.rs:806
 msgid "Moved {} item(s)."
 msgstr "{} item(s) verplaatst."
 
-#: rustconn/src/window/operations.rs:809
+#: rustconn/src/window/operations.rs:808
 msgid "Failed to move {} item(s):"
 msgstr "Kan {} item(s) niet verplaatsen:"
 
@@ -12551,18 +12595,14 @@ msgstr "Open eerst een terminalsessie voordat je een snippet uitvoert."
 msgid "Enter Variable Values"
 msgstr "Variabelewaarden invoeren"
 
-#: rustconn/src/window/sorting.rs:191
-msgid "Favorites"
-msgstr "Favorieten"
-
-#: rustconn/src/window/sorting.rs:468 rustconn/src/window/sorting.rs:489
+#: rustconn/src/window/sorting.rs:471 rustconn/src/window/sorting.rs:492
 msgid ""
 "Imported folders are managed by sync and their structure cannot be changed"
 msgstr ""
 "Geïmporteerde mappen worden beheerd door synchronisatie en hun structuur kan "
 "niet worden gewijzigd"
 
-#: rustconn/src/window/sorting.rs:500
+#: rustconn/src/window/sorting.rs:503
 msgid "Cannot move a folder into one of its own subfolders"
 msgstr "Een map kan niet naar een van zijn eigen submappen worden verplaatst"
 
@@ -12820,6 +12860,12 @@ msgstr "RustConn"
 #: rustconn/assets/io.github.totoshko88.RustConn.desktop:15
 msgid "ssh;rdp;vnc;spice;mosh;telnet;zerotrust;connection;terminal;remote;kubernetes;k8s;serial;sftp;"
 msgstr "ssh;rdp;vnc;spice;mosh;telnet;zerotrust;connection;terminal;remote;kubernetes;k8s;serial;sftp;"
+
+#~ msgid "Pinned"
+#~ msgstr "Vastgezet"
+
+#~ msgid "Pin / Unpin"
+#~ msgstr "Vastpinnen / Losmaken"
 
 #~ msgid "Text #RRGGBB"
 #~ msgstr "Tekst #RRGGBB"

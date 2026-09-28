@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **A multi-line paste into the terminal now asks for confirmation first** — clipboard text that spans more than one line runs every line the instant its newline reaches the shell, so a command copied from a web page can carry a hidden second line (`curl … | sh` after an innocent first line) that executes before it can be read — the "pastejacking" trap.
+Pasting clipboard text that contains an interior newline now shows a preview of the content, with a count of any elided lines, and waits for a "Paste" confirmation; a single line (or one with only a trailing newline, the ordinary "copied a whole line" case) is pasted immediately as before, so the common path is unchanged.
+The guard covers every paste route — Ctrl+V, the context-menu Paste, and the split-view and detached-window paste actions — through one shared `safe_paste::paste_into_terminal`, and can be turned off with the new `confirm_multiline_paste` terminal setting (on by default).
+
 ### Fixed
 - **Group SSH settings inherited from further than the immediate parent were invisible in the group editor (issue [#345](https://github.com/totoshko88/RustConn/issues/345))** — a subgroup that inherited a jump host, ProxyJump, SSH key, auth method or agent socket from a group two or more levels up opened with its "SSH Settings" section empty and collapsed, so the inheritance looked broken even though connections in the subgroup resolved it correctly at connect time.
 The resolver (`resolve_ssh_proxy_jump` and friends) always walked the full ancestor chain — a new test in `jump_chain.rs` confirms a grandparent's jump host is honoured — so this was a display gap, not a routing bug: the editor only ever read the group's *own* five SSH fields and never showed what it would inherit.

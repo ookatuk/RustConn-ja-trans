@@ -32,6 +32,7 @@ pub mod playback;
 pub mod pty_relay;
 pub mod pty_spawn;
 mod recording;
+pub mod safe_paste;
 mod session_lifecycle;
 pub mod tab_container;
 mod tab_lifecycle;
@@ -2223,7 +2224,7 @@ impl TerminalNotebook {
     /// Pastes text from clipboard to the active terminal
     pub fn paste_from_clipboard(&self) {
         if let Some(terminal) = self.get_active_terminal() {
-            terminal.paste_clipboard();
+            safe_paste::paste_into_terminal(&terminal);
         }
     }
 

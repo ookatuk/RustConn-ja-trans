@@ -688,6 +688,9 @@ pub fn collect_terminal_settings(
     // to LoggingSettings, update the close handler in mod.rs accordingly.
     log_timestamps: bool,
     existing_max_scrollback_on_reconnect: Option<u32>,
+    // Preserved rather than edited here: safe paste has no switch on this page
+    // yet, so keep whatever is stored instead of resetting it to the default.
+    existing_confirm_multiline_paste: bool,
 ) -> TerminalSettings {
     let theme_names = TerminalTheme::theme_names();
     let color_theme = theme_names
@@ -733,6 +736,7 @@ pub fn collect_terminal_settings(
         max_scrollback_on_reconnect: existing_max_scrollback_on_reconnect,
         close_on_clean_exit: close_on_clean_exit_row.is_active(),
         option_is_meta: option_is_meta_row.is_active(),
+        confirm_multiline_paste: existing_confirm_multiline_paste,
     }
 }
 
