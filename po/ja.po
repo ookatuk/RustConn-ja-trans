@@ -1,26 +1,27 @@
-# SOME DESCRIPTIVE TITLE.
-# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# Georgian translation for rustconn.
+# Copyright (C) 2026 rustconn's authors
 # This file is distributed under the same license as the rustconn package.
-# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+# ookatu <okatuhumi@gmail.com>, 2026.
 #
-#, fuzzy
 msgid ""
 msgstr ""
 "Project-Id-Version: rustconn 0.22.8\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-09-28 11:46+0900\n"
-"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
-"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
-"Language-Team: LANGUAGE <LL@li.org>\n"
-"Language: \n"
+"PO-Revision-Date: 2026-09-28 13:27+0900\n"
+"Last-Translator: ookatu <okatuhumi@gmail.com>\n"
+"Language-Team: Japanese\n"
+"Language: ja\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"X-Generator: Gtranslator 50.0\n"
 
 #: rustconn/src/alert.rs:15 rustconn/src/alert.rs:54 rustconn/src/alert.rs:64
 #: rustconn/src/app.rs:1841 rustconn/src/toast.rs:246
 msgid "OK"
-msgstr ""
+msgstr "了承"
 
 #: rustconn/src/alert.rs:33 rustconn/src/alert.rs:94
 #: rustconn/src/dialogs/ask_prompt.rs:101 rustconn/src/dialogs/cluster.rs:689
@@ -54,11 +55,11 @@ msgstr ""
 #: rustconn/src/window/operations.rs:639 rustconn/src/window/sessions.rs:339
 #: rustconn/src/window/workspaces.rs:548
 msgid "Cancel"
-msgstr ""
+msgstr "キャンセル"
 
 #: rustconn/src/alert.rs:72 rustconn/src/dialogs/connection/dialog/save.rs:739
 msgid "Validation Error"
-msgstr ""
+msgstr "検証エラー"
 
 #: rustconn/src/alert.rs:93
 msgid "Don't Save"
@@ -77,21 +78,23 @@ msgstr ""
 #: rustconn/src/window/edit_group.rs:48 rustconn/src/window/edit_group.rs:49
 #: rustconn/src/window/workspaces.rs:549
 msgid "Save"
-msgstr ""
+msgstr "保存"
 
 #: rustconn/src/app.rs:300
 msgid "Initialization Error"
-msgstr ""
+msgstr "初期化エラー"
 
 #: rustconn/src/app.rs:702
 msgid "KeePass password not loaded from keyring — re-enter it in Settings"
 msgstr ""
+"KeePass パスワードがキーリングからロードされていません。設定画面から入力し直"
+"してください。"
 
 #: rustconn/src/app.rs:707 rustconn/src/dialogs/shortcuts.rs:176
 #: rustconn/src/embedded_rdp/mod.rs:398 rustconn/src/split_view/bridge.rs:2004
 #: rustconn/src/window/ui.rs:112
 msgid "Settings"
-msgstr ""
+msgstr "設定"
 
 #: rustconn/src/app.rs:1427
 msgid ""
@@ -99,12 +102,17 @@ msgid ""
 "connect rustconn:password-manager-service — or open Settings, then Secrets, "
 "to choose another backend."
 msgstr ""
+"{}が選択されていますが、システムキーリングにアクセスできません。sudo snap "
+"connect rustconn:password-manager-service を実行するか、設定からシークレット"
+"を開き、他のバックエンドに設定してください。"
 
 #: rustconn/src/app.rs:1432
 msgid ""
 "{} is selected, but it cannot store passwords yet: {}. Open Settings, then "
 "Secrets."
 msgstr ""
+"{}が選択されていますが、パスワードを保存できません: {}。 設定を開き、シーク"
+"レットを選択してください。"
 
 #: rustconn/src/app.rs:1737
 msgid ""
@@ -112,43 +120,46 @@ msgid ""
 "Manage SSH, RDP, VNC, SPICE, Telnet, Serial, Kubernetes, and Zero Trust "
 "connections from a single application."
 msgstr ""
+"GTK4/Waylandネイティブ インターフェースを備えた、Linux向けのモダンな接続マ"
+"ネージャーです。 SSH, RDP, VNC, SPICE, Telnet, シリアル通信, Kubernetes, ゼロ"
+"トラスト接続を、一つのアプリで管理できます。"
 
 #. Translators: Replace this with your name and language, e.g. "John Doe (German)"
 #: rustconn/src/app.rs:1773
 msgid "translator-credits"
-msgstr ""
+msgstr "ookatuk (Japanese)"
 
 #: rustconn/src/app.rs:1780
 msgid "User Guide"
-msgstr ""
+msgstr "ユーザーガイド"
 
 #: rustconn/src/app.rs:1784
 msgid "Installation"
-msgstr ""
+msgstr "インストール"
 
 #: rustconn/src/app.rs:1788
 msgid "Releases"
-msgstr ""
+msgstr "リリース一覧"
 
 #: rustconn/src/app.rs:1792
 msgid "Changelog"
-msgstr ""
+msgstr "変更履歴"
 
 #: rustconn/src/app.rs:1802
 msgid "Special Thanks"
-msgstr ""
+msgstr "謝辞"
 
 #: rustconn/src/app.rs:1817
 msgid "Made in Ukraine"
-msgstr ""
+msgstr "ウクライナにて開発"
 
 #: rustconn/src/app.rs:1818
 msgid "All contributors and supporters"
-msgstr ""
+msgstr "すべての貢献者とサポーター"
 
 #: rustconn/src/detached_window.rs:61
 msgid "{} — RustConn"
-msgstr ""
+msgstr "{} — RustConn"
 
 #: rustconn/src/detached_window.rs:140 rustconn/src/embedded_rdp/mod.rs:761
 #: rustconn/src/embedded_rdp/mod.rs:2038
@@ -156,30 +167,30 @@ msgstr ""
 #: rustconn/src/embedded_vnc/ui.rs:142
 #: rustconn/src/terminal/session_lifecycle.rs:393
 msgid "Session disconnected"
-msgstr ""
+msgstr "セッションが切断されました"
 
 #: rustconn/src/detached_window.rs:411
 msgid "Move to Main Window"
-msgstr ""
+msgstr "メインウィンドウに移動"
 
 #: rustconn/src/dialogs/ask_prompt.rs:63
 msgid "Enter Connection Details"
-msgstr ""
+msgstr "接続情報を入力してください"
 
 #: rustconn/src/dialogs/ask_prompt.rs:65
 msgid "‘{}’ needs the following before it can connect."
-msgstr ""
+msgstr "`{}`に接続するには、以下が必要です。"
 
 #: rustconn/src/dialogs/ask_prompt.rs:102 rustconn/src/dialogs/history.rs:105
 #: rustconn/src/dialogs/widgets.rs:602 rustconn/src/sidebar_ui.rs:346
 #: rustconn/src/smart_folder_ui.rs:431 rustconn/src/window/edit_dialogs.rs:751
 #: rustconn/src/window/edit_dialogs.rs:752
 msgid "Connect"
-msgstr ""
+msgstr "接続マネージャーです"
 
 #: rustconn/src/dialogs/backend_missing.rs:47
 msgid "Could not read the password from {}"
-msgstr ""
+msgstr "パスワードを読み取れませんでした。対象: {}"
 
 #: rustconn/src/dialogs/backend_missing.rs:49
 msgid ""
@@ -187,20 +198,23 @@ msgid ""
 "it may be locked, not logged in, or not set up on this computer. Open "
 "Settings, then Secrets, to check its status."
 msgstr ""
+"この接続のパスワードは{}に保存されていますが、現在は利用できません。ロックさ"
+"れているか、ログインされていないか、この端末で設定されていない可能性がありま"
+"す。設定を開き、シークレットを確認してステータスを確認してください。"
 
 #: rustconn/src/dialogs/backend_missing.rs:55
 msgid "Enter Password Manually"
-msgstr ""
+msgstr "パスワードを手動で入力"
 
 #: rustconn/src/dialogs/backend_missing.rs:56 rustconn/src/vault_ops.rs:66
 #: rustconn/src/vault_ops.rs:316 rustconn/src/window/mod.rs:852
 msgid "Open Settings"
-msgstr ""
+msgstr "設定を開く"
 
 #: rustconn/src/dialogs/cluster.rs:60 rustconn/src/dialogs/cluster.rs:449
 #: rustconn/src/dialogs/cluster.rs:450
 msgid "New Cluster"
-msgstr ""
+msgstr "新規クラスター"
 
 #: rustconn/src/dialogs/cluster.rs:68 rustconn/src/dialogs/cluster.rs:69
 #: rustconn/src/dialogs/connection/dialog/construction.rs:138
@@ -215,11 +229,11 @@ msgstr ""
 #: rustconn/src/window/connection_dialogs.rs:397
 #: rustconn/src/window/connection_dialogs.rs:398
 msgid "Create"
-msgstr ""
+msgstr "作成"
 
 #: rustconn/src/dialogs/cluster.rs:101
 msgid "Cluster Details"
-msgstr ""
+msgstr "クラスター情報"
 
 #: rustconn/src/dialogs/cluster.rs:105
 #: rustconn/src/dialogs/connection/advanced_tab.rs:843
@@ -233,84 +247,89 @@ msgstr ""
 #: rustconn/src/window/edit_dialogs.rs:322
 #: rustconn/src/window/edit_group.rs:110
 msgid "Name"
-msgstr ""
+msgstr "名前"
 
 #: rustconn/src/dialogs/cluster.rs:106
 msgid "Enter cluster name"
-msgstr ""
+msgstr "クラスター名を入力"
 
 #: rustconn/src/dialogs/cluster.rs:148
 msgid "Select at least one connection"
-msgstr ""
+msgstr "Please select at least one connection."
 
 #: rustconn/src/dialogs/cluster.rs:197
 #: rustconn/src/dialogs/settings/ui_tab.rs:352
 #: rustconn/src/dialogs/shortcuts.rs:148
 msgid "Connections"
-msgstr ""
+msgstr "接続一覧"
 
 #: rustconn/src/dialogs/cluster.rs:198
 msgid "Select connections to include in this cluster"
-msgstr ""
+msgstr "このクラスターに含める接続を選択してください"
 
 #: rustconn/src/dialogs/cluster.rs:207
 msgid "Filter connections…"
-msgstr ""
+msgstr "接続を絞り込む…"
 
 #: rustconn/src/dialogs/cluster.rs:231 rustconn/src/sidebar_ui.rs:876
 #: rustconn/src/terminal/config.rs:255
 msgid "Select All"
-msgstr ""
+msgstr "全て選択"
 
 #: rustconn/src/dialogs/cluster.rs:232
 msgid "Deselect All"
-msgstr ""
+msgstr "全て選択解除"
 
 #: rustconn/src/dialogs/cluster.rs:365
 msgid "Edit Cluster"
-msgstr ""
+msgstr "クラスターを編集"
 
 #: rustconn/src/dialogs/cluster.rs:441
 msgid "Manage Clusters"
-msgstr ""
+msgstr "クラスターの管理"
 
 #: rustconn/src/dialogs/cluster.rs:475
 msgid ""
 "Clusters open multiple servers together. To mirror keystrokes across them, "
 "split the resulting tabs and use the Broadcast toggle in the header bar."
 msgstr ""
+"クラスターは複数のサーバーを同時に開くことができます。開いたサーバーの間で、"
+"キー入力を同期させるには、表示されたタブを分割し、ヘッダーバーにあるブロード"
+"キャストの切り替えを使用してください。"
 
 #: rustconn/src/dialogs/cluster.rs:561 rustconn/src/dialogs/workspace.rs:386
 msgid "{} connections"
-msgstr ""
+msgstr "接続数: {}"
 
 #: rustconn/src/dialogs/cluster.rs:575 rustconn/src/dialogs/cluster.rs:579
 msgid "Connect to cluster"
-msgstr ""
+msgstr "クラスターに接続"
 
 #: rustconn/src/dialogs/cluster.rs:584 rustconn/src/dialogs/cluster.rs:588
 msgid "Disconnect all cluster sessions"
-msgstr ""
+msgstr "すべてのクラスターのセッションを切断"
 
 #: rustconn/src/dialogs/cluster.rs:593 rustconn/src/dialogs/cluster.rs:596
 msgid "Edit cluster"
-msgstr ""
+msgstr "クラスターを編集"
 
 #: rustconn/src/dialogs/cluster.rs:600 rustconn/src/dialogs/cluster.rs:604
 msgid "Delete cluster"
-msgstr ""
+msgstr "クラスターを削除"
 
 #: rustconn/src/dialogs/cluster.rs:637
 msgid "No clusters defined. Click 'New Cluster' to create one."
 msgstr ""
+"クラスターが定義されていません。'新規クラスター'をクリックして作成してくださ"
+"い。"
 
 #: rustconn/src/dialogs/cluster.rs:686 rustconn/src/window/clusters.rs:430
 msgid "Delete Cluster?"
-msgstr ""
+msgstr "クラスターを削除しますか？"
 
 #: rustconn/src/dialogs/cluster.rs:687
 msgid "This cluster will be permanently removed."
-msgstr ""
+msgstr "このクラスターは完全に削除されます。"
 
 #: rustconn/src/dialogs/cluster.rs:690 rustconn/src/dialogs/recording.rs:579
 #: rustconn/src/dialogs/template_manager.rs:113
@@ -322,385 +341,387 @@ msgstr ""
 #: rustconn/src/window/snippets.rs:413 rustconn/src/window/snippets.rs:503
 #: rustconn/src/window/templates.rs:151
 msgid "Delete"
-msgstr ""
+msgstr "削除"
 
 #: rustconn/src/dialogs/command_palette.rs:62
 #: rustconn/src/dialogs/command_palette.rs:81
 #: rustconn/src/dialogs/shortcuts.rs:174
 msgid "Command Palette"
-msgstr ""
+msgstr "コマンドパレット"
 
 #: rustconn/src/dialogs/command_palette.rs:73
 msgid "Search connections, > commands, @ tags, # groups, % tabs"
-msgstr ""
+msgstr "接続の検索, > コマンド, @ タグ, # グループ, % タブ"
 
 #: rustconn/src/dialogs/command_palette.rs:104
 msgid "Search results"
-msgstr ""
+msgstr "検索結果"
 
 #: rustconn/src/dialogs/command_palette.rs:108
 msgid "No results"
-msgstr ""
+msgstr "一致なし"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:82
 #: rustconn/src/dialogs/connection_wizard/auth_page.rs:144
 msgid "Terminal Theme"
-msgstr ""
+msgstr "ターミナルのテーマ"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:83
 msgid "Override terminal colors for this connection"
-msgstr ""
+msgstr "この接続のターミナルカラーを上書き"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:89
 #: rustconn/src/dialogs/settings/ui_tab.rs:389
 msgid "Custom"
-msgstr ""
+msgstr "カスタム"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:90
 msgid "DEV"
-msgstr ""
+msgstr "開発"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:91
 msgid "QA"
-msgstr ""
+msgstr "品質保証"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:92
 msgid "STAGE"
-msgstr ""
+msgstr "ステージ"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:93
 msgid "PROD"
-msgstr ""
+msgstr "製品"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:94
 msgid "DEMO"
-msgstr ""
+msgstr "デモ"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:103
 msgid "Preset"
-msgstr ""
+msgstr "プリセット"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:104
 msgid "Quick color presets for environment identification"
-msgstr ""
+msgstr "環境を識別するためのクイックカラープリセット"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:119
 #: rustconn/src/dialogs/connection/advanced_tab.rs:889
 #: rustconn/src/dialogs/settings/terminal_tab.rs:862
 msgid "Background"
-msgstr ""
+msgstr "背景色"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:127
 #: rustconn/src/dialogs/settings/terminal_tab.rs:863
 msgid "Foreground"
-msgstr ""
+msgstr "前景色"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:136
 msgid "Cursor Color"
-msgstr ""
+msgstr "カーソルのカラー"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:257
 msgid "Preview"
-msgstr ""
+msgstr "プレビュー"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:263
 msgid "Reset Theme"
-msgstr ""
+msgstr "テーマをリセット"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:284
 #: rustconn/src/dialogs/statistics.rs:86
 msgid "Reset"
-msgstr ""
+msgstr "リセット"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:285
 msgid "Clear color overrides"
-msgstr ""
+msgstr "カラーの上書きを削除"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:296
 msgid "Remote Monitoring"
-msgstr ""
+msgstr "遠隔監視"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:298
 msgid "Override global monitoring settings for this connection"
-msgstr ""
+msgstr "この接続のグローバル監視設定を上書き"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:303
 msgid "Enable Monitoring"
-msgstr ""
+msgstr "監視を有効化"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:304
 msgid "Collect CPU, RAM, disk and network metrics via SSH"
-msgstr ""
+msgstr "SSHを使用しCPU、RAM、ディスク、ネットワークのメトリクを収集する"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:313
 msgid "Session Recording"
-msgstr ""
+msgstr "セッションを録画中"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:317
 msgid "Record Session"
-msgstr ""
+msgstr "セッションを録画"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:318
 msgid "Save terminal output to file"
-msgstr ""
+msgstr "ターミナル出力をファイルに保存"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:327
 #: rustconn/src/dialogs/settings/monitoring_tab.rs:146
 msgid "Activity Monitor"
-msgstr ""
+msgstr "アクティビティモニター"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:328
 msgid "Detect terminal output activity or silence"
-msgstr ""
+msgstr "ターミナルの出力アクティビティまたは停止を検知"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:335
 #: rustconn/src/dialogs/connection/web.rs:194
 msgid "Mode"
-msgstr ""
+msgstr "モード"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:344
 msgid "Quiet Period"
-msgstr ""
+msgstr "静穏期間"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:345
 #: rustconn/src/dialogs/settings/monitoring_tab.rs:166
 msgid "Seconds of silence before activity notification"
-msgstr ""
+msgstr "アクティビティ通知までの無出力時間 (秒)"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:353
 msgid "Silence Timeout"
-msgstr ""
+msgstr "無出力のタイムアウト"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:354
 #: rustconn/src/dialogs/settings/monitoring_tab.rs:174
 msgid "Seconds of no output before silence notification"
-msgstr ""
+msgstr "通知までの無出力時間 (秒)"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:393
 msgid "Automatic Reconnection"
-msgstr ""
+msgstr "自動再接続"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:394
 msgid "Retry connection with exponential backoff on failure"
-msgstr ""
+msgstr "失敗時に指数バックオフを用いて接続を再試行する"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:399
 msgid "Enable auto-reconnect"
-msgstr ""
+msgstr "自動再接続を有効化"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:400
 msgid "Automatically retry when connection drops"
-msgstr ""
+msgstr "接続が切断された際に自動的に再試行する"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:407
 msgid "Maximum attempts"
-msgstr ""
+msgstr "最大接続試行回数"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:408
 msgid "Number of reconnection attempts before giving up"
-msgstr ""
+msgstr "断念するまでの再接続試行回数"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:415
 msgid "Initial delay (ms)"
-msgstr ""
+msgstr "初期遅延 (ミリ秒)"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:416
 msgid "Delay before first reconnection attempt"
-msgstr ""
+msgstr "最初の再接続試行までの遅延時間"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:424
 msgid "Maximum delay (ms)"
-msgstr ""
+msgstr "最大遅延 (ミリ秒)"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:425
 msgid "Upper limit for backoff delay between attempts"
-msgstr ""
+msgstr "試行間のバックオフ遅延の上限"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:460
 msgid "Connection Behavior"
-msgstr ""
+msgstr "接続動作"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:464
 msgid "Skip port check before connecting"
-msgstr ""
+msgstr "接続前のポートチェックをスキップ"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:466
 msgid ""
 "Bypass TCP probe of the host. Useful for low-bandwidth links or hosts only "
 "reachable via a gateway."
 msgstr ""
+"ホストに対するTCPプローブをバイパス。帯域が細い場合やゲートウェイを通してのみ"
+"ホストと接続できる場合に役立ちます。"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:476
 msgid "e.g., 7000 8000/tcp 9000/udp"
-msgstr ""
+msgstr "7000 8000/tcp 9000/udp など"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:479
 msgid "Port Knock Sequence"
-msgstr ""
+msgstr "ポートノックシーケンス"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:481
 msgid "Send TCP/UDP packets to open firewall before connecting"
-msgstr ""
+msgstr "接続前にTCP/UDPパケットを送信してファイアウォールを開ける"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:504
 msgid "Invalid format. Use: 7000 8000/tcp 9000/udp"
-msgstr ""
+msgstr "不正な形式。 7000 8000/tcp 9000/udpなどを使用してください。"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:514
 msgid "Single Packet Authorization (fwknop)"
-msgstr ""
+msgstr "シングルパケット認証 (fwknop)"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:516
 msgid "Send encrypted UDP packet to open firewall before connecting"
-msgstr ""
+msgstr "接続前に暗号化されたUDPパケットを送信してファイヤウォールを開ける"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:522
 msgid "Enable SPA"
-msgstr ""
+msgstr "SPAを有効にする"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:523
 msgid "Send fwknop packet before connecting"
-msgstr ""
+msgstr "接続前に fwknop パケットを送信"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:529
 msgid "Rijndael Key"
-msgstr ""
+msgstr "Rijndael鍵"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:534
 msgid "HMAC Key"
-msgstr ""
+msgstr "HMAC鍵"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:539
 msgid "Access"
-msgstr ""
+msgstr "接続"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:546
 msgid "Destination Port"
-msgstr ""
+msgstr "宛先のポート"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:547
 msgid "UDP port for the SPA packet (default: 62201)"
-msgstr ""
+msgstr "SPAパケット用UDPポート (デフォルト: 62201)"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:553
 msgid "Source IP"
-msgstr ""
+msgstr "送信元IP"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:554
 msgid "Resolve Public"
-msgstr ""
+msgstr "接続元情報を解決"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:555
 msgid "Explicit"
-msgstr ""
+msgstr "手動入力"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:558
 msgid "Allow IP"
-msgstr ""
+msgstr "許可するIP"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:559
 msgid "IP address to authorize in the SPA packet"
-msgstr ""
+msgstr "SPAパケット内で承認するIPアドレス"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:594
 #: rustconn/src/dialogs/settings/mod.rs:358
 msgid "Highlight Rules"
-msgstr ""
+msgstr "強調表示のルール"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:595
 msgid "Regex-based text highlighting for this connection"
-msgstr ""
+msgstr "この接続内のテキストを正規表現を利用して自動でハイライト"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:609
 #: rustconn/src/dialogs/settings/mod.rs:386
 msgid "No highlight rules"
-msgstr ""
+msgstr "強調表示のルールがありません。"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:621
 #: rustconn/src/dialogs/connection/automation_tab.rs:163
 #: rustconn/src/dialogs/settings/mod.rs:363
 #: rustconn/src/window/edit_group.rs:1174
 msgid "Add Rule"
-msgstr ""
+msgstr "ルールを追加"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:636
 #: rustconn/src/dialogs/shortcuts.rs:159 rustconn/src/dialogs/wol.rs:37
 #: rustconn/src/sidebar_ui.rs:420 rustconn/src/smart_folder_ui.rs:438
 msgid "Wake On LAN"
-msgstr ""
+msgstr "Wake On LAN"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:637
 #: rustconn/src/dialogs/connection/advanced_tab.rs:645
 msgid "Send magic packet before connecting"
-msgstr ""
+msgstr "接続する前にマジックパケットを送信する"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:644
 msgid "Enable WOL"
-msgstr ""
+msgstr "WOLを有効化"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:654
 msgid "AA:BB:CC:DD:EE:FF"
-msgstr ""
+msgstr "AA:BB:CC:DD:EE:FF"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:657
 #: rustconn/src/dialogs/wol.rs:82
 msgid "MAC Address"
-msgstr ""
+msgstr "MACアドレス"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:682
 msgid "Format: AA:BB:CC:DD:EE:FF"
-msgstr ""
+msgstr "フォーマット: AA:BB:CC:DD:EE:FF"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:694
 #: rustconn/src/dialogs/wol.rs:87
 msgid "Broadcast Address"
-msgstr ""
+msgstr "ブロードキャストアドレス"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:708
 msgid "UDP Port"
-msgstr ""
+msgstr "UDPポート"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:709
 msgid "Default: 9"
-msgstr ""
+msgstr "デフォルト: 9"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:729
 msgid "Wait Time (sec)"
-msgstr ""
+msgstr "待機時間 (秒)"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:730
 msgid "Time to wait for boot"
-msgstr ""
+msgstr "ブートの待機時間"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:845
 #: rustconn/src/dialogs/connection/advanced_tab.rs:847
 msgid "Rule name"
-msgstr ""
+msgstr "ルール名"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:853
 msgid ""
 "Regular expression, for example (?i)\\bINFO\\b. Set the colour in the fields "
 "to the right."
-msgstr ""
+msgstr "正規表現(例: (?i)\\bINFO\\b) 右側のフィールドで色を設定してください。"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:856
 #: rustconn/src/dialogs/connection/advanced_tab.rs:860
 #: rustconn/src/dialogs/settings/mod.rs:1867
 msgid "Pattern (regex)"
-msgstr ""
+msgstr "パターン (正規表現)"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:875
 #: rustconn/src/dialogs/settings/terminal_tab.rs:220
 #: rustconn/src/dialogs/settings/terminal_tab.rs:257
 msgid "Underline"
-msgstr ""
+msgstr "下線"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:904
 #: rustconn/src/dialogs/connection/advanced_tab.rs:907
 #: rustconn/src/dialogs/settings/mod.rs:1811
 #: rustconn/src/dialogs/settings/mod.rs:1813
 msgid "Enable rule"
-msgstr ""
+msgstr "ルールを有効にする"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:912
 #: rustconn/src/dialogs/connection/dialog/rows.rs:285
@@ -709,22 +730,22 @@ msgstr ""
 #: rustconn/src/window/edit_group.rs:1977
 #: rustconn/src/window/edit_group.rs:1979
 msgid "Delete rule"
-msgstr ""
+msgstr "ルールを削除"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:916
 #: rustconn/src/dialogs/settings/mod.rs:1832
 msgid "Delete highlight rule"
-msgstr ""
+msgstr "強調表示ルールを削除"
 
 #: rustconn/src/dialogs/connection/automation_tab.rs:92
 #: rustconn/src/window/edit_group.rs:1065
 msgid "Expect Rules"
-msgstr ""
+msgstr "期待する文字のルール"
 
 #: rustconn/src/dialogs/connection/automation_tab.rs:93
 #: rustconn/src/window/edit_group.rs:1066
 msgid "Auto-respond to terminal patterns (priority order)"
-msgstr ""
+msgstr "端末のパターンへの自動応答 (優先順位)"
 
 #: rustconn/src/dialogs/connection/automation_tab.rs:104
 #: rustconn/src/window/edit_group.rs:1075
@@ -732,108 +753,116 @@ msgid ""
 "Responses support ${password}, ${username}, and ${VARIABLE_NAME} "
 "placeholders resolved at connection time"
 msgstr ""
+"レスポンスは ${password}, ${username}, ${VARIABLE_NAME} などのプレースホル"
+"ダーの接続時解決をサポートしています。"
 
 #: rustconn/src/dialogs/connection/automation_tab.rs:117
 #: rustconn/src/window/edit_group.rs:1088
 msgid "No expect rules"
-msgstr ""
+msgstr "期待する文字のルールはありません。"
 
 #: rustconn/src/dialogs/connection/automation_tab.rs:128
 #: rustconn/src/window/edit_group.rs:1104
 msgid "From Template"
-msgstr ""
+msgstr "テンプレートから作成"
 
 #: rustconn/src/dialogs/connection/automation_tab.rs:129
 #: rustconn/src/window/edit_group.rs:1105
 msgid "Add rules from a built-in template"
-msgstr ""
+msgstr "ルールをビルドインテンプレートから作成"
 
 #: rustconn/src/dialogs/connection/automation_tab.rs:175
 #: rustconn/src/window/edit_group.rs:1220
 msgid "Pattern Tester"
-msgstr ""
+msgstr "パターンテスター"
 
 #: rustconn/src/dialogs/connection/automation_tab.rs:176
 msgid "Test text against expect rule patterns"
-msgstr ""
+msgstr "期待する文字のルールパターンとテスト対象のテキストをテスト"
 
 #: rustconn/src/dialogs/connection/automation_tab.rs:183
 msgid "Test text against patterns"
-msgstr ""
+msgstr "パターンに対してテキストをテスト"
 
 #: rustconn/src/dialogs/connection/automation_tab.rs:186
 #: rustconn/src/window/edit_group.rs:1237
 msgid "Test Input"
-msgstr ""
+msgstr "テストの入力"
 
 #: rustconn/src/dialogs/connection/automation_tab.rs:191
 #: rustconn/src/window/edit_group.rs:1231
 #: rustconn/src/window/edit_group.rs:1252
 msgid "Enter text to test"
-msgstr ""
+msgstr "テスト用の文字を入力"
 
 #: rustconn/src/dialogs/connection/automation_tab.rs:197
 #: rustconn/src/window/edit_group.rs:1241
 msgid "Result"
-msgstr ""
+msgstr "結果"
 
 #: rustconn/src/dialogs/connection/automation_tab.rs:212
 msgid "Pre-Connect Task"
-msgstr ""
+msgstr "接続前タスク"
 
 #: rustconn/src/dialogs/connection/automation_tab.rs:223
 msgid "Post-Disconnect Task"
-msgstr ""
+msgstr "切断後のタスク"
 
 #: rustconn/src/dialogs/connection/automation_tab.rs:275
 msgid "Automatic Login"
-msgstr ""
+msgstr "自動ログイン"
 
 #: rustconn/src/dialogs/connection/automation_tab.rs:281
 msgid ""
 "Telnet and serial sessions log in by typing at the device's own prompts. SSH "
 "types only the password."
 msgstr ""
+"Telnetやシリアル接続のセッションでは、デバイス独自のプロンプトで入力を行って"
+"ログインします。SSHではパスワードのみを入力します。"
 
 #: rustconn/src/dialogs/connection/automation_tab.rs:285
 msgid "Username Prompt"
-msgstr ""
+msgstr "ユーザー名の入力プロンプト"
 
 #: rustconn/src/dialogs/connection/automation_tab.rs:287
 msgid "Expected text; empty detects login:, Username: and >>User name:"
 msgstr ""
+"プロンプトの文字を指定してください。 空欄の場合、login:, Username:, >>User "
+"name:になります。"
 
 #: rustconn/src/dialogs/connection/automation_tab.rs:293
 msgid "Password Prompt"
-msgstr ""
+msgstr "パスワードの入力プロンプト"
 
 #: rustconn/src/dialogs/connection/automation_tab.rs:295
 msgid "Expected text; empty detects Password: in every supported language"
 msgstr ""
+"プロンプトの文字を指定してください。 空欄の場合、サポートされている言語の"
+"Password: を検知します。"
 
 #: rustconn/src/dialogs/connection/automation_tab.rs:313
 msgid "Login Timeout (seconds)"
-msgstr ""
+msgstr "ログインタイムアウト (秒)"
 
 #: rustconn/src/dialogs/connection/automation_tab.rs:314
 msgid "How long to watch for the prompt; 0 = default (10 s)"
-msgstr ""
+msgstr "プロンプトを待機する時間。0 = デフォルト（10秒）"
 
 #: rustconn/src/dialogs/connection/automation_tab.rs:337
 msgid "Run command before connecting"
-msgstr ""
+msgstr "接続前にコマンドを実行する"
 
 #: rustconn/src/dialogs/connection/automation_tab.rs:339
 msgid "Run command after disconnecting"
-msgstr ""
+msgstr "切断後にコマンドを実行する"
 
 #: rustconn/src/dialogs/connection/automation_tab.rs:351
 msgid "Enable Task"
-msgstr ""
+msgstr "タスクを有効にする"
 
 #: rustconn/src/dialogs/connection/automation_tab.rs:360
 msgid "e.g., /path/to/script.sh or vpn-connect ${host}"
-msgstr ""
+msgstr "例: /path/to/script.sh or vpn-connect ${host}"
 
 #: rustconn/src/dialogs/connection/automation_tab.rs:365
 #: rustconn/src/dialogs/connection/automation_tab.rs:485
@@ -842,45 +871,46 @@ msgstr ""
 #: rustconn/src/dialogs/settings/terminal_tab.rs:480
 #: rustconn/src/dialogs/snippet.rs:272 rustconn/src/dialogs/template.rs:1929
 msgid "Command"
-msgstr ""
+msgstr "コマンド"
 
 #: rustconn/src/dialogs/connection/automation_tab.rs:367
 msgid "Shell command to execute (supports ${variable} syntax)"
-msgstr ""
+msgstr "実行するシェルコマンド (${variable}構文をサポートしています。)"
 
 #: rustconn/src/dialogs/connection/automation_tab.rs:384
 msgid "Timeout (ms)"
-msgstr ""
+msgstr "タイムアウト (ミリ秒)"
 
 #: rustconn/src/dialogs/connection/automation_tab.rs:385
 msgid "0 = no timeout"
-msgstr ""
+msgstr "0 = タイムアウトなし"
 
 #: rustconn/src/dialogs/connection/automation_tab.rs:392
 msgid "Abort on Failure"
-msgstr ""
+msgstr "失敗時に中断"
 
 #: rustconn/src/dialogs/connection/automation_tab.rs:393
 msgid "Cancel connection if this task fails"
-msgstr ""
+msgstr "このタスクが失敗した場合、接続をキャンセルする"
 
 #: rustconn/src/dialogs/connection/automation_tab.rs:405
 msgid "First Connection Only"
-msgstr ""
+msgstr "最初の接続時のみ"
 
 #: rustconn/src/dialogs/connection/automation_tab.rs:406
 msgid ""
 "Only run when opening the first connection in a folder (useful for VPN setup)"
-msgstr ""
+msgstr "フォルダー内で最初の接続を開くときのみ実行する (VPNの設定に便利)"
 
 #: rustconn/src/dialogs/connection/automation_tab.rs:410
 msgid "Last Connection Only"
-msgstr ""
+msgstr "最後の接続のみ"
 
 #: rustconn/src/dialogs/connection/automation_tab.rs:411
 msgid ""
 "Only run when closing the last connection in a folder (useful for cleanup)"
 msgstr ""
+"フォルダー内の最後の接続を閉じる際にのみ実行する（クリーンアップに便利）"
 
 #: rustconn/src/dialogs/connection/automation_tab.rs:456
 msgid "Output Filter"
