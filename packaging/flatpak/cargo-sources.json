@@ -7204,14 +7204,14 @@
     {
         "type": "archive",
         "archive-type": "tar-gzip",
-        "url": "https://static.crates.io/crates/tokio-rustls/tokio-rustls-0.26.5.crate",
-        "sha256": "b0c85f2c3ef0b1cd58b36682f4b17aaa995f0e5db534d85692b4903abce21f67",
-        "dest": "cargo/vendor/tokio-rustls-0.26.5"
+        "url": "https://static.crates.io/crates/tokio-rustls/tokio-rustls-0.26.6.crate",
+        "sha256": "c9cc2678c2cdd569ef8215e2afd7954ada2ae20b4fdd2c5fe6139a3b02d105db",
+        "dest": "cargo/vendor/tokio-rustls-0.26.6"
     },
     {
         "type": "inline",
-        "contents": "{\"package\": \"b0c85f2c3ef0b1cd58b36682f4b17aaa995f0e5db534d85692b4903abce21f67\", \"files\": {}}",
-        "dest": "cargo/vendor/tokio-rustls-0.26.5",
+        "contents": "{\"package\": \"c9cc2678c2cdd569ef8215e2afd7954ada2ae20b4fdd2c5fe6139a3b02d105db\", \"files\": {}}",
+        "dest": "cargo/vendor/tokio-rustls-0.26.6",
         "dest-filename": ".cargo-checksum.json"
     },
     {
@@ -7750,14 +7750,14 @@
     {
         "type": "archive",
         "archive-type": "tar-gzip",
-        "url": "https://static.crates.io/crates/vnc-rs/vnc-rs-0.5.3.crate",
-        "sha256": "5607299ce93dc285571540ee93de681a1be7a5765c35dfb2e1f049b493652145",
-        "dest": "cargo/vendor/vnc-rs-0.5.3"
+        "url": "https://static.crates.io/crates/vnc-rs/vnc-rs-0.6.0.crate",
+        "sha256": "0b757c55558e81e08e60f1a3153ba5bcffe7196719bc885e7e620400b0d81a4d",
+        "dest": "cargo/vendor/vnc-rs-0.6.0"
     },
     {
         "type": "inline",
-        "contents": "{\"package\": \"5607299ce93dc285571540ee93de681a1be7a5765c35dfb2e1f049b493652145\", \"files\": {}}",
-        "dest": "cargo/vendor/vnc-rs-0.5.3",
+        "contents": "{\"package\": \"0b757c55558e81e08e60f1a3153ba5bcffe7196719bc885e7e620400b0d81a4d\", \"files\": {}}",
+        "dest": "cargo/vendor/vnc-rs-0.6.0",
         "dest-filename": ".cargo-checksum.json"
     },
     {

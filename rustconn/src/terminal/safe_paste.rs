@@ -134,9 +134,17 @@ fn confirm_and_paste(terminal: &Terminal, text: &str) {
             "The clipboard holds more than one line. Each line runs as soon as it is pasted — check it before continuing.",
         )),
     );
+    // This dialog exists to be read: the whole point is that the user scans the
+    // pasted text before it runs. The default AlertDialog is sized for a short
+    // question and left the preview cramped, so the preview below sets its own
+    // width and the dialog grows to fit it — in line with the wider text-editing
+    // dialogs (the connection editor is 600 wide). GNOME HIG allows a wider
+    // message dialog when the content warrants it.
 
     // The preview is a read-only, scrollable, monospace view so a long or wide
-    // paste stays legible without stretching the dialog.
+    // paste stays legible. It sets its own content width so the dialog opens
+    // wide enough to read a command line without wrapping every token, and only
+    // scrolls horizontally for the occasional over-long line.
     let buffer = gtk4::TextBuffer::builder().text(preview_body(text)).build();
     let text_view = gtk4::TextView::builder()
         .buffer(&buffer)
@@ -146,8 +154,10 @@ fn confirm_and_paste(terminal: &Terminal, text: &str) {
         .build();
     text_view.set_accessible_role(gtk4::AccessibleRole::Label);
     let scrolled = gtk4::ScrolledWindow::builder()
+        .min_content_width(520)
+        .max_content_width(560)
         .min_content_height(120)
-        .max_content_height(240)
+        .max_content_height(280)
         .child(&text_view)
         .build();
     scrolled.add_css_class("card");
