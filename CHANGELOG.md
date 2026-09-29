@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.22.10] - 2026-09-29
+
 ### Added
 - **KeePass databases protected with a YubiKey Challenge-Response second factor can now be unlocked (issue [#350](https://github.com/totoshko88/RustConn/issues/350))** — RustConn only ever passed a master password (over stdin) and an optional `--key-file` to `keepassxc-cli`, so a KDBX secured with a YubiKey CR slot could not be opened: every unlock failed with "invalid credentials" no matter the password.
 A new optional "YubiKey slot (Challenge-Response)" setting under Settings ▸ Secrets ▸ Authentication takes a slot as `slot` or `slot:serial` (e.g. `2` or `2:12345678`) and is threaded through to `keepassxc-cli` as `-y <slot[:serial]>`, composing with the master password and/or key file. The slot value is not a secret — it identifies the key, it does not authenticate as it — so it is passed as a plain argument and serialized in plaintext like the key-file path, while the master password stays on stdin as before. Because a CR unlock blocks until the key is physically touched, `-y` reads get a longer 30 s budget instead of the 10 s KDF-only one, and the Settings "Check" button, the on-demand unlock dialog and the `rustconn secret verify-keepass --yubikey` CLI flag all show a "touch your key when it blinks" hint. The setting defaults to unset, so password-only and key-file-only unlocking are unchanged. Slot composition is covered by unit tests in `secret/status.rs`, and the config field's default and forward/backward TOML compatibility by tests in `config/settings.rs`.
