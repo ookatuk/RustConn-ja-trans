@@ -249,6 +249,7 @@ impl ConnectionDialog {
                     let kdbx_path = kdbx_path.clone();
                     let kdbx_password = kdbx_password.clone();
                     let kdbx_key_file = kdbx_key_file.clone();
+                    let kdbx_yubikey_slot = secret_settings.kdbx_yubikey_slot.clone();
                     let lookup_key = lookup_key.clone();
                     let flat_lookup_key = flat_lookup_key.clone();
 
@@ -268,6 +269,7 @@ impl ConnectionDialog {
                             let kdbx_path = kdbx_path.clone();
                             let db_password = kdbx_password.clone();
                             let key_file = kdbx_key_file.clone();
+                            let yubikey_slot = kdbx_yubikey_slot.clone();
 
                             spawn_blocking_with_callback(
                                 move || {
@@ -278,6 +280,7 @@ impl ConnectionDialog {
                                             key_file.as_deref(),
                                             &lookup_key,
                                             None,
+                                            yubikey_slot.as_deref(),
                                         )
                                 },
                                 move |result: rustconn_core::error::SecretResult<
@@ -627,6 +630,7 @@ impl ConnectionDialog {
                     let kdbx_path = kdbx_path.clone();
                     let db_password = kdbx_password.clone();
                     let key_file = kdbx_key_file.clone();
+                    let yubikey_slot = secret_settings.kdbx_yubikey_slot.clone();
 
                     spawn_blocking_with_callback(
                         move || {
@@ -636,6 +640,7 @@ impl ConnectionDialog {
                                 key_file.as_deref(),
                                 &lookup_key,
                                 None,
+                                yubikey_slot.as_deref(),
                             )
                         },
                         move |result: rustconn_core::error::SecretResult<

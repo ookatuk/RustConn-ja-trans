@@ -4,9 +4,11 @@ use std::path::Path;
 
 use crate::cli::SecretCommands;
 use crate::error::CliError;
+#[cfg(feature = "secret-management")]
 use crate::util::{create_config_manager, find_connection};
 
 /// Creates a `PassBackend` from the current app settings.
+#[cfg(feature = "secret-management")]
 fn create_pass_backend(
     settings: &rustconn_core::config::AppSettings,
 ) -> rustconn_core::secret::PassBackend {
@@ -24,11 +26,14 @@ fn create_pass_backend(
 ///   or the requested operation (get / set / delete / status) fails
 pub fn cmd_secret(config_path: Option<&Path>, subcmd: SecretCommands) -> Result<(), CliError> {
     match subcmd {
+        #[cfg(feature = "secret-management")]
         SecretCommands::Status => cmd_secret_status(config_path),
+        #[cfg(feature = "secret-management")]
         SecretCommands::Get {
             connection,
             backend,
         } => cmd_secret_get(config_path, &connection, backend.as_deref()),
+        #[cfg(feature = "secret-management")]
         SecretCommands::Set {
             connection,
             user,
@@ -43,16 +48,25 @@ pub fn cmd_secret(config_path: Option<&Path>, subcmd: SecretCommands) -> Result<
             password_stdin,
             backend.as_deref(),
         ),
+        #[cfg(feature = "secret-management")]
         SecretCommands::Delete {
             connection,
             backend,
         } => cmd_secret_delete(config_path, &connection, backend.as_deref()),
-        SecretCommands::VerifyKeepass { database, key_file } => {
-            cmd_secret_verify_keepass(config_path, &database, key_file.as_deref())
-        }
+        SecretCommands::VerifyKeepass {
+            database,
+            key_file,
+            yubikey,
+        } => cmd_secret_verify_keepass(
+            config_path,
+            &database,
+            key_file.as_deref(),
+            yubikey.as_deref(),
+        ),
     }
 }
 
+#[cfg(feature = "secret-management")]
 fn cmd_secret_status(config_path: Option<&Path>) -> Result<(), CliError> {
     use rustconn_core::secret::KeePassStatus;
 
@@ -167,6 +181,7 @@ fn cmd_secret_status(config_path: Option<&Path>) -> Result<(), CliError> {
 }
 
 /// Parse backend string into `SecretBackendType`
+#[cfg(feature = "secret-management")]
 fn parse_backend(b: &str) -> Result<rustconn_core::config::SecretBackendType, CliError> {
     use rustconn_core::config::SecretBackendType;
     match b.to_lowercase().as_str() {
@@ -189,6 +204,7 @@ fn parse_backend(b: &str) -> Result<rustconn_core::config::SecretBackendType, Cl
     }
 }
 
+#[cfg(feature = "secret-management")]
 #[expect(
     clippy::too_many_lines,
     reason = "get handler dispatches across every backend kind with backend-specific error \
@@ -289,6 +305,7 @@ fn cmd_secret_get(
                 key_file,
                 &keepass_key,
                 Some(connection.protocol.as_str()),
+                settings.secrets.kdbx_yubikey_slot.as_deref(),
             );
 
             match result {
@@ -508,6 +525,7 @@ fn cmd_secret_get(
     }
 }
 
+#[cfg(feature = "secret-management")]
 #[expect(
     clippy::too_many_lines,
     reason = "set handler dispatches across every backend kind with backend-specific \
@@ -825,6 +843,7 @@ fn cmd_secret_set(
     }
 }
 
+#[cfg(feature = "secret-management")]
 #[expect(
     clippy::too_many_lines,
     reason = "delete handler dispatches across every backend kind; splitting per backend \
@@ -1023,6 +1042,7 @@ fn cmd_secret_delete(
 /// # Errors
 /// Returns [`CliError::Secret`] if no passphrase can be obtained (for example a
 /// non-interactive shell with nothing persisted) or if it does not open the file.
+#[cfg(feature = "secret-management")]
 fn open_portable_backend(
     settings: &rustconn_core::config::SecretSettings,
 ) -> Result<rustconn_core::secret::PortableEncryptedFileBackend, CliError> {
@@ -1113,6 +1133,7 @@ fn open_portable_backend(
 /// Tries the machine-local encrypted copy, then the system keyring under the
 /// same 5-second ceiling the GUI uses, so an unresponsive Secret Service falls
 /// through to the prompt instead of hanging the command.
+#[cfg(feature = "secret-management")]
 fn restore_portable_passphrase(
     settings: &rustconn_core::config::SecretSettings,
 ) -> Option<secrecy::SecretString> {
@@ -1148,12 +1169,19 @@ fn cmd_secret_verify_keepass(
     _config_path: Option<&Path>,
     database: &Path,
     key_file: Option<&Path>,
+    yubikey: Option<&str>,
 ) -> Result<(), CliError> {
     use rustconn_core::secret::KeePassStatus;
 
     KeePassStatus::validate_kdbx_path(database)
         .map_err(|e| CliError::Secret(format!("Invalid database: {e}")))?;
 
+    if yubikey.is_some() {
+        println!("Touch your YubiKey when it blinks…");
+    }
+
+    // A YubiKey slot alone (no key file) still authenticates the database, so a
+    // key-file-less run is only password-only when there is also no YubiKey.
     if let Some(kf) = key_file {
         if !kf.exists() {
             return Err(CliError::Secret(format!(
@@ -1162,7 +1190,7 @@ fn cmd_secret_verify_keepass(
             )));
         }
 
-        KeePassStatus::verify_kdbx_credentials(database, None, Some(kf))
+        KeePassStatus::verify_kdbx_credentials(database, None, Some(kf), yubikey)
             .map_err(|e| CliError::Secret(format!("Verification failed: {e}")))?;
 
         println!(
@@ -1171,13 +1199,21 @@ fn cmd_secret_verify_keepass(
         );
         println!("  Database: {}", database.display());
         println!("  Key file: {}", kf.display());
+    } else if yubikey.is_some() {
+        // YubiKey-only (no key file): try without a password first; the slot is
+        // the second (or only) factor.
+        KeePassStatus::verify_kdbx_credentials(database, None, None, yubikey)
+            .map_err(|e| CliError::Secret(format!("Verification failed: {e}")))?;
+
+        println!("✓ KeePass database verified successfully (using YubiKey)");
+        println!("  Database: {}", database.display());
     } else {
         eprint!("Enter database password: ");
         let password = rpassword::read_password()
             .map_err(|e| CliError::Secret(format!("Failed to read password: {e}")))?;
         let password = secrecy::SecretString::from(password);
 
-        KeePassStatus::verify_kdbx_credentials(database, Some(&password), None)
+        KeePassStatus::verify_kdbx_credentials(database, Some(&password), None, yubikey)
             .map_err(|e| CliError::Secret(format!("Verification failed: {e}")))?;
 
         println!("✓ KeePass database verified successfully");

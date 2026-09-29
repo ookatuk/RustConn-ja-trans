@@ -50,6 +50,48 @@ const KEEPASSXC_TIMEOUT: Duration = Duration::from_secs(10);
 /// the add), each paying it in full.
 const KEEPASSXC_WRITE_TIMEOUT: Duration = Duration::from_secs(30);
 
+/// The budget for a *read* invocation that also waits on a YubiKey touch.
+///
+/// A Challenge-Response unlock (`-y <slot>`) blocks until the user physically
+/// touches the key, and a touch-required slot is the common configuration. The
+/// standard [`KEEPASSXC_TIMEOUT`] of 10 s is measured for the KDF alone and is
+/// too short once a human has to notice the key blink and reach for it, so a
+/// `-y` read gets a longer budget. It stays well under a minute so a genuinely
+/// stuck run (unplugged key, wrong slot) still fails while the user is watching.
+const KEEPASSXC_YUBIKEY_TIMEOUT: Duration = Duration::from_secs(30);
+
+/// Appends the shared credential-unlock arguments to a `keepassxc-cli` argv.
+///
+/// One place for the three that every DB-opening invocation shares, so the
+/// readers cannot drift apart on how they compose:
+/// - `--no-password` when there is no master password (key file and/or YubiKey
+///   only), because the CLI otherwise still reads an empty line from stdin as an
+///   empty password;
+/// - `--key-file <path>` when a key file is configured;
+/// - `-y <slot[:serial]>` when a YubiKey Challenge-Response slot is configured.
+///
+/// The slot is not a secret (a slot number and serial identify the key, they do
+/// not authenticate as it), so it goes on the command line; the master password
+/// never does — it stays on stdin at the call site.
+fn push_unlock_args(
+    args: &mut Vec<String>,
+    has_password: bool,
+    key_file: Option<&Path>,
+    yubikey_slot: Option<&str>,
+) {
+    if !has_password && (key_file.is_some() || yubikey_slot.is_some()) {
+        args.push("--no-password".to_string());
+    }
+    if let Some(kf) = key_file {
+        args.push("--key-file".to_string());
+        args.push(kf.display().to_string());
+    }
+    if let Some(slot) = yubikey_slot {
+        args.push("-y".to_string());
+        args.push(slot.to_string());
+    }
+}
+
 /// Waits for a `keepassxc-cli` child, reporting a timeout as an error.
 ///
 /// `what` names the invocation in the log and in the error. It is
@@ -63,6 +105,14 @@ fn wait_for_cli(child: Child, what: &'static str) -> SecretResult<Output> {
 /// database.
 fn wait_for_cli_write(child: Child, what: &'static str) -> SecretResult<Output> {
     wait_for_cli_with(child, what, KEEPASSXC_WRITE_TIMEOUT)
+}
+
+/// [`wait_for_cli`] with the YubiKey budget, for a read that waits on a touch.
+///
+/// A `-y` unlock cannot complete until the key is touched, so it gets the longer
+/// [`KEEPASSXC_YUBIKEY_TIMEOUT`] instead of the KDF-only [`KEEPASSXC_TIMEOUT`].
+fn wait_for_cli_yubikey(child: Child, what: &'static str) -> SecretResult<Output> {
+    wait_for_cli_with(child, what, KEEPASSXC_YUBIKEY_TIMEOUT)
 }
 
 fn wait_for_cli_with(child: Child, what: &'static str, budget: Duration) -> SecretResult<Output> {
@@ -1053,6 +1103,10 @@ impl KeePassStatus {
     /// * `key_file` - Optional path to key file for authentication
     /// * `entry_name` - Name of the entry to look up (connection name or host)
     /// * `protocol` - Optional protocol (ssh, rdp, vnc, spice) for more specific lookup
+    /// * `yubikey_slot` - Optional `YubiKey` Challenge-Response slot as
+    ///   `slot[:serial]`; when `Some`, passed to `keepassxc-cli` as `-y` and
+    ///   composed with the password and/or key file. `None` preserves the
+    ///   historical password/key-file-only unlock.
     ///
     /// # Returns
     /// * `Ok(Some(String))` if the password is found
@@ -1072,6 +1126,7 @@ impl KeePassStatus {
         key_file: Option<&Path>,
         entry_name: &str,
         protocol: Option<&str>,
+        yubikey_slot: Option<&str>,
     ) -> SecretResult<Option<SecretString>> {
         use std::io::Write as IoWrite;
         use std::process::Stdio;
@@ -1087,11 +1142,12 @@ impl KeePassStatus {
         let entry_paths = candidate_entry_paths(entry_name, protocol);
 
         tracing::debug!(
-            "get_password: entry_name='{}', protocol={:?}, has_password={}, has_key_file={}",
+            "get_password: entry_name='{}', protocol={:?}, has_password={}, has_key_file={}, has_yubikey={}",
             entry_name,
             protocol,
             db_password.is_some(),
-            key_file.is_some()
+            key_file.is_some(),
+            yubikey_slot.is_some()
         );
 
         // First "the database would not open" seen while walking the candidate
@@ -1108,15 +1164,7 @@ impl KeePassStatus {
                 "Password".to_string(),
             ];
 
-            // If using key file without password, add --no-password flag
-            if db_password.is_none() && key_file.is_some() {
-                args.push("--no-password".to_string());
-            }
-
-            if let Some(kf) = key_file {
-                args.push("--key-file".to_string());
-                args.push(kf.display().to_string());
-            }
+            push_unlock_args(&mut args, db_password.is_some(), key_file, yubikey_slot);
 
             args.push(kdbx_path.display().to_string());
             args.push(entry_path.clone());
@@ -1143,7 +1191,13 @@ impl KeePassStatus {
                     .map_err(|e| SecretError::KeePassXC(format!("Failed to send password: {e}")))?;
             }
 
-            let output = wait_for_cli(child, "show (with key file)")?;
+            // A Challenge-Response unlock blocks on a physical touch, so give it
+            // the longer budget; a password/key-file-only read keeps the tight one.
+            let output = if yubikey_slot.is_some() {
+                wait_for_cli_yubikey(child, "show (with key file)")?
+            } else {
+                wait_for_cli(child, "show (with key file)")?
+            };
 
             tracing::debug!(
                 "get_password: exit={:?}, stderr='{}'",
@@ -1381,6 +1435,7 @@ impl KeePassStatus {
             key_file,
             old_entry_name,
             None,
+            None,
         )?;
 
         // If no password found at old path, nothing to rename
@@ -1579,7 +1634,7 @@ impl KeePassStatus {
     /// - The password is incorrect
     /// - The database cannot be opened
     pub fn verify_kdbx_password(kdbx_path: &Path, password: &SecretString) -> SecretResult<()> {
-        Self::verify_kdbx_credentials(kdbx_path, Some(password), None)
+        Self::verify_kdbx_credentials(kdbx_path, Some(password), None, None)
     }
 
     /// Verifies KDBX database credentials (password and/or key file) using `keepassxc-cli`
@@ -1588,6 +1643,9 @@ impl KeePassStatus {
     /// * `kdbx_path` - Path to the KDBX database file
     /// * `password` - Password to verify (None if using key file only)
     /// * `key_file` - Optional path to key file
+    /// * `yubikey_slot` - Optional `YubiKey` Challenge-Response slot as
+    ///   `slot[:serial]`; when `Some`, passed to `keepassxc-cli` as `-y` and
+    ///   composed with the password and/or key file.
     ///
     /// # Returns
     /// * `Ok(())` if the credentials are correct
@@ -1601,6 +1659,7 @@ impl KeePassStatus {
         kdbx_path: &Path,
         password: Option<&SecretString>,
         key_file: Option<&Path>,
+        yubikey_slot: Option<&str>,
     ) -> SecretResult<()> {
         use std::io::Write as IoWrite;
         use std::process::Stdio;
@@ -1616,15 +1675,7 @@ impl KeePassStatus {
         // Build command arguments
         let mut args = vec!["ls".to_string(), "-q".to_string()];
 
-        // If using key file without password, add --no-password flag
-        if password.is_none() && key_file.is_some() {
-            args.push("--no-password".to_string());
-        }
-
-        if let Some(kf) = key_file {
-            args.push("--key-file".to_string());
-            args.push(kf.display().to_string());
-        }
+        push_unlock_args(&mut args, password.is_some(), key_file, yubikey_slot);
 
         args.push(kdbx_path.display().to_string());
 
@@ -1648,7 +1699,13 @@ impl KeePassStatus {
                 .map_err(|e| SecretError::KeePassXC(format!("Failed to send password: {e}")))?;
         }
 
-        let output = wait_for_cli(child, "ls (credential check)")?;
+        // A Challenge-Response check blocks on a physical touch, so give it the
+        // longer budget; a password/key-file-only check keeps the tight one.
+        let output = if yubikey_slot.is_some() {
+            wait_for_cli_yubikey(child, "ls (credential check)")?
+        } else {
+            wait_for_cli(child, "ls (credential check)")?
+        };
 
         if output.status.success() {
             Ok(())
@@ -1762,6 +1819,61 @@ pub fn parse_keepassxc_version(output: &str) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn push_unlock_args_password_only_adds_nothing() {
+        // A master-password-only unlock: no --no-password, no --key-file, no -y.
+        let mut args = vec!["show".to_string()];
+        push_unlock_args(&mut args, true, None, None);
+        assert_eq!(args, vec!["show".to_string()]);
+    }
+
+    #[test]
+    fn push_unlock_args_key_file_only_uses_no_password() {
+        let mut args: Vec<String> = Vec::new();
+        let kf = Path::new("/tmp/db.keyx");
+        push_unlock_args(&mut args, false, Some(kf), None);
+        assert_eq!(
+            args,
+            vec![
+                "--no-password".to_string(),
+                "--key-file".to_string(),
+                "/tmp/db.keyx".to_string(),
+            ]
+        );
+    }
+
+    #[test]
+    fn push_unlock_args_yubikey_composes_with_password_and_key_file() {
+        // Password present (so no --no-password) + key file + YubiKey slot.
+        let mut args: Vec<String> = Vec::new();
+        let kf = Path::new("/tmp/db.keyx");
+        push_unlock_args(&mut args, true, Some(kf), Some("2:12345678"));
+        assert_eq!(
+            args,
+            vec![
+                "--key-file".to_string(),
+                "/tmp/db.keyx".to_string(),
+                "-y".to_string(),
+                "2:12345678".to_string(),
+            ]
+        );
+    }
+
+    #[test]
+    fn push_unlock_args_yubikey_only_uses_no_password() {
+        // Hardware-key-only unlock: --no-password plus -y, no key file.
+        let mut args: Vec<String> = Vec::new();
+        push_unlock_args(&mut args, false, None, Some("1"));
+        assert_eq!(
+            args,
+            vec![
+                "--no-password".to_string(),
+                "-y".to_string(),
+                "1".to_string(),
+            ]
+        );
+    }
 
     #[test]
     fn test_validate_kdbx_path_valid_extension() {

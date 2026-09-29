@@ -45,11 +45,14 @@ pub enum KdbxUnlockResponse {
 /// * `parent` — parent widget for the dialog
 /// * `kdbx_path` — path to the KDBX database file (displayed for context)
 /// * `key_file` — optional key file path for composite authentication
+/// * `yubikey_slot` — optional `YubiKey` Challenge-Response slot (`slot[:serial]`)
+///   for a hardware second factor; composes with the password and key file
 /// * `callback` — called with the user's response after verification
 pub fn show_kdbx_unlock_dialog<F>(
     parent: &impl IsA<gtk4::Widget>,
     kdbx_path: &Path,
     key_file: Option<&Path>,
+    yubikey_slot: Option<&str>,
     callback: F,
 ) where
     F: Fn(KdbxUnlockResponse) + 'static,
@@ -78,6 +81,20 @@ pub fn show_kdbx_unlock_dialog<F>(
     prefs_group.add(&password_row);
 
     content_box.append(&prefs_group);
+
+    // When a YubiKey slot is configured, unlock blocks on a physical touch —
+    // tell the user so a "hung" dialog reads as "waiting for you".
+    if yubikey_slot.is_some() {
+        let touch_hint = gtk4::Label::builder()
+            .label(i18n(
+                "Touch your YubiKey when it blinks to complete the unlock.",
+            ))
+            .wrap(true)
+            .xalign(0.0)
+            .css_classes(["dim-label"])
+            .build();
+        content_box.append(&touch_hint);
+    }
 
     // Status label for verification errors (hidden initially)
     let status_label = gtk4::Label::builder()
@@ -108,6 +125,7 @@ pub fn show_kdbx_unlock_dialog<F>(
     // Capture state for the response handler
     let kdbx_path_owned = kdbx_path.to_path_buf();
     let key_file_owned = key_file.map(Path::to_path_buf);
+    let yubikey_slot_owned = yubikey_slot.map(str::to_string);
     let password_row_ref = password_row.clone();
     let status_label_ref = status_label.clone();
     let callback = std::rc::Rc::new(std::cell::RefCell::new(Some(callback)));
@@ -122,6 +140,7 @@ pub fn show_kdbx_unlock_dialog<F>(
             let password = secrecy::SecretString::from(password_text);
             let kdbx_path_verify = kdbx_path_owned.clone();
             let key_file_verify = key_file_owned.clone();
+            let yubikey_slot_verify = yubikey_slot_owned.clone();
             let password_verify = password.clone();
 
             // Show verifying state
@@ -143,6 +162,7 @@ pub fn show_kdbx_unlock_dialog<F>(
                         &kdbx_path_verify,
                         Some(&password_verify),
                         key_file_verify.as_deref(),
+                        yubikey_slot_verify.as_deref(),
                     )
                 })
                 .await;

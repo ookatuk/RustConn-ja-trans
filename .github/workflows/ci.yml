@@ -172,6 +172,51 @@ jobs:
       - name: Unused dependencies
         run: cargo-machete
 
+      # The changelog is generated from commit subjects, and AGENTS.md mandates
+      # Conventional Commits (`type(scope): description`). Nothing enforced it,
+      # so `dlc update` reached main and would have to be hand-fixed at release
+      # time. This lints only the commits a PR *adds* (base..head), never the
+      # branch's whole history, so pre-existing non-conforming commits on main
+      # are not the PR's problem. It needs only git, so it lives in Hygiene with
+      # the other no-toolchain gates. Runs on pull_request events only; a push
+      # to main/develop has no PR range and the step self-skips.
+      - name: Conventional commit subjects (PR only)
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          # checkout@v7 is shallow (depth 1); the base commit is usually absent.
+          # Fetch just enough to resolve the base..head range without a full
+          # history download.
+          git fetch --no-tags --quiet origin "$BASE_SHA" "$HEAD_SHA" 2>/dev/null || \
+            git fetch --no-tags --quiet --deepen=100 origin || true
+          # Conventional-commit types from AGENTS.md, optional (scope) and a
+          # breaking-change `!`, then `: ` and a non-empty description.
+          types='feat|fix|docs|style|refactor|test|chore|perf|ci|build'
+          pattern="^(${types})(\([a-z0-9._-]+\))?!?: .+"
+          rc=0
+          # %H %P %s: hash, parent list, subject. A commit with >1 parent is a
+          # merge (git-generated subject) and is skipped. A bare X.Y.Z subject
+          # is a release commit produced by scripts/release.sh — also allowed.
+          while IFS=$'\t' read -r sha parents subject; do
+            case "$parents" in
+              *' '*) continue ;;  # merge commit — skip
+            esac
+            if printf '%s' "$subject" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+              continue  # release version commit — allowed
+            fi
+            if ! printf '%s' "$subject" | grep -qE "$pattern"; then
+              echo "::error::non-conventional commit subject ${sha:0:12}: ${subject}"
+              rc=1
+            fi
+          done < <(git log --no-merges --format='%H%x09%P%x09%s' "${BASE_SHA}..${HEAD_SHA}")
+          if [ "$rc" -ne 0 ]; then
+            echo "::error::commit subjects must follow Conventional Commits (${types}); see AGENTS.md"
+          fi
+          exit $rc
+
   i18n:
     name: i18n
     runs-on: ubuntu-latest

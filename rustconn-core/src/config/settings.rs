@@ -137,6 +137,18 @@ pub struct TerminalSettings {
     /// Automatically copy selected text to clipboard (X11-style)
     #[serde(default)]
     pub copy_on_select: bool,
+    /// Right-click pastes the clipboard immediately (xterm-style), opt-in.
+    ///
+    /// Off by default: a right-click shows VTE's native context menu (Copy,
+    /// Paste, Select All, snippets), the long-standing behaviour. When `true`,
+    /// the secondary button instead pastes the clipboard straight into the
+    /// terminal the way xterm and rxvt do, with no menu — the workflow some
+    /// users expect from a terminal (issue #349). Security: the paste still
+    /// goes through the shared safe-paste path, so a multi-line clipboard is
+    /// previewed and confirmed exactly as a Ctrl+V paste is, honouring
+    /// [`Self::confirm_multiline_paste`].
+    #[serde(default)]
+    pub right_click_pastes: bool,
     /// Show a scrollbar next to the terminal
     #[serde(default = "default_show_scrollbar")]
     pub show_scrollbar: bool,
@@ -279,6 +291,7 @@ impl Default for TerminalSettings {
             log_timestamps: false,
             sftp_use_mc: default_sftp_use_mc(),
             copy_on_select: false,
+            right_click_pastes: false,
             show_scrollbar: default_show_scrollbar(),
             local_shell_command: String::new(),
             keep_history_on_reconnect: default_keep_history_on_reconnect(),
@@ -380,6 +393,15 @@ pub struct SecretSettings {
     /// Whether to use password for authentication
     #[serde(default = "default_true")]
     pub kdbx_use_password: bool,
+    /// `YubiKey` Challenge-Response slot for unlocking the database, as
+    /// `slot[:serial]` (e.g. `"2"` or `"2:12345678"`). Passed to
+    /// `keepassxc-cli` as `-y <slot[:serial]>` and composed with the master
+    /// password and/or key file. `None` means no hardware-key second factor,
+    /// which is the historical behaviour. Not a secret — a slot number and
+    /// serial identify the key, they do not authenticate as it — so it is
+    /// serialized in plaintext like the key-file path above.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub kdbx_yubikey_slot: Option<String>,
     /// Bitwarden master password (NOT serialized for security - runtime only)
     #[serde(skip)]
     pub bitwarden_password: Option<SecretString>,
@@ -506,6 +528,7 @@ impl std::fmt::Debug for SecretSettings {
             .field("kdbx_key_file", &self.kdbx_key_file)
             .field("kdbx_use_key_file", &self.kdbx_use_key_file)
             .field("kdbx_use_password", &self.kdbx_use_password)
+            .field("kdbx_yubikey_slot", &self.kdbx_yubikey_slot)
             .field(
                 "bitwarden_password",
                 &redacted(self.bitwarden_password.as_ref()),
@@ -582,6 +605,7 @@ impl Default for SecretSettings {
             kdbx_key_file: None,
             kdbx_use_key_file: false,
             kdbx_use_password: true,
+            kdbx_yubikey_slot: None,
             bitwarden_password: None,
             bitwarden_password_encrypted: None,
             bitwarden_use_api_key: false,
@@ -616,6 +640,7 @@ impl PartialEq for SecretSettings {
             && self.kdbx_key_file == other.kdbx_key_file
             && self.kdbx_use_key_file == other.kdbx_use_key_file
             && self.kdbx_use_password == other.kdbx_use_password
+            && self.kdbx_yubikey_slot == other.kdbx_yubikey_slot
             && self.kdbx_password_encrypted == other.kdbx_password_encrypted
             && self.kdbx_save_to_keyring == other.kdbx_save_to_keyring
             && self.bitwarden_password_encrypted == other.bitwarden_password_encrypted
@@ -1938,6 +1963,33 @@ fn hex_decode(data: &str) -> Option<Vec<u8>> {
 mod tests {
     use super::{RendererPreference, UiSettings};
 
+    /// Right-click paste is opt-in: a fresh install must default to `false`, so
+    /// the long-standing native context menu stays the default behaviour
+    /// (issue #349).
+    #[test]
+    fn right_click_pastes_defaults_to_false() {
+        use super::TerminalSettings;
+
+        assert!(!TerminalSettings::default().right_click_pastes);
+    }
+
+    /// A config written before the field existed must still parse, and must
+    /// load with right-click paste off — the behaviour those users already have.
+    #[test]
+    fn terminal_settings_without_right_click_field_default_to_false() {
+        use super::TerminalSettings;
+
+        let older_config = r#"
+            font_family = "Monospace"
+            font_size = 12
+        "#;
+
+        let settings: TerminalSettings =
+            toml::from_str(older_config).expect("a config predating the field must still parse");
+
+        assert!(!settings.right_click_pastes);
+    }
+
     /// A config written before the renderer preference existed must still load,
     /// and must load as `Auto` — the behaviour those users already have.
     #[test]
@@ -2043,5 +2095,48 @@ mod tests {
             rendered.contains("<set>"),
             "expected a `<set>` presence marker in: {rendered}"
         );
+    }
+
+    /// A fresh install has no hardware-key second factor: the field defaults to
+    /// `None`, preserving the historical password/key-file-only unlock.
+    #[test]
+    fn secret_settings_default_has_no_yubikey_slot() {
+        use super::SecretSettings;
+        assert_eq!(SecretSettings::default().kdbx_yubikey_slot, None);
+    }
+
+    /// A config written before the YubiKey slot existed must still load, and
+    /// must load with `kdbx_yubikey_slot == None` — the behaviour those users
+    /// already have. `#[serde(default)]` on the field is what makes this hold.
+    #[test]
+    fn secret_settings_without_yubikey_slot_field_still_deserializes() {
+        use super::SecretSettings;
+
+        let older_config = r"
+            kdbx_enabled = true
+            kdbx_use_password = true
+        ";
+
+        let settings: SecretSettings =
+            toml::from_str(older_config).expect("a config predating the field must still parse");
+
+        assert_eq!(settings.kdbx_yubikey_slot, None);
+        assert!(settings.kdbx_enabled);
+    }
+
+    /// A configured slot round-trips through TOML unchanged, including the
+    /// `slot:serial` form.
+    #[test]
+    fn secret_settings_yubikey_slot_round_trips_through_toml() {
+        use super::SecretSettings;
+
+        let settings = SecretSettings {
+            kdbx_yubikey_slot: Some("2:12345678".to_string()),
+            ..Default::default()
+        };
+
+        let encoded = toml::to_string(&settings).expect("SecretSettings is serializable");
+        let decoded: SecretSettings = toml::from_str(&encoded).expect("round trip");
+        assert_eq!(decoded.kdbx_yubikey_slot, Some("2:12345678".to_string()));
     }
 }

@@ -1211,6 +1211,7 @@ pub fn start_vnc_with_password_dialog_observed(
         {
             let db_password = settings.secrets.kdbx_password.clone();
             let key_file = settings.secrets.kdbx_key_file.clone();
+            let yubikey_slot = settings.secrets.kdbx_yubikey_slot.clone();
 
             // Use pre-built lookup key with hierarchical path
             let lookup_key_clone = lookup_key.clone();
@@ -1230,6 +1231,7 @@ pub fn start_vnc_with_password_dialog_observed(
                         key_file.as_deref(),
                         &lookup_key_clone,
                         None, // Protocol already included in lookup_key
+                        yubikey_slot.as_deref(),
                     )
                 },
                 move |result: rustconn_core::error::SecretResult<Option<secrecy::SecretString>>| {

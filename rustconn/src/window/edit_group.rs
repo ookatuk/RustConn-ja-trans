@@ -457,6 +457,7 @@ pub fn show_edit_group_dialog(
             };
             let db_password = settings.secrets.kdbx_password.clone();
             let key_file = settings.secrets.kdbx_key_file.clone();
+            let yubikey_slot = settings.secrets.kdbx_yubikey_slot.clone();
 
             crate::utils::spawn_blocking_with_callback(
                 move || {
@@ -467,6 +468,7 @@ pub fn show_edit_group_dialog(
                         key_file_path,
                         &group_path,
                         None, // No protocol for groups
+                        yubikey_slot.as_deref(),
                     )
                 },
                 move |result: rustconn_core::error::SecretResult<Option<secrecy::SecretString>>| {

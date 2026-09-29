@@ -1140,7 +1140,7 @@ pub enum Commands {
     Var(VariableCommands),
 
     /// Manage secret backends and credentials
-    #[cfg(feature = "secret-management")]
+    #[cfg(any(feature = "secret-management", feature = "keepass-verify"))]
     #[command(subcommand, about = "Manage secret backends and credentials")]
     Secret(SecretCommands),
 
@@ -1838,14 +1838,16 @@ pub enum VariableCommands {
 }
 
 /// Secret backend subcommands
-#[cfg(feature = "secret-management")]
+#[cfg(any(feature = "secret-management", feature = "keepass-verify"))]
 #[derive(Subcommand)]
 pub enum SecretCommands {
     /// Show available secret backends and their status
+    #[cfg(feature = "secret-management")]
     #[command(about = "Show available secret backends and their status")]
     Status,
 
     /// Get password for a connection from secret backend
+    #[cfg(feature = "secret-management")]
     #[command(about = "Get password for a connection from secret backend")]
     Get {
         /// Connection name or ID
@@ -1859,6 +1861,7 @@ pub enum SecretCommands {
     },
 
     /// Store password for a connection in secret backend
+    #[cfg(feature = "secret-management")]
     #[command(about = "Store password for a connection in secret backend")]
     Set {
         /// Connection name or ID
@@ -1887,6 +1890,7 @@ pub enum SecretCommands {
     },
 
     /// Delete password for a connection from secret backend
+    #[cfg(feature = "secret-management")]
     #[command(about = "Delete password for a connection from secret backend")]
     Delete {
         /// Connection name or ID
@@ -1909,6 +1913,12 @@ pub enum SecretCommands {
         /// Path to key file (optional)
         #[arg(short, long)]
         key_file: Option<PathBuf>,
+
+        /// YubiKey Challenge-Response slot for unlocking, as `slot[:serial]`
+        /// (e.g. `2` or `2:12345678`). Composes with a password and/or key file.
+        /// Touch the key when it blinks.
+        #[arg(short = 'y', long)]
+        yubikey: Option<String>,
     },
 }
 

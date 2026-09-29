@@ -228,10 +228,37 @@ fn setup_keyboard_shortcuts(terminal: &Terminal) {
 ///
 /// The `snippet_section` is a shared live `gio::Menu` model — all terminals
 /// reference the same instance so snippet changes propagate automatically.
-pub fn setup_context_menu(terminal: &Terminal, snippet_section: &Rc<gtk4::gio::Menu>) {
+///
+/// When `right_click_pastes` is set (opt-in, off by default; issue #349) the
+/// native menu is not installed at all: a secondary-button `GestureClick`
+/// pastes the clipboard directly through the shared safe-paste path, matching
+/// the xterm/rxvt convention. The menu model and the paste gesture are
+/// mutually exclusive by construction, so they never fight over the popover —
+/// which is what regressed Copy/Paste in #84. Copy and Select All remain
+/// reachable through Ctrl+Shift+C and the existing key bindings.
+pub fn setup_context_menu(
+    terminal: &Terminal,
+    snippet_section: &Rc<gtk4::gio::Menu>,
+    right_click_pastes: bool,
+) {
     use std::cell::RefCell;
 
     use gtk4::gio;
+
+    // Opt-in xterm-style right-click paste (#349): install a secondary-button
+    // gesture instead of the native context menu, and return before any menu
+    // model is built so the two can never coexist.
+    if right_click_pastes {
+        let gesture = gtk4::GestureClick::new();
+        gesture.set_button(gdk::BUTTON_SECONDARY);
+        let term_paste = terminal.clone();
+        gesture.connect_pressed(move |gesture, _, _, _| {
+            gesture.set_state(gtk4::EventSequenceState::Claimed);
+            super::safe_paste::paste_into_terminal(&term_paste);
+        });
+        terminal.add_controller(gesture);
+        return;
+    }
 
     // Cache the last selection so Copy still works after VTE clears it
     // on right-click.

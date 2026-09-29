@@ -256,7 +256,7 @@ fn test_connect_absent_from_help() {
     );
 }
 
-#[cfg(feature = "secret-management")]
+#[cfg(any(feature = "secret-management", feature = "keepass-verify"))]
 #[test]
 fn test_secret_present_in_help() {
     let output = run_cli(&["--help"], None);
@@ -264,11 +264,11 @@ fn test_secret_present_in_help() {
     let stdout = stdout_str(&output);
     assert!(
         stdout.contains("secret"),
-        "Help should mention secret command when secret-management is enabled"
+        "Help should mention secret command when secret-management or keepass-verify is enabled"
     );
 }
 
-#[cfg(not(feature = "secret-management"))]
+#[cfg(not(any(feature = "secret-management", feature = "keepass-verify")))]
 #[test]
 fn test_secret_absent_from_help() {
     let output = run_cli(&["--help"], None);
@@ -276,7 +276,7 @@ fn test_secret_absent_from_help() {
     let stdout = stdout_str(&output);
     assert!(
         !stdout.contains("secret"),
-        "Help should NOT mention secret command when secret-management is disabled. Got: {stdout}"
+        "Help should NOT mention secret command when neither secret-management nor keepass-verify is enabled. Got: {stdout}"
     );
 }
 

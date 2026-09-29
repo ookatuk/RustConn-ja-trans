@@ -1,6 +1,6 @@
 # RustConn CLI Reference
 
-**Version 0.22.9** | Command-line interface for RustConn connection management
+**Version 0.22.10** | Command-line interface for RustConn connection management
 
 The `rustconn-cli` binary provides headless connection management from the terminal. It shares the same configuration files as the GUI (`~/.config/rustconn/`), so changes made in either tool are immediately visible to the other. The default build is the minimal headless path; desktop/client-launch and secret-management commands are enabled with optional features.
 
@@ -21,9 +21,10 @@ For Flatpak, create a shell alias to save typing (see [Flatpak Usage](#flatpak-u
 
 | Feature set | Includes |
 |-------------|----------|
-| Default / `--no-default-features` | Headless management commands: config, list/show, add/update/delete, import/export, groups, tags, templates, clusters, variables, sync metadata, stats, shell completions |
+| `--no-default-features` | Headless management commands only: config, list/show, add/update/delete, import/export, groups, tags, templates, clusters, variables, sync metadata, stats, shell completions |
+| Default (`keepass-verify`) | The headless commands above **plus** `secret verify-keepass` (including `--yubikey`), which only shells out to `keepassxc-cli` and needs no system keyring |
 | `client-launch` | Optional launch paths such as `connect` and desktop file-manager integration |
-| `secret-management` | Optional `secret` commands and system keyring support |
+| `secret-management` | The keyring-backed `secret` commands (`get`/`set`/`delete`/`status`) and system keyring support (`oo7` / Keychain); implies `keepass-verify` |
 | `full` | `client-launch` + `secret-management` |
 
 ---
@@ -824,7 +825,7 @@ Manage credentials stored in secret backends (system keyring, KeePass, Bitwarden
 | `secret get <connection>` | Retrieve credentials (`--backend`) |
 | `secret set <connection>` | Store credentials (`--user`, `--password`, `--password-stdin`, `--backend`) |
 | `secret delete <connection>` | Delete credentials (`--backend`) |
-| `secret verify-keepass` | Verify KeePass database (`--database`, `--key-file`) |
+| `secret verify-keepass` | Verify KeePass database (`--database`, `--key-file`, `--yubikey`) |
 
 ```bash
 rustconn-cli secret status
@@ -833,6 +834,7 @@ rustconn-cli secret set "My Server" --user admin --backend keyring          # In
 echo "s3cret" | rustconn-cli secret set "My Server" --user admin --password-stdin
 rustconn-cli secret delete "My Server"
 rustconn-cli secret verify-keepass --database ~/vault.kdbx
+rustconn-cli secret verify-keepass --database ~/vault.kdbx --yubikey 2       # YubiKey Challenge-Response slot (or 2:serial)
 ```
 
 Backend aliases:

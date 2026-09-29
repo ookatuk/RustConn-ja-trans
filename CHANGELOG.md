@@ -5,6 +5,22 @@ All notable changes to RustConn will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+## [0.22.10] - 2026-09-29
+
+### Added
+- **KeePass databases protected with a YubiKey Challenge-Response second factor can now be unlocked (issue [#350](https://github.com/totoshko88/RustConn/issues/350))** — RustConn only ever passed a master password (over stdin) and an optional `--key-file` to `keepassxc-cli`, so a KDBX secured with a YubiKey CR slot could not be opened: every unlock failed with "invalid credentials" no matter the password.
+A new optional "YubiKey slot (Challenge-Response)" setting under Settings ▸ Secrets ▸ Authentication takes a slot as `slot` or `slot:serial` (e.g. `2` or `2:12345678`) and is threaded through to `keepassxc-cli` as `-y <slot[:serial]>`, composing with the master password and/or key file. The slot value is not a secret — it identifies the key, it does not authenticate as it — so it is passed as a plain argument and serialized in plaintext like the key-file path, while the master password stays on stdin as before. Because a CR unlock blocks until the key is physically touched, `-y` reads get a longer 30 s budget instead of the 10 s KDF-only one, and the Settings "Check" button, the on-demand unlock dialog and the `rustconn secret verify-keepass --yubikey` CLI flag all show a "touch your key when it blinks" hint. The setting defaults to unset, so password-only and key-file-only unlocking are unchanged. Slot composition is covered by unit tests in `secret/status.rs`, and the config field's default and forward/backward TOML compatibility by tests in `config/settings.rs`.
+- **The terminal can now paste on right-click instead of showing the context menu (issue [#349](https://github.com/totoshko88/RustConn/issues/349))** — some users expect the xterm/rxvt convention where the secondary mouse button pastes the clipboard directly, rather than opening a menu.
+A new opt-in "Right-click pastes" terminal setting (off by default, so the native context menu — Copy, Paste, Select All, snippets — stays the default) makes a right-click paste the clipboard immediately. The paste still goes through the shared safe-paste path, so a multi-line clipboard is previewed and confirmed exactly as a Ctrl+V paste is, honouring `confirm_multiline_paste`. The menu model and the right-click gesture are mutually exclusive by construction, so the two never fight over the popover.
+
+### Changed
+- **`rustconn-cli secret verify-keepass` is now available in the default CLI build** — it previously lived behind the `secret-management` feature, which also pulls the platform Secret Service / Keychain dependencies (`oo7`, `security-framework`) needed only by the keyring-backed `secret get`/`set`/`delete`/`status` subcommands. Because `verify-keepass` only shells out to `keepassxc-cli` and touches no system keyring, it now rides a new lightweight `keepass-verify` feature that is on by default, so `verify-keepass` (including the YubiKey `--yubikey`/`-y` flag) works out of the box without dragging keyring dependencies into a minimal `cargo install`. The keyring backends stay behind `secret-management` as before, and packaged builds (`.deb`/OBS/Flatpak/snap, which use `full`) are unaffected.
+
+### Fixed
+- **Tracked down the root cause of the embedded RDP artifacts in GFX/AVC420 mode (issue [#262](https://github.com/totoshko88/RustConn/issues/262))** — a Windows 11 25H2 host in Auto/GFX mode rendered as horizontal lines and unfilled rectangle outlines at 0 fps once the server switched from full frames to partial AVC420 updates. The defect is upstream in the pinned `ironrdp-egfx` decoder, not in RustConn: its AVC420 decode path ignored the `regionRects` metadata and copied every partial update as a single block from the decoded frame's origin, so each changed region drew pixels from the top-left corner and the gaps between regions were overwritten. RustConn inherits the bug correctly and needs no local change — it advertises only AVC420 (never AVC444) and hands the stream straight to IronRDP. A fix (iterate `regionRects`, copy each region from its own coordinates, one surface update per rectangle) has been prepared and submitted upstream to Devolutions/IronRDP with a regression test; this note will become a resolved entry once a released `ironrdp-egfx` carrying the fix can be pinned.
+
 ## [0.22.9] - 2026-09-28
 
 ### Added

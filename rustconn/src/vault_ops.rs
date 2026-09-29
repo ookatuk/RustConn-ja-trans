@@ -1439,6 +1439,7 @@ pub fn load_variable_from_vault_with_path(
                         key,
                         lookup_key,
                         None,
+                        settings.kdbx_yubikey_slot.as_deref(),
                     )
                 }
                 .map(|opt| opt.map(|s| zeroize::Zeroizing::new(s.expose_secret().to_string())))
@@ -1941,6 +1942,7 @@ pub fn copy_vault_credential(
                         key,
                         &old_entry_name,
                         None,
+                        settings.secrets.kdbx_yubikey_slot.as_deref(),
                     )
                     .map_err(|e| format!("{e}"))?;
 
@@ -2317,6 +2319,9 @@ enum TransferPort {
         db_password: Option<std::sync::Arc<secrecy::SecretString>>,
         /// Key file, when the database uses one.
         key_file: Option<std::path::PathBuf>,
+        /// `YubiKey` Challenge-Response slot (`slot[:serial]`), when the database
+        /// uses one as a second factor. Passed through to `keepassxc-cli` as `-y`.
+        yubikey_slot: Option<String>,
     },
 }
 
@@ -2377,6 +2382,7 @@ impl TransferPort {
                 .clone()
                 .map(std::sync::Arc::new),
             key_file: settings.secrets.kdbx_key_file.clone(),
+            yubikey_slot: settings.secrets.kdbx_yubikey_slot.clone(),
         })
     }
 
@@ -2403,10 +2409,12 @@ impl TransferPort {
                     path,
                     db_password,
                     key_file,
+                    yubikey_slot,
                 } => {
                     let path = path.clone();
                     let db_password = db_password.as_ref().map(std::sync::Arc::clone);
                     let key_file = key_file.clone();
+                    let yubikey_slot = yubikey_slot.clone();
                     let entry = key.clone();
                     let username = item.username.clone();
                     rt.block_on(async move {
@@ -2419,6 +2427,7 @@ impl TransferPort {
                                     key_file.as_deref(),
                                     &entry,
                                     None,
+                                    yubikey_slot.as_deref(),
                                 )
                             }),
                         )
@@ -2483,6 +2492,10 @@ impl TransferPort {
                 path,
                 db_password,
                 key_file,
+                // The write path (`save_password_to_kdbx`) does not yet compose
+                // a YubiKey slot — issue #350 is scoped to unlocking/reading a
+                // CR-protected database, not writing one. See CHANGELOG.
+                yubikey_slot: _,
             } => {
                 let Some(password) = creds.password.as_ref() else {
                     return Err("the entry has no password to write".to_string());

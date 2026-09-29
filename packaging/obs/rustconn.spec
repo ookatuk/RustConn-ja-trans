@@ -6,7 +6,7 @@
 #
 
 Name:           rustconn
-Version:        0.22.9
+Version:        0.22.10
 Release:        0
 # rpmlint caps Summary at 79 characters (summary-too-long, badness 200); the
 # protocol list belongs in %description, which has room for all of it. Kept in
@@ -389,6 +389,12 @@ done
 %{_datadir}/icons/hicolor/*/apps/io.github.totoshko88.RustConn.*
 
 %changelog
+* Tue Sep 29 2026 Anton Isaiev <totoshko88@gmail.com> - 0.22.10-0
+- Version bump to 0.22.10
+- Added: KeePass databases protected with a YubiKey Challenge-Response second factor can now be unlocked, via a new optional "YubiKey slot" setting threaded through to keepassxc-cli (issue #350)
+- Added: the terminal can now paste on right-click instead of showing the context menu, an opt-in setting that still routes through the safe multi-line paste guard (issue #349)
+- Fixed: traced the embedded RDP artifacts in GFX/AVC420 mode to an upstream ironrdp-egfx bug (its AVC420 decoder ignores regionRects and copies partial updates from the frame origin); RustConn inherits it correctly and needs no local change, a fix has been submitted upstream (issue #262)
+
 * Mon Sep 28 2026 Anton Isaiev <totoshko88@gmail.com> - 0.22.9-0
 - Version bump to 0.22.9
 - Added: a multi-line terminal paste shows a preview and asks for confirmation first, guarding against pastejacking; single-line pastes are unchanged and it can be turned off with the confirm_multiline_paste setting
