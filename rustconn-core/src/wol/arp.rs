@@ -85,6 +85,13 @@ pub fn lookup_mac_for_host(host: &str) -> Option<MacAddress> {
 /// An entry whose hardware address is all zeros (`00:00:00:00:00:00`) is an
 /// incomplete resolution and is skipped, as is the header row. The first column
 /// is the IP and the fourth is the MAC.
+///
+/// Only `lookup_mac`'s Linux branch calls this, so on every other target it is
+/// dead code in the shipping build — but the test module below exercises it on
+/// all platforms. `cfg(any(target_os = "linux", test))` keeps it compiled where
+/// it is actually used (the Linux runtime path and every test build) without a
+/// blanket `#[allow(dead_code)]` that would also hide a real unused-fn slip.
+#[cfg(any(target_os = "linux", test))]
 #[must_use]
 fn parse_arp_table(contents: &str, target: IpAddr) -> Option<MacAddress> {
     for line in contents.lines().skip(1) {
