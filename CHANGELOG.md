@@ -5,7 +5,14 @@ All notable changes to RustConn will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.22.11] - 2026-09-30
+
+### Fixed
+- **Saving a credential to a YubiKey Challenge-Response KeePass database now works (follow-up to issue [#350](https://github.com/totoshko88/RustConn/issues/350))** — 0.22.10 threaded the YubiKey slot through the *unlock/read* path only, so opening a CR-secured KDBX worked but writing to one still failed: saving an entry reported "KeePassXC did not accept this password", and nested groups were never created.
+The write path in `secret/status.rs` hand-built its `keepassxc-cli` argv with only `--no-password`/`--key-file` and never `-y <slot>`, so every `add`, `mkdir`, `rm` and the `show`/`ls` probes tried to unlock the database without the second factor — the `add` failed authentication, and because the parent-group `mkdir` calls (whose errors are swallowed by design) failed the same way, the nested groups silently never appeared. All eight write-path functions (`save_password_to_kdbx`, `ensure_rustconn_group`, `ensure_parent_groups`, `delete_kdbx_entry`, `delete_entry_from_kdbx`, `rename_entry_in_kdbx`, `get_username_from_kdbx`, `get_url_from_kdbx`) now thread the configured slot and compose the unlock flags through the same `push_unlock_args` helper the read path uses, so a write unlocks with exactly the factors a read does. A related read gap was found and fixed in the same pass: `get_password_from_kdbx_exact` — the reader used for a **custom** KeePass entry path (not the default `RustConn/`-prefixed lookup, which was already fixed in 0.22.10) — also omitted the slot, so reading a credential from a custom path on a CR-protected database failed too; it now threads the slot as well. Writes and CR reads that unlock via `-y` get the longer 30 s touch budget (matching the default read path) instead of the short write budget, and the "did not accept this password" error hint now includes `-y <slot>` in the reproduction command it prints. Slot composition on the `add` argv is covered by new unit tests in `secret/status.rs`.
+
+### Dependencies
+- **FreeRDP (Flatpak) 3.32.0 → 3.32.1 — a security and regression release** — [3.32.1](https://github.com/FreeRDP/FreeRDP/releases/tag/3.32.1) fixes six further security advisories and a regression from the 3.32.0 hardening that rejected fragmented static-channel PDUs, which broke copy and paste of larger clipboard content in the external FreeRDP client. Bumped in the local Flatpak and Flathub manifests together, with the upstream-published `sha256`.
 
 ## [0.22.10] - 2026-09-29
 

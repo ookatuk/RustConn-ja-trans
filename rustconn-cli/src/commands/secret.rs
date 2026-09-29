@@ -670,6 +670,7 @@ fn cmd_secret_set(
                     connection.host,
                     connection.port
                 )),
+                settings.secrets.kdbx_yubikey_slot.as_deref(),
             )
             .map_err(|e| CliError::Secret(format!("KeePass error: {e}")))?;
 
@@ -923,6 +924,7 @@ fn cmd_secret_delete(
                 settings.secrets.kdbx_password.as_ref(),
                 key_file,
                 &keepass_entry_path,
+                settings.secrets.kdbx_yubikey_slot.as_deref(),
             )
             .map_err(|e| CliError::Secret(format!("KeePass error: {e}")))?;
 

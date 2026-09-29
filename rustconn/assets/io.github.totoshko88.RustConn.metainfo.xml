@@ -140,6 +140,15 @@
     <control>touch</control>
   </supports>
   <releases>
+    <release version="0.22.11" date="2026-09-30">
+      <description>
+        <p>Version 0.22.11 - saving credentials to a YubiKey-protected KeePass database:</p>
+        <ul>
+          <li>Fixed: saving, renaming and deleting credentials in a KeePass database protected with a YubiKey Challenge-Response second factor now works; the write path and custom-path reads now pass the configured slot to keepassxc-cli (follow-up to issue #350)</li>
+          <li>Updated the bundled FreeRDP to 3.32.1, a security and regression release that also fixes clipboard copy of larger content</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.22.10" date="2026-09-29">
       <description>
         <p>Version 0.22.10 - YubiKey Challenge-Response unlock for KeePass and opt-in right-click paste:</p>

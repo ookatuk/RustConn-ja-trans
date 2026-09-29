@@ -92,6 +92,52 @@ fn push_unlock_args(
     }
 }
 
+/// Assembles the argv for a `keepassxc-cli add`, without spawning anything.
+///
+/// Extracted from [`KeePassStatus::save_password_to_kdbx`] so the write path's
+/// unlock composition — the `-y <slot>` that issue #350 found missing, and the
+/// `--no-password` that must accompany a key-file/YubiKey-only unlock — can be
+/// asserted in a unit test, the way the read side is exercised through
+/// [`push_unlock_args`]. The entry password is not here: it travels on stdin, so
+/// it never reaches the argv this builds.
+fn build_add_args(
+    has_password: bool,
+    key_file: Option<&Path>,
+    yubikey_slot: Option<&str>,
+    username: &str,
+    url: Option<&str>,
+    kdbx_path: &Path,
+    entry_path: &str,
+) -> Vec<String> {
+    let mut args = vec!["add".to_string(), "-q".to_string()];
+
+    // Compose --no-password / --key-file / -y consistently with the read path.
+    push_unlock_args(&mut args, has_password, key_file, yubikey_slot);
+
+    // Add username if not empty
+    if !username.is_empty() {
+        args.push("-u".to_string());
+        args.push(username.to_string());
+    }
+
+    // Add URL if provided
+    if let Some(u) = url
+        && !u.is_empty()
+    {
+        args.push("--url".to_string());
+        args.push(u.to_string());
+    }
+
+    // Password prompt flag — tells keepassxc-cli to read the entry password from stdin.
+    args.push("-p".to_string());
+
+    // Database path and entry name last.
+    args.push(kdbx_path.display().to_string());
+    args.push(entry_path.to_string());
+
+    args
+}
+
 /// Waits for a `keepassxc-cli` child, reporting a timeout as an error.
 ///
 /// `what` names the invocation in the log and in the error. It is
@@ -629,6 +675,10 @@ impl KeePassStatus {
     /// * `username` - Username for the entry
     /// * `password` - Password to save
     /// * `url` - Optional URL for the entry
+    /// * `yubikey_slot` - Optional `YubiKey` Challenge-Response slot as
+    ///   `slot[:serial]`; when `Some`, passed to `keepassxc-cli` as `-y` and
+    ///   composed with the password and/or key file. `None` preserves the
+    ///   historical password/key-file-only unlock.
     ///
     /// # Returns
     /// * `Ok(())` if the password is saved successfully
@@ -647,6 +697,10 @@ impl KeePassStatus {
         clippy::too_many_lines,
         reason = "long match/dispatch over many enum variants; splitting per variant only relocates the boilerplate"
     )]
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "mirrors the read path get_password_from_kdbx_with_key; the KDBX write needs every unlock factor plus the entry fields"
+    )]
     pub fn save_password_to_kdbx(
         kdbx_path: &Path,
         db_password: Option<&SecretString>,
@@ -655,6 +709,7 @@ impl KeePassStatus {
         username: &str,
         password: &SecretString,
         url: Option<&str>,
+        yubikey_slot: Option<&str>,
     ) -> SecretResult<()> {
         use std::io::Write as IoWrite;
         use std::process::Stdio;
@@ -668,54 +723,40 @@ impl KeePassStatus {
         })?;
 
         // Ensure RustConn group exists
-        Self::ensure_rustconn_group(kdbx_path, db_password, key_file, &cli_path)?;
+        Self::ensure_rustconn_group(kdbx_path, db_password, key_file, &cli_path, yubikey_slot)?;
 
         // Build the entry path under RustConn group
         // entry_name should already include protocol suffix if needed (e.g., "server (rdp)")
         let entry_path = format!("RustConn/{entry_name}");
 
         // Ensure all parent groups in the path exist (e.g., RustConn/Groups for group passwords)
-        Self::ensure_parent_groups(kdbx_path, db_password, key_file, &cli_path, entry_name)?;
+        Self::ensure_parent_groups(
+            kdbx_path,
+            db_password,
+            key_file,
+            &cli_path,
+            entry_name,
+            yubikey_slot,
+        )?;
 
         // First, try to remove existing entry (ignore errors if it doesn't exist)
-        let _ = Self::delete_kdbx_entry(kdbx_path, db_password, key_file, &entry_path);
+        let _ =
+            Self::delete_kdbx_entry(kdbx_path, db_password, key_file, &entry_path, yubikey_slot);
 
         // Build command arguments for keepassxc-cli add
         // Format: keepassxc-cli add [options] <database> <entry>
         // -p/--password-prompt prompts for entry password via stdin (after db password)
-        let mut args = vec!["add".to_string(), "-q".to_string()];
-
-        // If using key file without password, add --no-password flag
-        if db_password.is_none() && key_file.is_some() {
-            args.push("--no-password".to_string());
-        }
-
-        // Add key file if provided
-        if let Some(kf) = key_file {
-            args.push("--key-file".to_string());
-            args.push(kf.display().to_string());
-        }
-
-        // Add username if not empty
-        if !username.is_empty() {
-            args.push("-u".to_string());
-            args.push(username.to_string());
-        }
-
-        // Add URL if provided
-        if let Some(u) = url
-            && !u.is_empty()
-        {
-            args.push("--url".to_string());
-            args.push(u.to_string());
-        }
-
-        // Add password prompt flag - this tells keepassxc-cli to read entry password from stdin
-        args.push("-p".to_string());
-
-        // Add database path and entry name
-        args.push(kdbx_path.display().to_string());
-        args.push(entry_path);
+        // Assembled by a free function so a test can assert the argv without a
+        // real keepassxc-cli or database — see `build_add_args`.
+        let args = build_add_args(
+            db_password.is_some(),
+            key_file,
+            yubikey_slot,
+            username,
+            url,
+            kdbx_path,
+            &entry_path,
+        );
 
         tracing::debug!("Running keepassxc-cli with args: {args:?}");
 
@@ -758,7 +799,13 @@ impl KeePassStatus {
             drop(stdin);
         }
 
-        let output = wait_for_cli_write(child, "add")?;
+        // A `-y` unlock blocks on a physical touch, so give the write the longer
+        // touch budget; a password/key-file-only write keeps the write budget.
+        let output = if yubikey_slot.is_some() {
+            wait_for_cli_yubikey(child, "add")?
+        } else {
+            wait_for_cli_write(child, "add")?
+        };
 
         tracing::debug!(
             "keepassxc-cli exit code: {:?}, stdout: '{}', stderr: '{}'",
@@ -790,10 +837,18 @@ impl KeePassStatus {
                     "Entry '{entry_name}' already exists"
                 )))
             } else if stderr.is_empty() && stdout.is_empty() {
+                // The reproduction command the user can paste, mirroring the exact
+                // unlock factors this call used — including `-y <slot>`, whose
+                // absence is what the #350 reporter flagged.
+                let yubikey_hint = match yubikey_slot {
+                    Some(slot) => format!(" -y {slot}"),
+                    None => String::new(),
+                };
                 Err(SecretError::KeePassXC(format!(
                     "Failed to save password to KeePass database (exit code: {:?}). \
-                     Try running: keepassxc-cli add -p {} 'RustConn/{}'",
+                     Try running: keepassxc-cli add -p{} {} 'RustConn/{}'",
                     output.status.code(),
+                    yubikey_hint,
                     kdbx_path.display(),
                     entry_name
                 )))
@@ -813,6 +868,7 @@ impl KeePassStatus {
         db_password: Option<&SecretString>,
         key_file: Option<&Path>,
         cli_path: &Path,
+        yubikey_slot: Option<&str>,
     ) -> SecretResult<()> {
         use std::io::Write as IoWrite;
         use std::process::Stdio;
@@ -822,15 +878,7 @@ impl KeePassStatus {
         // First check if RustConn group exists using ls command
         let mut args = vec!["ls".to_string(), "-q".to_string()];
 
-        // If using key file without password, add --no-password flag
-        if db_password.is_none() && key_file.is_some() {
-            args.push("--no-password".to_string());
-        }
-
-        if let Some(kf) = key_file {
-            args.push("--key-file".to_string());
-            args.push(kf.display().to_string());
-        }
+        push_unlock_args(&mut args, db_password.is_some(), key_file, yubikey_slot);
 
         args.push(kdbx_path.display().to_string());
         args.push("RustConn".to_string());
@@ -851,7 +899,13 @@ impl KeePassStatus {
             stdin.write_all(b"\n").ok();
         }
 
-        let output = wait_for_cli(child, "ls (group probe)").ok();
+        // The group probe opens the database, so with a `-y` slot it too can block
+        // on a touch; give it the touch budget then.
+        let output = if yubikey_slot.is_some() {
+            wait_for_cli_yubikey(child, "ls (group probe)").ok()
+        } else {
+            wait_for_cli(child, "ls (group probe)").ok()
+        };
 
         // If group exists, we're done
         if let Some(ref o) = output {
@@ -872,15 +926,7 @@ impl KeePassStatus {
         // Group doesn't exist, create it using mkdir command
         let mut args = vec!["mkdir".to_string(), "-q".to_string()];
 
-        // If using key file without password, add --no-password flag
-        if db_password.is_none() && key_file.is_some() {
-            args.push("--no-password".to_string());
-        }
-
-        if let Some(kf) = key_file {
-            args.push("--key-file".to_string());
-            args.push(kf.display().to_string());
-        }
+        push_unlock_args(&mut args, db_password.is_some(), key_file, yubikey_slot);
 
         args.push(kdbx_path.display().to_string());
         args.push("RustConn".to_string());
@@ -903,7 +949,11 @@ impl KeePassStatus {
             stdin.write_all(b"\n").ok();
         }
 
-        let output = wait_for_cli_write(child, "mkdir")?;
+        let output = if yubikey_slot.is_some() {
+            wait_for_cli_yubikey(child, "mkdir")?
+        } else {
+            wait_for_cli_write(child, "mkdir")?
+        };
 
         tracing::debug!(
             "mkdir RustConn result: exit={:?}, stdout='{}', stderr='{}'",
@@ -945,6 +995,7 @@ impl KeePassStatus {
         key_file: Option<&Path>,
         cli_path: &Path,
         entry_path: &str,
+        yubikey_slot: Option<&str>,
     ) -> SecretResult<()> {
         use std::io::Write as IoWrite;
         use std::process::Stdio;
@@ -966,14 +1017,7 @@ impl KeePassStatus {
             // Try to create the group (ignore if already exists)
             let mut args = vec!["mkdir".to_string(), "-q".to_string()];
 
-            if db_password.is_none() && key_file.is_some() {
-                args.push("--no-password".to_string());
-            }
-
-            if let Some(kf) = key_file {
-                args.push("--key-file".to_string());
-                args.push(kf.display().to_string());
-            }
+            push_unlock_args(&mut args, db_password.is_some(), key_file, yubikey_slot);
 
             args.push(kdbx_path.display().to_string());
             args.push(current_path.clone());
@@ -995,7 +1039,11 @@ impl KeePassStatus {
                 stdin.write_all(b"\n").ok();
             }
 
-            let output = wait_for_cli_write(child, "mkdir (parent group)").ok();
+            let output = if yubikey_slot.is_some() {
+                wait_for_cli_yubikey(child, "mkdir (parent group)").ok()
+            } else {
+                wait_for_cli_write(child, "mkdir (parent group)").ok()
+            };
 
             if let Some(ref o) = output {
                 let stderr = String::from_utf8_lossy(&o.stderr);
@@ -1016,6 +1064,7 @@ impl KeePassStatus {
         db_password: Option<&SecretString>,
         key_file: Option<&Path>,
         entry_path: &str,
+        yubikey_slot: Option<&str>,
     ) -> SecretResult<()> {
         use std::io::Write as IoWrite;
         use std::process::Stdio;
@@ -1025,15 +1074,7 @@ impl KeePassStatus {
 
         let mut args = vec!["rm".to_string(), "-q".to_string()];
 
-        // If using key file without password, add --no-password flag
-        if db_password.is_none() && key_file.is_some() {
-            args.push("--no-password".to_string());
-        }
-
-        if let Some(kf) = key_file {
-            args.push("--key-file".to_string());
-            args.push(kf.display().to_string());
-        }
+        push_unlock_args(&mut args, db_password.is_some(), key_file, yubikey_slot);
 
         args.push(kdbx_path.display().to_string());
         args.push(entry_path.to_string());
@@ -1056,8 +1097,13 @@ impl KeePassStatus {
 
         // Best-effort by design: the caller deletes before adding and does not
         // care whether the entry existed. Bounded all the same — "does not care
-        // about the result" is not the same as "may block for ever".
-        let _ = wait_for_cli_write(child, "rm");
+        // about the result" is not the same as "may block for ever". A `-y`
+        // unlock waits on a touch, so it gets the touch budget.
+        if yubikey_slot.is_some() {
+            let _ = wait_for_cli_yubikey(child, "rm");
+        } else {
+            let _ = wait_for_cli_write(child, "rm");
+        }
         Ok(())
     }
 
@@ -1068,6 +1114,9 @@ impl KeePassStatus {
     /// * `db_password` - Password to unlock the database (None if using key file)
     /// * `key_file` - Optional path to key file for authentication
     /// * `entry_path` - Full path of the entry to delete (e.g., "RustConn/Group/Name (rdp)")
+    /// * `yubikey_slot` - Optional `YubiKey` Challenge-Response slot as
+    ///   `slot[:serial]`; when `Some`, passed to `keepassxc-cli` as `-y` and
+    ///   composed with the password and/or key file.
     ///
     /// # Returns
     /// * `Ok(())` if the entry is deleted or doesn't exist
@@ -1083,6 +1132,7 @@ impl KeePassStatus {
         db_password: Option<&SecretString>,
         key_file: Option<&Path>,
         entry_path: &str,
+        yubikey_slot: Option<&str>,
     ) -> SecretResult<()> {
         // First validate the path
         Self::validate_kdbx_path(kdbx_path)?;
@@ -1092,7 +1142,7 @@ impl KeePassStatus {
             SecretError::KeePassXC("keepassxc-cli not found. Please install KeePassXC.".to_string())
         })?;
 
-        Self::delete_kdbx_entry(kdbx_path, db_password, key_file, entry_path)
+        Self::delete_kdbx_entry(kdbx_path, db_password, key_file, entry_path, yubikey_slot)
     }
 
     /// Retrieves a password from KDBX database using `keepassxc-cli` with key file support
@@ -1277,6 +1327,11 @@ impl KeePassStatus {
     /// * `db_password` - Password to unlock the database (None if using key file)
     /// * `key_file` - Optional path to key file for authentication
     /// * `entry_path` - Exact path of the entry (e.g., "Internet/MyRouter" or "RustConn/RADIUS")
+    /// * `yubikey_slot` - Optional `YubiKey` Challenge-Response slot as
+    ///   `slot[:serial]`; when `Some`, passed to `keepassxc-cli` as `-y` and
+    ///   composed with the password and/or key file. Without it a custom-path
+    ///   read of a CR-protected database fails the same way the write path did
+    ///   before issue #350's follow-up fix.
     ///
     /// # Returns
     /// * `Ok(Some(SecretString))` if the password is found
@@ -1293,6 +1348,7 @@ impl KeePassStatus {
         db_password: Option<&SecretString>,
         key_file: Option<&Path>,
         entry_path: &str,
+        yubikey_slot: Option<&str>,
     ) -> SecretResult<Option<SecretString>> {
         use std::io::Write as IoWrite;
         use std::process::Stdio;
@@ -1311,14 +1367,7 @@ impl KeePassStatus {
             "Password".to_string(),
         ];
 
-        if db_password.is_none() && key_file.is_some() {
-            args.push("--no-password".to_string());
-        }
-
-        if let Some(kf) = key_file {
-            args.push("--key-file".to_string());
-            args.push(kf.display().to_string());
-        }
+        push_unlock_args(&mut args, db_password.is_some(), key_file, yubikey_slot);
 
         args.push(kdbx_path.display().to_string());
         args.push(entry_path.to_string());
@@ -1344,7 +1393,12 @@ impl KeePassStatus {
                 .map_err(|e| SecretError::KeePassXC(format!("Failed to send password: {e}")))?;
         }
 
-        let output = wait_for_cli(child, "show (exact entry)")?;
+        // A `-y` read blocks on a physical touch, so give it the touch budget.
+        let output = if yubikey_slot.is_some() {
+            wait_for_cli_yubikey(child, "show (exact entry)")?
+        } else {
+            wait_for_cli(child, "show (exact entry)")?
+        };
 
         if output.status.success() {
             let password =
@@ -1392,6 +1446,10 @@ impl KeePassStatus {
     /// * `key_file` - Optional path to key file for authentication
     /// * `old_entry_path` - Current path of the entry (e.g., "RustConn/Group/OldName (rdp)")
     /// * `new_entry_path` - New path for the entry (e.g., "RustConn/Group/NewName (rdp)")
+    /// * `yubikey_slot` - Optional `YubiKey` Challenge-Response slot as
+    ///   `slot[:serial]`; when `Some`, passed to `keepassxc-cli` as `-y` and
+    ///   composed with the password and/or key file for every read and write
+    ///   this rename performs.
     ///
     /// # Returns
     /// * `Ok(())` if the rename is successful or entry doesn't exist
@@ -1408,6 +1466,7 @@ impl KeePassStatus {
         key_file: Option<&Path>,
         old_entry_path: &str,
         new_entry_path: &str,
+        yubikey_slot: Option<&str>,
     ) -> SecretResult<()> {
         // If paths are the same, nothing to do
         if old_entry_path == new_entry_path {
@@ -1435,7 +1494,7 @@ impl KeePassStatus {
             key_file,
             old_entry_name,
             None,
-            None,
+            yubikey_slot,
         )?;
 
         // If no password found at old path, nothing to rename
@@ -1451,12 +1510,19 @@ impl KeePassStatus {
             key_file,
             &cli_path,
             old_entry_path,
+            yubikey_slot,
         )
         .unwrap_or_default();
 
         // Get URL from old entry (use full path for direct CLI call)
-        let url =
-            Self::get_url_from_kdbx(kdbx_path, db_password, key_file, &cli_path, old_entry_path);
+        let url = Self::get_url_from_kdbx(
+            kdbx_path,
+            db_password,
+            key_file,
+            &cli_path,
+            old_entry_path,
+            yubikey_slot,
+        );
 
         // Ensure parent groups exist for new path
         // Extract entry name from new path (everything after "RustConn/")
@@ -1464,7 +1530,14 @@ impl KeePassStatus {
             .strip_prefix("RustConn/")
             .unwrap_or(new_entry_path);
 
-        Self::ensure_parent_groups(kdbx_path, db_password, key_file, &cli_path, new_entry_name)?;
+        Self::ensure_parent_groups(
+            kdbx_path,
+            db_password,
+            key_file,
+            &cli_path,
+            new_entry_name,
+            yubikey_slot,
+        )?;
 
         // Create new entry with the password
         Self::save_password_to_kdbx(
@@ -1475,10 +1548,17 @@ impl KeePassStatus {
             &username,
             &password,
             url.as_deref(),
+            yubikey_slot,
         )?;
 
         // Delete old entry (use full path for direct CLI call)
-        let _ = Self::delete_kdbx_entry(kdbx_path, db_password, key_file, old_entry_path);
+        let _ = Self::delete_kdbx_entry(
+            kdbx_path,
+            db_password,
+            key_file,
+            old_entry_path,
+            yubikey_slot,
+        );
 
         tracing::info!(
             "Renamed KeePass entry from '{}' to '{}'",
@@ -1496,6 +1576,7 @@ impl KeePassStatus {
         key_file: Option<&Path>,
         cli_path: &Path,
         entry_path: &str,
+        yubikey_slot: Option<&str>,
     ) -> Option<String> {
         use std::io::Write as IoWrite;
         use std::process::Stdio;
@@ -1508,14 +1589,7 @@ impl KeePassStatus {
             "UserName".to_string(),
         ];
 
-        if db_password.is_none() && key_file.is_some() {
-            args.push("--no-password".to_string());
-        }
-
-        if let Some(kf) = key_file {
-            args.push("--key-file".to_string());
-            args.push(kf.display().to_string());
-        }
+        push_unlock_args(&mut args, db_password.is_some(), key_file, yubikey_slot);
 
         args.push(kdbx_path.display().to_string());
         args.push(entry_path.to_string());
@@ -1535,7 +1609,12 @@ impl KeePassStatus {
             stdin.write_all(b"\n").ok()?;
         }
 
-        let output = wait_for_cli(child, "show (username)").ok()?;
+        // A `-y` read blocks on a touch, so give it the touch budget.
+        let output = if yubikey_slot.is_some() {
+            wait_for_cli_yubikey(child, "show (username)").ok()?
+        } else {
+            wait_for_cli(child, "show (username)").ok()?
+        };
 
         if output.status.success() {
             let username = String::from_utf8_lossy(&output.stdout).trim().to_string();
@@ -1562,6 +1641,7 @@ impl KeePassStatus {
         key_file: Option<&Path>,
         cli_path: &Path,
         entry_path: &str,
+        yubikey_slot: Option<&str>,
     ) -> Option<String> {
         use std::io::Write as IoWrite;
         use std::process::Stdio;
@@ -1574,14 +1654,7 @@ impl KeePassStatus {
             "URL".to_string(),
         ];
 
-        if db_password.is_none() && key_file.is_some() {
-            args.push("--no-password".to_string());
-        }
-
-        if let Some(kf) = key_file {
-            args.push("--key-file".to_string());
-            args.push(kf.display().to_string());
-        }
+        push_unlock_args(&mut args, db_password.is_some(), key_file, yubikey_slot);
 
         args.push(kdbx_path.display().to_string());
         args.push(entry_path.to_string());
@@ -1601,7 +1674,12 @@ impl KeePassStatus {
             stdin.write_all(b"\n").ok()?;
         }
 
-        let output = wait_for_cli(child, "show (url)").ok()?;
+        // A `-y` read blocks on a touch, so give it the touch budget.
+        let output = if yubikey_slot.is_some() {
+            wait_for_cli_yubikey(child, "show (url)").ok()?
+        } else {
+            wait_for_cli(child, "show (url)").ok()?
+        };
 
         if output.status.success() {
             let url = String::from_utf8_lossy(&output.stdout).trim().to_string();
@@ -1871,6 +1949,131 @@ mod tests {
                 "--no-password".to_string(),
                 "-y".to_string(),
                 "1".to_string(),
+            ]
+        );
+    }
+
+    /// The write path threads the YubiKey slot — the regression #350 was about.
+    /// A password-protected KDBX that also requires a Challenge-Response touch:
+    /// the master password is present (so NO `--no-password`), and `-y <slot>`
+    /// must appear on the `add` argv or the write cannot unlock the database.
+    #[test]
+    fn build_add_args_password_plus_yubikey_carries_the_slot() {
+        let args = build_add_args(
+            true,
+            None,
+            Some("2:12345678"),
+            "alice",
+            Some("ssh://host"),
+            Path::new("/tmp/db.kdbx"),
+            "RustConn/host (ssh)",
+        );
+        // No --no-password when a master password is present.
+        assert!(!args.iter().any(|a| a == "--no-password"), "argv: {args:?}");
+        // The slot must be threaded as `-y <slot>`.
+        let y = args.iter().position(|a| a == "-y").expect("-y present");
+        assert_eq!(args[y + 1], "2:12345678");
+        assert_eq!(
+            args,
+            vec![
+                "add".to_string(),
+                "-q".to_string(),
+                "-y".to_string(),
+                "2:12345678".to_string(),
+                "-u".to_string(),
+                "alice".to_string(),
+                "--url".to_string(),
+                "ssh://host".to_string(),
+                "-p".to_string(),
+                "/tmp/db.kdbx".to_string(),
+                "RustConn/host (ssh)".to_string(),
+            ]
+        );
+    }
+
+    /// Key file + YubiKey, no master password: `--no-password` is emitted (the
+    /// CLI would otherwise read an empty stdin line as an empty password), the
+    /// key file is passed, and the slot is threaded.
+    #[test]
+    fn build_add_args_key_file_plus_yubikey_no_password() {
+        let args = build_add_args(
+            false,
+            Some(Path::new("/tmp/db.keyx")),
+            Some("1"),
+            "",
+            None,
+            Path::new("/tmp/db.kdbx"),
+            "RustConn/entry",
+        );
+        assert_eq!(
+            args,
+            vec![
+                "add".to_string(),
+                "-q".to_string(),
+                "--no-password".to_string(),
+                "--key-file".to_string(),
+                "/tmp/db.keyx".to_string(),
+                "-y".to_string(),
+                "1".to_string(),
+                // no -u (empty username), no --url (None)
+                "-p".to_string(),
+                "/tmp/db.kdbx".to_string(),
+                "RustConn/entry".to_string(),
+            ]
+        );
+    }
+
+    /// YubiKey-only unlock (no master password, no key file): `--no-password`
+    /// plus `-y <slot>`, and nothing else on the unlock side.
+    #[test]
+    fn build_add_args_yubikey_only_no_password() {
+        let args = build_add_args(
+            false,
+            None,
+            Some("2"),
+            "",
+            None,
+            Path::new("/tmp/db.kdbx"),
+            "RustConn/entry",
+        );
+        assert_eq!(
+            args,
+            vec![
+                "add".to_string(),
+                "-q".to_string(),
+                "--no-password".to_string(),
+                "-y".to_string(),
+                "2".to_string(),
+                "-p".to_string(),
+                "/tmp/db.kdbx".to_string(),
+                "RustConn/entry".to_string(),
+            ]
+        );
+    }
+
+    /// Without a YubiKey slot the write argv is unchanged from before #350: a
+    /// master password alone emits no unlock flags beyond `-p`.
+    #[test]
+    fn build_add_args_password_only_has_no_yubikey() {
+        let args = build_add_args(
+            true,
+            None,
+            None,
+            "",
+            None,
+            Path::new("/tmp/db.kdbx"),
+            "RustConn/entry",
+        );
+        assert!(!args.iter().any(|a| a == "-y"), "argv: {args:?}");
+        assert!(!args.iter().any(|a| a == "--no-password"), "argv: {args:?}");
+        assert_eq!(
+            args,
+            vec![
+                "add".to_string(),
+                "-q".to_string(),
+                "-p".to_string(),
+                "/tmp/db.kdbx".to_string(),
+                "RustConn/entry".to_string(),
             ]
         );
     }
