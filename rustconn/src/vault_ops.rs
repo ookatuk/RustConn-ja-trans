@@ -543,6 +543,7 @@ pub fn save_password_to_vault(
             let kdbx_backend = settings.secrets.preferred_backend;
             let key_file = settings.secrets.kdbx_key_file.clone();
             let db_password = settings.secrets.kdbx_password.clone();
+            let yubikey_slot = settings.secrets.kdbx_yubikey_slot.clone();
             let entry_name = if let Some(c) = conn {
                 let entry_path =
                     rustconn_core::secret::KeePassHierarchy::build_entry_path(c, groups);
@@ -584,6 +585,7 @@ pub fn save_password_to_vault(
                         &username,
                         &pwd,
                         Some(&url),
+                        yubikey_slot.as_deref(),
                     )
                 },
                 move |result| {
@@ -738,6 +740,7 @@ pub fn save_group_password_to_vault(
             let kdbx_backend = settings.secrets.preferred_backend;
             let key_file = settings.secrets.kdbx_key_file.clone();
             let db_password = settings.secrets.kdbx_password.clone();
+            let yubikey_slot = settings.secrets.kdbx_yubikey_slot.clone();
             let entry_name = group_path
                 .strip_prefix("RustConn/")
                 .unwrap_or(group_path)
@@ -761,6 +764,7 @@ pub fn save_group_password_to_vault(
                         &username_val,
                         &password_val,
                         None,
+                        yubikey_slot.as_deref(),
                     )
                 },
                 move |result| {
@@ -1010,6 +1014,7 @@ pub fn migrate_vault_credential_for_edit(
             key_file.as_ref().map(std::path::Path::new),
             old_key,
             &plan.new_key,
+            settings.secrets.kdbx_yubikey_slot.as_deref(),
         )
         .map_err(|e| format!("{e}"));
     }
@@ -1270,6 +1275,7 @@ fn migrate_keepass_entries_on_group_change(
 
     let key_file = settings.secrets.kdbx_key_file.clone();
     let db_password = settings.secrets.kdbx_password.clone();
+    let yubikey_slot = settings.secrets.kdbx_yubikey_slot.clone();
 
     crate::utils::spawn_blocking_with_callback(
         move || {
@@ -1285,6 +1291,7 @@ fn migrate_keepass_entries_on_group_change(
                     key,
                     old_key,
                     new_key,
+                    yubikey_slot.as_deref(),
                 ) {
                     errors.push(format!("{old_key} → {new_key}: {e}"));
                 }
@@ -1353,6 +1360,7 @@ pub fn save_variable_to_vault(
                     "",
                     password,
                     None,
+                    settings.kdbx_yubikey_slot.as_deref(),
                 )
                 .map_err(|e| format!("{e}"));
 
@@ -1431,6 +1439,7 @@ pub fn load_variable_from_vault_with_path(
                         settings.kdbx_password.as_ref(),
                         key,
                         lookup_key,
+                        settings.kdbx_yubikey_slot.as_deref(),
                     )
                 } else {
                     rustconn_core::secret::KeePassStatus::get_password_from_kdbx_with_key(
@@ -1814,6 +1823,7 @@ pub fn delete_vault_credential(
                     settings.secrets.kdbx_password.as_ref(),
                     key,
                     &full_entry_path,
+                    settings.secrets.kdbx_yubikey_slot.as_deref(),
                 )
                 .map_err(|e| format!("{e}"))
             } else {
@@ -1879,6 +1889,7 @@ pub fn delete_group_vault_credential(
                     settings.secrets.kdbx_password.as_ref(),
                     key,
                     &group_path,
+                    settings.secrets.kdbx_yubikey_slot.as_deref(),
                 )
                 .map_err(|e| format!("{e}"))
             } else {
@@ -1964,6 +1975,7 @@ pub fn copy_vault_credential(
                         username,
                         &pwd,
                         Some(&url),
+                        settings.secrets.kdbx_yubikey_slot.as_deref(),
                     )
                     .map_err(|e| format!("{e}"))?;
                 }
@@ -2492,10 +2504,7 @@ impl TransferPort {
                 path,
                 db_password,
                 key_file,
-                // The write path (`save_password_to_kdbx`) does not yet compose
-                // a YubiKey slot — issue #350 is scoped to unlocking/reading a
-                // CR-protected database, not writing one. See CHANGELOG.
-                yubikey_slot: _,
+                yubikey_slot,
             } => {
                 let Some(password) = creds.password.as_ref() else {
                     return Err("the entry has no password to write".to_string());
@@ -2508,6 +2517,7 @@ impl TransferPort {
                 let path = path.clone();
                 let db_password = db_password.as_ref().map(std::sync::Arc::clone);
                 let key_file = key_file.clone();
+                let yubikey_slot = yubikey_slot.clone();
                 let entry = item.destination_key.clone();
                 let username = creds.username.clone().unwrap_or_default();
                 rt.block_on(async move {
@@ -2522,6 +2532,7 @@ impl TransferPort {
                                 &username,
                                 &entry_password,
                                 None,
+                                yubikey_slot.as_deref(),
                             )
                         }),
                     )

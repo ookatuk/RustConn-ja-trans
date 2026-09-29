@@ -6,7 +6,7 @@
 #
 
 Name:           rustconn
-Version:        0.22.10
+Version:        0.22.11
 Release:        0
 # rpmlint caps Summary at 79 characters (summary-too-long, badness 200); the
 # protocol list belongs in %description, which has room for all of it. Kept in
@@ -389,6 +389,11 @@ done
 %{_datadir}/icons/hicolor/*/apps/io.github.totoshko88.RustConn.*
 
 %changelog
+* Wed Sep 30 2026 Anton Isaiev <totoshko88@gmail.com> - 0.22.11-0
+- Version bump to 0.22.11
+- Fixed: saving, renaming and deleting credentials in a KeePass database protected with a YubiKey Challenge-Response second factor now works; the write path and custom-path reads now pass the configured slot to keepassxc-cli as -y (follow-up to issue #350)
+- Dependencies: FreeRDP (Flatpak) 3.32.0 -> 3.32.1, a security and regression release (fixes clipboard copy of larger content)
+
 * Tue Sep 29 2026 Anton Isaiev <totoshko88@gmail.com> - 0.22.10-0
 - Version bump to 0.22.10
 - Added: KeePass databases protected with a YubiKey Challenge-Response second factor can now be unlocked, via a new optional "YubiKey slot" setting threaded through to keepassxc-cli (issue #350)

@@ -1,3 +1,12 @@
+rustconn (0.22.11-1) unstable; urgency=medium
+  * Version bump to 0.22.11
+  * Fixed: saving, renaming and deleting credentials in a KeePass database
+    protected with a YubiKey Challenge-Response second factor now works; the
+    write path and custom-path reads now pass the configured slot to
+    keepassxc-cli as -y (follow-up to issue #350)
+  * Dependencies: FreeRDP (Flatpak) 3.32.0 -> 3.32.1, a security and
+    regression release (fixes clipboard copy of larger content)
+ -- Anton Isaiev <totoshko88@gmail.com>  Wed, 30 Sep 2026 12:00:00 +0300
 rustconn (0.22.10-1) unstable; urgency=medium
 
   * Version bump to 0.22.10
