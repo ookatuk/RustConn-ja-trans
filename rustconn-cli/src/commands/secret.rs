@@ -4,9 +4,11 @@ use std::path::Path;
 
 use crate::cli::SecretCommands;
 use crate::error::CliError;
+#[cfg(feature = "secret-management")]
 use crate::util::{create_config_manager, find_connection};
 
 /// Creates a `PassBackend` from the current app settings.
+#[cfg(feature = "secret-management")]
 fn create_pass_backend(
     settings: &rustconn_core::config::AppSettings,
 ) -> rustconn_core::secret::PassBackend {
@@ -24,11 +26,14 @@ fn create_pass_backend(
 ///   or the requested operation (get / set / delete / status) fails
 pub fn cmd_secret(config_path: Option<&Path>, subcmd: SecretCommands) -> Result<(), CliError> {
     match subcmd {
+        #[cfg(feature = "secret-management")]
         SecretCommands::Status => cmd_secret_status(config_path),
+        #[cfg(feature = "secret-management")]
         SecretCommands::Get {
             connection,
             backend,
         } => cmd_secret_get(config_path, &connection, backend.as_deref()),
+        #[cfg(feature = "secret-management")]
         SecretCommands::Set {
             connection,
             user,
@@ -43,6 +48,7 @@ pub fn cmd_secret(config_path: Option<&Path>, subcmd: SecretCommands) -> Result<
             password_stdin,
             backend.as_deref(),
         ),
+        #[cfg(feature = "secret-management")]
         SecretCommands::Delete {
             connection,
             backend,
@@ -60,6 +66,7 @@ pub fn cmd_secret(config_path: Option<&Path>, subcmd: SecretCommands) -> Result<
     }
 }
 
+#[cfg(feature = "secret-management")]
 fn cmd_secret_status(config_path: Option<&Path>) -> Result<(), CliError> {
     use rustconn_core::secret::KeePassStatus;
 
@@ -174,6 +181,7 @@ fn cmd_secret_status(config_path: Option<&Path>) -> Result<(), CliError> {
 }
 
 /// Parse backend string into `SecretBackendType`
+#[cfg(feature = "secret-management")]
 fn parse_backend(b: &str) -> Result<rustconn_core::config::SecretBackendType, CliError> {
     use rustconn_core::config::SecretBackendType;
     match b.to_lowercase().as_str() {
@@ -196,6 +204,7 @@ fn parse_backend(b: &str) -> Result<rustconn_core::config::SecretBackendType, Cl
     }
 }
 
+#[cfg(feature = "secret-management")]
 #[expect(
     clippy::too_many_lines,
     reason = "get handler dispatches across every backend kind with backend-specific error \
@@ -516,6 +525,7 @@ fn cmd_secret_get(
     }
 }
 
+#[cfg(feature = "secret-management")]
 #[expect(
     clippy::too_many_lines,
     reason = "set handler dispatches across every backend kind with backend-specific \
@@ -833,6 +843,7 @@ fn cmd_secret_set(
     }
 }
 
+#[cfg(feature = "secret-management")]
 #[expect(
     clippy::too_many_lines,
     reason = "delete handler dispatches across every backend kind; splitting per backend \
@@ -1031,6 +1042,7 @@ fn cmd_secret_delete(
 /// # Errors
 /// Returns [`CliError::Secret`] if no passphrase can be obtained (for example a
 /// non-interactive shell with nothing persisted) or if it does not open the file.
+#[cfg(feature = "secret-management")]
 fn open_portable_backend(
     settings: &rustconn_core::config::SecretSettings,
 ) -> Result<rustconn_core::secret::PortableEncryptedFileBackend, CliError> {
@@ -1121,6 +1133,7 @@ fn open_portable_backend(
 /// Tries the machine-local encrypted copy, then the system keyring under the
 /// same 5-second ceiling the GUI uses, so an unresponsive Secret Service falls
 /// through to the prompt instead of hanging the command.
+#[cfg(feature = "secret-management")]
 fn restore_portable_passphrase(
     settings: &rustconn_core::config::SecretSettings,
 ) -> Option<secrecy::SecretString> {

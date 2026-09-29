@@ -15,6 +15,9 @@ A new optional "YubiKey slot (Challenge-Response)" setting under Settings ▸ Se
 - **The terminal can now paste on right-click instead of showing the context menu (issue [#349](https://github.com/totoshko88/RustConn/issues/349))** — some users expect the xterm/rxvt convention where the secondary mouse button pastes the clipboard directly, rather than opening a menu.
 A new opt-in "Right-click pastes" terminal setting (off by default, so the native context menu — Copy, Paste, Select All, snippets — stays the default) makes a right-click paste the clipboard immediately. The paste still goes through the shared safe-paste path, so a multi-line clipboard is previewed and confirmed exactly as a Ctrl+V paste is, honouring `confirm_multiline_paste`. The menu model and the right-click gesture are mutually exclusive by construction, so the two never fight over the popover.
 
+### Changed
+- **`rustconn-cli secret verify-keepass` is now available in the default CLI build** — it previously lived behind the `secret-management` feature, which also pulls the platform Secret Service / Keychain dependencies (`oo7`, `security-framework`) needed only by the keyring-backed `secret get`/`set`/`delete`/`status` subcommands. Because `verify-keepass` only shells out to `keepassxc-cli` and touches no system keyring, it now rides a new lightweight `keepass-verify` feature that is on by default, so `verify-keepass` (including the YubiKey `--yubikey`/`-y` flag) works out of the box without dragging keyring dependencies into a minimal `cargo install`. The keyring backends stay behind `secret-management` as before, and packaged builds (`.deb`/OBS/Flatpak/snap, which use `full`) are unaffected.
+
 ## [0.22.9] - 2026-09-28
 
 ### Added

@@ -18,7 +18,7 @@ mod monitor;
 mod move_cmd;
 mod pin;
 mod recording;
-#[cfg(feature = "secret-management")]
+#[cfg(any(feature = "secret-management", feature = "keepass-verify"))]
 mod secret;
 mod sftp;
 mod show;
@@ -549,7 +549,7 @@ pub fn dispatch(config_path: Option<&Path>, command: Commands) -> Result<(), Cli
         Commands::Template(subcmd) => template::cmd_template(config_path, subcmd),
         Commands::Cluster(subcmd) => cluster::cmd_cluster(config_path, subcmd),
         Commands::Var(subcmd) => variable::cmd_var(config_path, subcmd),
-        #[cfg(feature = "secret-management")]
+        #[cfg(any(feature = "secret-management", feature = "keepass-verify"))]
         Commands::Secret(subcmd) => secret::cmd_secret(config_path, subcmd),
         Commands::SmartFolder(subcmd) => smart_folder::cmd_smart_folder(config_path, subcmd),
         Commands::DynamicFolder(subcmd) => dynamic_folder::cmd_dynamic_folder(config_path, subcmd),

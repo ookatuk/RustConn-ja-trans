@@ -29,11 +29,16 @@ tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 
 [features]
-default = []
+default = ["keepass-verify"]
 # Minimal/default CLI is headless management: config, CRUD, list/show,
 # import/export, tests, groups, tags, templates, sync metadata, stats, etc.
 client-launch = []
-secret-management = ["rustconn-core/system-keyring"]
+# `secret verify-keepass` only shells out to `keepassxc-cli`; it needs no system
+# keyring, so it rides a lightweight feature that is on by default. The keyring
+# backends (`secret get/set/delete/status`) stay behind `secret-management`,
+# which pulls the platform Secret Service / Keychain deps via `system-keyring`.
+keepass-verify = []
+secret-management = ["keepass-verify", "rustconn-core/system-keyring"]
 desktop-integration = ["client-launch", "secret-management"]
 full = ["desktop-integration"]
 
