@@ -21,7 +21,7 @@ yanked = "warn"
 #   local-client context: no RSA decryption oracle is exposed.
 #   Upgrade path: sspi/picky drop the rsa dependency or rsa ships 0.10 stable.
 #   Mirrored in .cargo/audit.toml so cargo-audit and cargo-deny agree.
-# Last reviewed: 2026-07-29
+# Last reviewed: 2026-09-29
 # Next review: when ironrdp, sspi, or picky releases a new major version.
 #
 # RUSTSEC-2026-0244 (gettext-rs `setlocale` unsound off the main thread) used to
