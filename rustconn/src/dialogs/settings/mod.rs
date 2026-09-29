@@ -89,6 +89,7 @@ pub struct SettingsDialog {
     audible_bell_check: adw::SwitchRow,
     sftp_use_mc_check: adw::SwitchRow,
     copy_on_select_check: adw::SwitchRow,
+    right_click_pastes_check: adw::SwitchRow,
     show_scrollbar_check: adw::SwitchRow,
     local_shell_command_entry: Entry,
     close_on_clean_exit_check: adw::SwitchRow,
@@ -232,6 +233,7 @@ impl SettingsDialog {
             audible_bell_check,
             sftp_use_mc_check,
             copy_on_select_check,
+            right_click_pastes_check,
             show_scrollbar_check,
             local_shell_command_entry,
             close_on_clean_exit_check,
@@ -690,6 +692,7 @@ impl SettingsDialog {
             audible_bell_check,
             sftp_use_mc_check,
             copy_on_select_check,
+            right_click_pastes_check,
             show_scrollbar_check,
             local_shell_command_entry,
             close_on_clean_exit_check,
@@ -1178,6 +1181,7 @@ impl SettingsDialog {
             &self.audible_bell_check,
             &self.sftp_use_mc_check,
             &self.copy_on_select_check,
+            &self.right_click_pastes_check,
             &self.show_scrollbar_check,
             &self.local_shell_command_entry,
             &self.close_on_clean_exit_check,
@@ -1325,6 +1329,7 @@ impl SettingsDialog {
         let audible_bell_check_clone = self.audible_bell_check.clone();
         let sftp_use_mc_check_clone = self.sftp_use_mc_check.clone();
         let copy_on_select_check_clone = self.copy_on_select_check.clone();
+        let right_click_pastes_check_clone = self.right_click_pastes_check.clone();
         let show_scrollbar_check_clone = self.show_scrollbar_check.clone();
         let local_shell_command_entry_clone = self.local_shell_command_entry.clone();
         let close_on_clean_exit_check_clone = self.close_on_clean_exit_check.clone();
@@ -1350,6 +1355,7 @@ impl SettingsDialog {
         let kdbx_key_file_entry_clone = self.secrets_widgets.kdbx_key_file_entry.clone();
         let kdbx_use_key_file_check_clone = self.secrets_widgets.kdbx_use_key_file_check.clone();
         let kdbx_use_password_check_clone = self.secrets_widgets.kdbx_use_password_check.clone();
+        let kdbx_yubikey_slot_entry_clone = self.secrets_widgets.kdbx_yubikey_slot_entry.clone();
         let bitwarden_password_entry_clone = self.secrets_widgets.bitwarden_password_entry.clone();
         let bitwarden_storage_combo_clone = self.secrets_widgets.bitwarden_storage_combo.clone();
         let bitwarden_use_api_key_check_clone =
@@ -1469,6 +1475,7 @@ impl SettingsDialog {
                 &audible_bell_check_clone,
                 &sftp_use_mc_check_clone,
                 &copy_on_select_check_clone,
+                &right_click_pastes_check_clone,
                 &show_scrollbar_check_clone,
                 &local_shell_command_entry_clone,
                 &close_on_clean_exit_check_clone,
@@ -1508,6 +1515,7 @@ impl SettingsDialog {
                 kdbx_key_file_browse_button: Button::new(), // dummy
                 kdbx_use_key_file_check: kdbx_use_key_file_check_clone.clone(),
                 kdbx_use_password_check: kdbx_use_password_check_clone.clone(),
+                kdbx_yubikey_slot_entry: kdbx_yubikey_slot_entry_clone.clone(),
                 kdbx_group: adw::PreferencesGroup::new(), // dummy
                 auth_group: adw::PreferencesGroup::new(), // dummy
                 status_group: adw::PreferencesGroup::new(), // dummy

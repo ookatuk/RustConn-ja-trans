@@ -571,6 +571,10 @@ impl MainWindow {
                             .try_borrow()
                             .ok()
                             .and_then(|s| s.settings().secrets.kdbx_key_file.clone());
+                        let yubikey_slot = state_clone
+                            .try_borrow()
+                            .ok()
+                            .and_then(|s| s.settings().secrets.kdbx_yubikey_slot.clone());
 
                         {
                             let state_unlock = state_clone.clone();
@@ -585,6 +589,7 @@ impl MainWindow {
                                 notebook_clone.widget(),
                                 &kdbx_path,
                                 key_file.as_deref(),
+                                yubikey_slot.as_deref(),
                                 move |response| {
                                     match response {
                                         crate::dialogs::KdbxUnlockResponse::Unlocked { password } => {

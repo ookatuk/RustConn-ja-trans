@@ -1909,6 +1909,12 @@ pub enum SecretCommands {
         /// Path to key file (optional)
         #[arg(short, long)]
         key_file: Option<PathBuf>,
+
+        /// YubiKey Challenge-Response slot for unlocking, as `slot[:serial]`
+        /// (e.g. `2` or `2:12345678`). Composes with a password and/or key file.
+        /// Touch the key when it blinks.
+        #[arg(short = 'y', long)]
+        yubikey: Option<String>,
     },
 }
 

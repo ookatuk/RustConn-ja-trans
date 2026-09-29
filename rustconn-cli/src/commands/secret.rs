@@ -47,9 +47,16 @@ pub fn cmd_secret(config_path: Option<&Path>, subcmd: SecretCommands) -> Result<
             connection,
             backend,
         } => cmd_secret_delete(config_path, &connection, backend.as_deref()),
-        SecretCommands::VerifyKeepass { database, key_file } => {
-            cmd_secret_verify_keepass(config_path, &database, key_file.as_deref())
-        }
+        SecretCommands::VerifyKeepass {
+            database,
+            key_file,
+            yubikey,
+        } => cmd_secret_verify_keepass(
+            config_path,
+            &database,
+            key_file.as_deref(),
+            yubikey.as_deref(),
+        ),
     }
 }
 
@@ -289,6 +296,7 @@ fn cmd_secret_get(
                 key_file,
                 &keepass_key,
                 Some(connection.protocol.as_str()),
+                settings.secrets.kdbx_yubikey_slot.as_deref(),
             );
 
             match result {
@@ -1148,12 +1156,19 @@ fn cmd_secret_verify_keepass(
     _config_path: Option<&Path>,
     database: &Path,
     key_file: Option<&Path>,
+    yubikey: Option<&str>,
 ) -> Result<(), CliError> {
     use rustconn_core::secret::KeePassStatus;
 
     KeePassStatus::validate_kdbx_path(database)
         .map_err(|e| CliError::Secret(format!("Invalid database: {e}")))?;
 
+    if yubikey.is_some() {
+        println!("Touch your YubiKey when it blinks…");
+    }
+
+    // A YubiKey slot alone (no key file) still authenticates the database, so a
+    // key-file-less run is only password-only when there is also no YubiKey.
     if let Some(kf) = key_file {
         if !kf.exists() {
             return Err(CliError::Secret(format!(
@@ -1162,7 +1177,7 @@ fn cmd_secret_verify_keepass(
             )));
         }
 
-        KeePassStatus::verify_kdbx_credentials(database, None, Some(kf))
+        KeePassStatus::verify_kdbx_credentials(database, None, Some(kf), yubikey)
             .map_err(|e| CliError::Secret(format!("Verification failed: {e}")))?;
 
         println!(
@@ -1171,13 +1186,21 @@ fn cmd_secret_verify_keepass(
         );
         println!("  Database: {}", database.display());
         println!("  Key file: {}", kf.display());
+    } else if yubikey.is_some() {
+        // YubiKey-only (no key file): try without a password first; the slot is
+        // the second (or only) factor.
+        KeePassStatus::verify_kdbx_credentials(database, None, None, yubikey)
+            .map_err(|e| CliError::Secret(format!("Verification failed: {e}")))?;
+
+        println!("✓ KeePass database verified successfully (using YubiKey)");
+        println!("  Database: {}", database.display());
     } else {
         eprint!("Enter database password: ");
         let password = rpassword::read_password()
             .map_err(|e| CliError::Secret(format!("Failed to read password: {e}")))?;
         let password = secrecy::SecretString::from(password);
 
-        KeePassStatus::verify_kdbx_credentials(database, Some(&password), None)
+        KeePassStatus::verify_kdbx_credentials(database, Some(&password), None, yubikey)
             .map_err(|e| CliError::Secret(format!("Verification failed: {e}")))?;
 
         println!("✓ KeePass database verified successfully");

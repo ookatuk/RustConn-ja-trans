@@ -31,6 +31,7 @@ pub fn create_terminal_page() -> (
     adw::SwitchRow,
     adw::SwitchRow, // sftp_use_mc
     adw::SwitchRow, // copy_on_select
+    adw::SwitchRow, // right_click_pastes
     adw::SwitchRow, // show_scrollbar
     Entry,          // local_shell_command
     adw::SwitchRow, // close_on_clean_exit
@@ -442,6 +443,15 @@ pub fn create_terminal_page() -> (
         .build();
     behavior_group.add(&copy_on_select_row);
 
+    // Right-click pastes (xterm-style, opt-in; issue #349)
+    let right_click_pastes_row = adw::SwitchRow::builder()
+        .title(i18n("Right-click pastes"))
+        .subtitle(i18n(
+            "Paste the clipboard on right-click instead of showing the menu",
+        ))
+        .build();
+    behavior_group.add(&right_click_pastes_row);
+
     // Close tab on clean exit
     let close_on_clean_exit_row = adw::SwitchRow::builder()
         .title(i18n("Close tab on clean exit"))
@@ -501,6 +511,7 @@ pub fn create_terminal_page() -> (
         audible_bell_row,
         sftp_use_mc_row,
         copy_on_select_row,
+        right_click_pastes_row,
         show_scrollbar_row,
         local_shell_command_entry,
         close_on_clean_exit_row,
@@ -528,6 +539,7 @@ pub fn load_terminal_settings(
     audible_bell_row: &adw::SwitchRow,
     sftp_use_mc_row: &adw::SwitchRow,
     copy_on_select_row: &adw::SwitchRow,
+    right_click_pastes_row: &adw::SwitchRow,
     show_scrollbar_row: &adw::SwitchRow,
     local_shell_command_entry: &Entry,
     close_on_clean_exit_row: &adw::SwitchRow,
@@ -573,6 +585,7 @@ pub fn load_terminal_settings(
     audible_bell_row.set_active(settings.audible_bell);
     sftp_use_mc_row.set_active(settings.sftp_use_mc);
     copy_on_select_row.set_active(settings.copy_on_select);
+    right_click_pastes_row.set_active(settings.right_click_pastes);
     show_scrollbar_row.set_active(settings.show_scrollbar);
     local_shell_command_entry.set_text(&settings.local_shell_command);
     close_on_clean_exit_row.set_active(settings.close_on_clean_exit);
@@ -677,6 +690,7 @@ pub fn collect_terminal_settings(
     audible_bell_row: &adw::SwitchRow,
     sftp_use_mc_row: &adw::SwitchRow,
     copy_on_select_row: &adw::SwitchRow,
+    right_click_pastes_row: &adw::SwitchRow,
     show_scrollbar_row: &adw::SwitchRow,
     local_shell_command_entry: &Entry,
     close_on_clean_exit_row: &adw::SwitchRow,
@@ -730,6 +744,7 @@ pub fn collect_terminal_settings(
         log_timestamps,
         sftp_use_mc: sftp_use_mc_row.is_active(),
         copy_on_select: copy_on_select_row.is_active(),
+        right_click_pastes: right_click_pastes_row.is_active(),
         show_scrollbar: show_scrollbar_row.is_active(),
         local_shell_command: local_shell_command_entry.text().trim().to_string(),
         keep_history_on_reconnect: keep_history_on_reconnect_row.is_active(),

@@ -1293,6 +1293,7 @@ impl AppState {
                 key_file,
                 &lookup_key,
                 None,
+                secret_settings.kdbx_yubikey_slot.as_deref(),
             ) {
                 Ok(Some(password)) => {
                     tracing::debug!("[resolve_credentials_blocking] Found password in KeePass");
@@ -1586,6 +1587,7 @@ impl AppState {
                         key_file,
                         &group_name,
                         None,
+                        secret_settings.kdbx_yubikey_slot.as_deref(),
                     ) {
                         Ok(Some(password)) => {
                             tracing::debug!(

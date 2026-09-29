@@ -214,7 +214,13 @@ impl TerminalNotebook {
 
         // Right-click context menu actions installed on the terminal widget
         // so they follow it when reparented between TabView and split view.
-        config::setup_context_menu(&terminal, &self.snippet_menu_section);
+        // When `right_click_pastes` is enabled (#349) this installs a paste
+        // gesture instead of the native menu.
+        config::setup_context_menu(
+            &terminal,
+            &self.snippet_menu_section,
+            settings.right_click_pastes,
+        );
 
         // Drag-and-drop: insert shell-escaped file paths when files are
         // dragged from a file manager onto the terminal (GNOME Terminal behavior).

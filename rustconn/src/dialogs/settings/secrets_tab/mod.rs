@@ -162,6 +162,9 @@ pub struct SecretsPageWidgets {
     pub kdbx_key_file_browse_button: Button,
     pub kdbx_use_key_file_check: adw::SwitchRow,
     pub kdbx_use_password_check: adw::SwitchRow,
+    /// `YubiKey` Challenge-Response slot input (`slot[:serial]`). Empty means no
+    /// hardware second factor.
+    pub kdbx_yubikey_slot_entry: adw::EntryRow,
     // Additional rows for visibility control
     pub kdbx_group: adw::PreferencesGroup,
     pub auth_group: adw::PreferencesGroup,
@@ -2233,6 +2236,18 @@ pub fn create_secrets_page() -> SecretsPageWidgets {
     key_file_row.add_suffix(&key_file_box);
     auth_group.add(&key_file_row);
 
+    // YubiKey Challenge-Response slot. Optional second factor composed with the
+    // password and/or key file; empty means no hardware key. Not a secret (a
+    // slot number identifies the key, it does not authenticate as it), so a
+    // plain EntryRow rather than a PasswordEntryRow.
+    let kdbx_yubikey_slot_entry = adw::EntryRow::builder()
+        .title(i18n("YubiKey slot (Challenge-Response)"))
+        .build();
+    kdbx_yubikey_slot_entry.set_tooltip_text(Some(&i18n(
+        "YubiKey Challenge-Response slot for unlocking, as slot or slot:serial (e.g. 2 or 2:12345678). Touch the key when it blinks.",
+    )));
+    auth_group.add(&kdbx_yubikey_slot_entry);
+
     page.add(&auth_group);
 
     // === Status Group ===
@@ -2589,6 +2604,7 @@ pub fn create_secrets_page() -> SecretsPageWidgets {
     let kdbx_key_file_entry_check = kdbx_key_file_entry.clone();
     let kdbx_use_password_check_clone = kdbx_use_password_check.clone();
     let kdbx_use_key_file_check_clone = kdbx_use_key_file_check.clone();
+    let kdbx_yubikey_slot_entry_check = kdbx_yubikey_slot_entry.clone();
     let kdbx_status_label_check = kdbx_status_label.clone();
     kdbx_check_button.connect_clicked(move |_| {
         let path_text = kdbx_path_entry_check.text();
@@ -2625,7 +2641,23 @@ pub fn create_secrets_page() -> SecretsPageWidgets {
             None
         };
 
-        update_status_label(&kdbx_status_label_check, &i18n("Checking…"), "dim-label");
+        // A blank slot means no hardware second factor.
+        let yubikey_slot = {
+            let slot = kdbx_yubikey_slot_entry_check.text();
+            let trimmed = slot.trim();
+            if trimmed.is_empty() {
+                None
+            } else {
+                Some(trimmed.to_string())
+            }
+        };
+
+        let checking_message = if yubikey_slot.is_some() {
+            i18n("Checking… touch your YubiKey when it blinks")
+        } else {
+            i18n("Checking…")
+        };
+        update_status_label(&kdbx_status_label_check, &checking_message, "dim-label");
 
         // Run verification asynchronously to avoid blocking the GTK main loop
         // (KDBX key derivation with argon2 can take seconds).
@@ -2637,6 +2669,7 @@ pub fn create_secrets_page() -> SecretsPageWidgets {
                     &kdbx_path,
                     password_secret.as_ref(),
                     key_file.as_deref(),
+                    yubikey_slot.as_deref(),
                 )
             })
             .await;
@@ -2873,6 +2906,7 @@ pub fn create_secrets_page() -> SecretsPageWidgets {
         kdbx_key_file_browse_button,
         kdbx_use_key_file_check,
         kdbx_use_password_check,
+        kdbx_yubikey_slot_entry,
         kdbx_group,
         auth_group,
         status_group,
@@ -2979,6 +3013,10 @@ pub fn load_secret_settings(widgets: &SecretsPageWidgets, settings: &SecretSetti
         widgets
             .kdbx_key_file_entry
             .set_text(&key_file.display().to_string());
+    }
+
+    if let Some(slot) = &settings.kdbx_yubikey_slot {
+        widgets.kdbx_yubikey_slot_entry.set_text(slot);
     }
 
     widgets
@@ -3420,6 +3458,18 @@ pub fn collect_secret_settings(
         .then(|| expand_user_path(widgets.kdbx_key_file_entry.text().as_str()))
         .flatten();
 
+    // YubiKey slot is independent of the password/key-file switches — it is a
+    // second factor that composes with either. A blank entry means none.
+    let kdbx_yubikey_slot = {
+        let slot = widgets.kdbx_yubikey_slot_entry.text();
+        let trimmed = slot.trim();
+        if trimmed.is_empty() {
+            None
+        } else {
+            Some(trimmed.to_string())
+        }
+    };
+
     let (kdbx_password, kdbx_password_encrypted) = {
         let storage = storage_combo_value(&widgets.kdbx_storage_combo);
         match storage {
@@ -3784,6 +3834,7 @@ pub fn collect_secret_settings(
         kdbx_key_file,
         kdbx_use_key_file,
         kdbx_use_password,
+        kdbx_yubikey_slot,
         bitwarden_password,
         bitwarden_password_encrypted,
         bitwarden_use_api_key,

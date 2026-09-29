@@ -619,6 +619,7 @@ pub fn show_new_group_dialog_with_parent(
                 };
                 let db_password = settings.secrets.kdbx_password.clone();
                 let key_file = settings.secrets.kdbx_key_file.clone();
+                let yubikey_slot = settings.secrets.kdbx_yubikey_slot.clone();
                 // Entry NAME without the `RustConn/` root — the read helper adds
                 // it back. A leading `RustConn/` here produced the doubled
                 // `RustConn/RustConn/Groups/…` lookup of issue #327.
@@ -633,6 +634,7 @@ pub fn show_new_group_dialog_with_parent(
                             key_file_path,
                             &entry_name,
                             None,
+                            yubikey_slot.as_deref(),
                         )
                     },
                     move |result: rustconn_core::error::SecretResult<
