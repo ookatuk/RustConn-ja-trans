@@ -146,6 +146,7 @@
         <ul>
           <li>Added: KeePass databases protected with a YubiKey Challenge-Response second factor can now be unlocked, via a new optional "YubiKey slot" setting threaded through to keepassxc-cli (issue #350)</li>
           <li>Added: the terminal can now paste on right-click instead of showing the context menu, an opt-in setting that still routes through the safe multi-line paste guard (issue #349)</li>
+          <li>Fixed: traced the embedded RDP GFX/AVC420 artifacts to an upstream ironrdp-egfx decoder bug; RustConn inherits it correctly and needs no local change, and a fix has been submitted upstream (issue #262)</li>
         </ul>
       </description>
     </release>

@@ -8,6 +8,10 @@ Tue Sep 29 2026 Anton Isaiev <totoshko88@gmail.com> - 0.22.10
 - Added: the terminal can now paste on right-click instead of showing the
   context menu, an opt-in setting that still routes through the safe multi-line
   paste guard (issue #349)
+- Fixed: traced the embedded RDP artifacts in GFX/AVC420 mode to an upstream
+  ironrdp-egfx bug (its AVC420 decoder ignores regionRects and copies partial
+  updates from the frame origin); RustConn inherits it correctly and needs no
+  local change, a fix has been submitted upstream (issue #262)
 
 -------------------------------------------------------------------
 Mon Sep 28 2026 Anton Isaiev <totoshko88@gmail.com> - 0.22.9
