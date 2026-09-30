@@ -19,6 +19,8 @@ IronRDP already supports Kerberos for CredSSP, but RustConn hard-coded `None` fo
 
 - **Saving a credential into a nested KeePass group no longer reports success when a parent group could not be created** — `ensure_parent_groups` in `secret/status.rs`, which walks a path like `Groups/Production/Web` and `mkdir`s each level via `keepassxc-cli`, only logged intermediate `mkdir` failures at `debug!` and always returned `Ok(())`. If a level failed (or the CLI wait errored), the subsequent `add` targeted a group that was never created, so the save appeared to succeed while the nested groups silently never appeared. It now treats success and "already exists" as fine but returns an error for any other outcome (including a `mkdir` that did not complete), so a genuine failure surfaces to the caller instead of being swallowed.
 
+- **Restoring settings from a backup archive now writes each file atomically** — `ConfigManager::restore_from_archive` unpacked each config file with a bare `fs::write`, unlike every other config write which goes through the atomic temp-file + fsync + rename path (`write_locked`) with owner-only (`0600`) permissions. A restore interrupted mid-write (crash, power loss) could therefore leave a half-written config on disk, and the restored files skipped the permission tightening. Since the backup files are all RustConn's own TOML (text), the restore now decodes each entry as UTF-8 and routes it through `write_locked`, so a restore has the same crash-safety and permissions as a normal save. Covered by a new backup/restore round-trip test.
+
 ## [0.22.11] - 2026-09-30
 
 ### Fixed
