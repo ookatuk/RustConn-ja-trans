@@ -26,6 +26,9 @@ IronRDP already supports Kerberos for CredSSP, but RustConn hard-coded `None` fo
 ### Changed
 - **The embedded RDP client's `smartcard_enabled` and `microphone_enabled` config fields are now documented as reserved/not-yet-implemented** — both were settable but had no effect: the embedded IronRDP client has no smart-card (scard) or audio-input (audin) virtual channel (`handle_scard_call` is a no-op), and neither field is surfaced in the GUI. Rather than remove them (which would change the config's serialized shape), their doc comments and the unused `with_smartcard` builder now state clearly that they are reserved and have no effect on the embedded client, so nobody mistakes them for working features. This is documentation only — no behaviour change. (FIDO2 passkey redirection, by contrast, is genuinely wired for the External FreeRDP-3.x client via the `/fido` flag and needs no change.)
 
+### Documentation
+- **Removed a reference to a non-existent `search_parallel` API and corrected the `PropertyType::Url` doc** — the `search` module's performance notes advised "consider using `search_parallel` for multi-threaded search", but no such function exists (only `SearchCache` and `DebouncedSearchEngine`, which do); the misleading bullet is removed. Separately, `PropertyType::Url`'s doc claimed the value "can be rendered as a clickable link", but a URL custom property is currently displayed and edited exactly like `Text` — the doc now describes it accurately as a semantic type tag that is not yet rendered clickable.
+
 ## [0.22.11] - 2026-09-30
 
 ### Fixed
