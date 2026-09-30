@@ -8,7 +8,7 @@ msgstr ""
 "Project-Id-Version: rustconn 0.22.8\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-09-30 13:55+0900\n"
-"PO-Revision-Date: 2026-09-30 15:11+0900\n"
+"PO-Revision-Date: 2026-09-30 15:37+0900\n"
 "Last-Translator: ookatu <okatuhumi@gmail.com>\n"
 "Language-Team: Japanese\n"
 "Language: ja\n"
@@ -765,7 +765,7 @@ msgid ""
 "placeholders resolved at connection time"
 msgstr ""
 "レスポンスは ${password}, ${username}, ${VARIABLE_NAME} などのプレースホル"
-"ダーの接続時解決をサポートしています。"
+"ダーは接続時解決されます。"
 
 #: rustconn/src/dialogs/connection/automation_tab.rs:117
 #: rustconn/src/window/edit_group.rs:1166
@@ -1065,7 +1065,7 @@ msgstr "ローカル変数"
 
 #: rustconn/src/dialogs/connection/data_tab.rs:37
 msgid "Use ${variable_name} syntax in connection fields"
-msgstr "${variable_name} 構文を接続フィールドで使用してください。"
+msgstr "${variable_name} 構文で接続フィールドなどで利用できます。"
 
 #: rustconn/src/dialogs/connection/data_tab.rs:50
 msgid "No variables defined"
@@ -1082,7 +1082,7 @@ msgstr "カスタムプロパティー"
 
 #: rustconn/src/dialogs/connection/data_tab.rs:71
 msgid "Text, URL (clickable), or Protected (masked) metadata"
-msgstr "文字列, クリック可能なURL, 保護(やマスク)されたメタデータ"
+msgstr "文字列, クリック可能なURL, 保護(やマスク)されたメタデータなど"
 
 #: rustconn/src/dialogs/connection/data_tab.rs:85
 msgid "No custom properties"
@@ -3000,88 +3000,88 @@ msgstr "TLSで接続を暗号化"
 
 #: rustconn/src/dialogs/connection/spice.rs:83
 msgid "Path to CA certificate"
-msgstr ""
+msgstr "CA証明書へのパス"
 
 #: rustconn/src/dialogs/connection/spice.rs:87
 msgid "Browse for certificate"
-msgstr ""
+msgstr "証明書の参照"
 
 #: rustconn/src/dialogs/connection/spice.rs:90
 msgid "Browse for CA certificate file"
-msgstr ""
+msgstr "CA証明書ファイルを参照"
 
 #: rustconn/src/dialogs/connection/spice.rs:96
 #: rustconn/src/dialogs/template.rs:1199
 msgid "CA Certificate"
-msgstr ""
+msgstr "CA証明書"
 
 #: rustconn/src/dialogs/connection/spice.rs:97
 msgid "Certificate authority for TLS verification"
-msgstr ""
+msgstr "TLS検証用の認証局の証明書"
 
 #: rustconn/src/dialogs/connection/spice.rs:108
 msgid "Select CA Certificate"
-msgstr ""
+msgstr "CA証明書を選択"
 
 #: rustconn/src/dialogs/connection/spice.rs:141
 msgid "File not found"
-msgstr ""
+msgstr "ファイルが見つかりません"
 
 #: rustconn/src/dialogs/connection/spice.rs:148
 msgid "Skip Verification"
-msgstr ""
+msgstr "認証をスキップ"
 
 #: rustconn/src/dialogs/connection/spice.rs:149
 msgid "Disable certificate verification (insecure)"
-msgstr ""
+msgstr "証明書の認証をスキップ ()"
 
 #: rustconn/src/dialogs/connection/spice.rs:163
 #: rustconn/src/dialogs/template.rs:1234
 msgid "USB Redirection"
-msgstr ""
+msgstr "USBリダイレクト"
 
 #: rustconn/src/dialogs/connection/spice.rs:164
 msgid "Forward USB devices to remote"
-msgstr ""
+msgstr "USBデバイスをリモートに転送"
 
 #: rustconn/src/dialogs/connection/spice.rs:179
 #: rustconn/src/dialogs/connection/vnc.rs:131
 #: rustconn/src/dialogs/snippet.rs:236 rustconn/src/dialogs/template.rs:1256
 #: rustconn/src/embedded_rdp/mod.rs:407
 msgid "Auto"
-msgstr ""
+msgstr "自動"
 
 #: rustconn/src/dialogs/connection/spice.rs:180
 #: rustconn/src/dialogs/settings/terminal_tab.rs:279
 #: rustconn/src/dialogs/settings/terminal_tab.rs:312
 #: rustconn/src/dialogs/template.rs:1257 rustconn/src/i18n_markers.rs:115
 msgid "Off"
-msgstr ""
+msgstr "オフ"
 
 #: rustconn/src/dialogs/connection/spice.rs:192
 #: rustconn/src/dialogs/template.rs:1269
 msgid "Image Compression"
-msgstr ""
+msgstr "画像圧縮"
 
 #: rustconn/src/dialogs/connection/spice.rs:193
 msgid "Algorithm for image data"
-msgstr ""
+msgstr "画像データ用アルゴリズム"
 
 #: rustconn/src/dialogs/connection/spice.rs:202
 msgid "http://proxy:3128"
-msgstr ""
+msgstr "http://proxy:3128"
 
 #: rustconn/src/dialogs/connection/spice.rs:205
 msgid "SPICE Proxy"
-msgstr ""
+msgstr "SPICE用プロキシー"
 
 #: rustconn/src/dialogs/connection/spice.rs:207
 msgid "Proxy URL for tunnelled connections (e.g. Proxmox VE)"
-msgstr ""
+msgstr "トンネル接続用のプロキシURL（例: Proxmox VE）"
 
 #: rustconn/src/dialogs/connection/spice.rs:304
 msgid "Unix Socket"
-msgstr ""
+msgstr "Unixソケット"
 
 #: rustconn/src/dialogs/connection/spice.rs:305
 msgid "Connect via local unix socket instead of network"
