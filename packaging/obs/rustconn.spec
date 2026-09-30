@@ -6,7 +6,7 @@
 #
 
 Name:           rustconn
-Version:        0.22.11
+Version:        0.22.12
 Release:        0
 # rpmlint caps Summary at 79 characters (summary-too-long, badness 200); the
 # protocol list belongs in %description, which has room for all of it. Kept in
@@ -389,6 +389,17 @@ done
 %{_datadir}/icons/hicolor/*/apps/io.github.totoshko88.RustConn.*
 
 %changelog
+* Wed Sep 30 2026 Anton Isaiev <totoshko88@gmail.com> - 0.22.12-0
+- Version bump to 0.22.12
+- Added: RDP can now authenticate NLA with Kerberos instead of NTLM, an opt-in per-connection switch for the embedded client; required for AD "Protected Users" hosts that disable NTLM domain-wide (issue #351)
+- Fixed: a SPICE connection's saved proxy URL and shared folders now reach remote-viewer; the launch mapping previously dropped both fields
+- Security: CLI-tool downloads (kubectl, tsh, tailscale, boundary, hoop) now all pass through the same checksum policy instead of writing unverified binaries; the "all downloads verified" claim is corrected
+- Security: saving a credential into a nested KeePass group no longer reports success when a parent group could not be created
+- Security: restoring settings from a backup archive now writes each file atomically (temp file + fsync + rename, 0600) like every other config write
+- Security: Asbru-CM export no longer writes unusable entries for SPICE, Serial and other unsupported protocols; it skips them with a warning
+- Changed: the embedded RDP smartcard_enabled/microphone_enabled config fields are now documented as reserved/not-yet-implemented (no-op)
+- Dependencies: yoke-derive 0.8.3 -> 0.8.4 (0.8.3 was yanked from crates.io)
+
 * Wed Sep 30 2026 Anton Isaiev <totoshko88@gmail.com> - 0.22.11-0
 - Version bump to 0.22.11
 - Fixed: saving, renaming and deleting credentials in a KeePass database protected with a YubiKey Challenge-Response second factor now works; the write path and custom-path reads now pass the configured slot to keepassxc-cli as -y (follow-up to issue #350)
