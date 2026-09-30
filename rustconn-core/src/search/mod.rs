@@ -15,8 +15,6 @@
 //!   during rapid user input (e.g., typing in a search box)
 //! - **Optimized Fuzzy Matching**: The fuzzy matching algorithm uses early termination
 //!   and avoids unnecessary allocations
-//! - **Parallel Search**: For large datasets (100+ connections), consider using
-//!   `search_parallel` for multi-threaded search
 
 // cast_possible_truncation, cast_precision_loss, unused_self allowed at workspace level
 #![allow(

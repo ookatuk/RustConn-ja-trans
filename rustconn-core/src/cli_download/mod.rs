@@ -7,8 +7,15 @@
 //!
 //! ## Security
 //!
-//! All downloads are verified using SHA256 checksums to prevent MITM attacks.
-//! Components without checksums will fail to install.
+//! Downloads are checked against a per-component [`ChecksumPolicy`]:
+//! components with a stable release URL pin a `Static` SHA256 and fail to
+//! install on mismatch, while components fetched from a "latest" URL (which has
+//! no stable published hash to pin against) use `SkipLatest` — the download
+//! proceeds over HTTPS but is **not** integrity-verified, and the skip is
+//! logged with a warning and surfaced in the UI. A component marked `None` is
+//! not downloadable at all. Every install path — the generic installer, the
+//! cloud installers and the custom installers — funnels its downloaded bytes
+//! through the same policy check.
 
 mod components;
 mod detection;

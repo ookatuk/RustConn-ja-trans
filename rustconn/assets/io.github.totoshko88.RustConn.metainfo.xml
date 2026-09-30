@@ -140,6 +140,19 @@
     <control>touch</control>
   </supports>
   <releases>
+    <release version="0.22.12" date="2026-10-01">
+      <description>
+        <p>Version 0.22.12 - Kerberos RDP authentication, SPICE launch fixes and download-integrity hardening:</p>
+        <ul>
+          <li>Added: RDP can now authenticate NLA with Kerberos instead of NTLM, an opt-in per-connection switch for the embedded client; required for Active Directory "Protected Users" hosts that disable NTLM domain-wide (issue #351)</li>
+          <li>Fixed: a SPICE connection's saved proxy URL and shared folders now reach remote-viewer; the launch mapping previously dropped both fields</li>
+          <li>Security: CLI-tool downloads now all pass through the same checksum policy instead of writing unverified binaries, and the module's "all downloads verified" claim is corrected</li>
+          <li>Security: saving a credential into a nested KeePass group no longer reports success when a parent group could not be created</li>
+          <li>Security: restoring settings from a backup archive now writes each file atomically, matching every other config write</li>
+          <li>Security: Asbru-CM export no longer writes unusable entries for SPICE, Serial and other unsupported protocols; it skips them with a warning</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.22.11" date="2026-09-30">
       <description>
         <p>Version 0.22.11 - saving credentials to a YubiKey-protected KeePass database:</p>

@@ -680,6 +680,58 @@ pub(super) async fn establish_connection(
         // Create network client for Kerberos/AAD authentication
         let mut network_client = ReqwestNetworkClient::new();
 
+        // Kerberos NLA configuration (issue #351). Off unless the profile opts
+        // in AND NLA is on — with NLA disabled there is no CredSSP exchange to
+        // negotiate. When set, IronRDP's SSPI layer attempts Kerberos and falls
+        // back to NTLM if the server/local krb5 setup does not permit it, which
+        // is what an AD "Protected Users" host (NTLM disabled) needs.
+        //
+        // `hostname` is the local client computer name the KDC sees; an optional
+        // KDC proxy URL routes the ticket exchange over MS-KKDCP when port 88 is
+        // not directly reachable (typical behind an RD Gateway). A malformed URL
+        // is logged and dropped rather than aborting the connection — falling
+        // through to direct-KDC Kerberos is strictly better than refusing to
+        // connect over a typo.
+        let kerberos_config = if config.nla_enabled && config.kerberos_enabled {
+            let client_hostname = hostname::get().map_or_else(
+                |_| "RustConn".to_string(),
+                |h| h.to_string_lossy().into_owned(),
+            );
+            match ironrdp::connector::credssp::KerberosConfig::new(
+                config.kdc_proxy_url.clone(),
+                client_hostname,
+            ) {
+                Ok(krb) => {
+                    tracing::info!(
+                        protocol = "rdp",
+                        host = %config.host,
+                        kdc_proxy = ?config.kdc_proxy_url,
+                        "Kerberos NLA enabled — negotiating Kerberos (NTLM fallback)"
+                    );
+                    Some(krb)
+                }
+                Err(e) => {
+                    tracing::warn!(
+                        protocol = "rdp",
+                        host = %config.host,
+                        error = %e,
+                        "Invalid KDC proxy URL — continuing with direct-KDC Kerberos"
+                    );
+                    // Retry with no proxy URL; `new` only fails on URL parsing.
+                    ironrdp::connector::credssp::KerberosConfig::new(
+                        None,
+                        hostname::get().map_or_else(
+                            |_| "RustConn".to_string(),
+                            |h| h.to_string_lossy().into_owned(),
+                        ),
+                    )
+                    .ok()
+                }
+            }
+        } else {
+            None
+        };
+
         // Log connection parameters for debugging
         tracing::debug!(
             "IronRDP connect_finalize: host={}, nla={}, has_username={}, has_password={}",
@@ -704,7 +756,7 @@ pub(super) async fn establish_connection(
             &mut network_client,
             ServerName::new(&config.host),
             server_public_key,
-            None, // No Kerberos config
+            kerberos_config,
         ));
 
         let connection_result = match futures::FutureExt::catch_unwind(finalize_future).await {

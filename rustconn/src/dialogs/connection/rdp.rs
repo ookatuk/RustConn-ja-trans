@@ -60,6 +60,7 @@ pub(super) fn create_rdp_options() -> (
     adw::SwitchRow,
     adw::SwitchRow,
     adw::SwitchRow,
+    adw::SwitchRow,
     DropDown,
     Rc<RefCell<Vec<SharedFolder>>>,
     gtk4::ListBox,
@@ -471,6 +472,18 @@ pub(super) fn create_rdp_options() -> (
         .build();
     features_group.add(&rdp_fido2_check);
 
+    // Kerberos authentication for NLA (issue #351). Needed for AD "Protected
+    // Users" hosts, which disable NTLM domain-wide. Embedded client only;
+    // requires a working local krb5 setup (a TGT via `kinit`).
+    let rdp_kerberos_check = adw::SwitchRow::builder()
+        .title(i18n("Kerberos Authentication"))
+        .subtitle(i18n(
+            "Use Kerberos for NLA instead of NTLM (Embedded client). Required for AD \"Protected Users\"; needs a valid Kerberos ticket (kinit)",
+        ))
+        .active(false)
+        .build();
+    features_group.add(&rdp_kerberos_check);
+
     // Disable NLA
     let disable_nla_check = adw::SwitchRow::builder()
         .title(i18n("Disable NLA"))
@@ -869,6 +882,7 @@ pub(super) fn create_rdp_options() -> (
         rdp_reconnect_on_resize_check,
         rdp_mptcp_check,
         rdp_fido2_check,
+        rdp_kerberos_check,
         rdp_jump_host_dropdown,
         shared_folders,
         folders_list,

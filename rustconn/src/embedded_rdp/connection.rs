@@ -1038,6 +1038,21 @@ impl super::EmbeddedRdpWidget {
             client_config.mptcp = true;
         }
 
+        // Carry the Kerberos-NLA opt-in through to the embedded client. When on,
+        // IronRDP negotiates Kerberos for CredSSP (falling back to NTLM), which
+        // is what an AD "Protected Users" host requires — that group disables
+        // NTLM domain-wide, so NTLM-only auth fails with
+        // STATUS_ACCOUNT_RESTRICTION (issue #351). Needs a working local krb5
+        // setup; an optional KDC proxy URL routes the exchange over MS-KKDCP.
+        if config.kerberos_enabled {
+            client_config = client_config.with_kerberos(true);
+            if let Some(ref url) = config.kdc_proxy_url
+                && !url.is_empty()
+            {
+                client_config = client_config.with_kdc_proxy_url(url.clone());
+            }
+        }
+
         // Carry the "Ignore Certificate" toggle through to the embedded client.
         // When set, the TOFU check is skipped and any certificate is accepted
         // silently (equivalent to xfreerdp /cert:ignore); when unset, the client

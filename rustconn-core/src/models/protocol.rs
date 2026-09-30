@@ -2337,6 +2337,21 @@ pub struct RdpConfig {
     /// Requires FreeRDP 3.x with `/fido` support. Only applies to External mode.
     #[serde(default)]
     pub fido2_enabled: bool,
+
+    /// Attempt Kerberos authentication for NLA (CredSSP) instead of NTLM.
+    ///
+    /// Only affects the embedded IronRDP path. Required for AD "Protected
+    /// Users" hosts, which disable NTLM domain-wide so an NTLM-only client
+    /// fails with `STATUS_ACCOUNT_RESTRICTION` (0xc000006e) (issue #351).
+    /// Off by default: needs a working local krb5 setup (a TGT via `kinit`, or
+    /// a KDC proxy URL).
+    #[serde(default)]
+    pub kerberos_enabled: bool,
+
+    /// Optional KDC proxy (MS-KKDCP) URL for the Kerberos exchange, used only
+    /// when [`Self::kerberos_enabled`] is set. `None` = direct KDC via krb5.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub kdc_proxy_url: Option<String>,
 }
 
 /// Written out by hand rather than derived, so that it agrees with the serde
@@ -2397,6 +2412,8 @@ impl Default for RdpConfig {
             remote_app_name: None,
             mptcp: false,
             fido2_enabled: false,
+            kerberos_enabled: false,
+            kdc_proxy_url: None,
         }
     }
 }

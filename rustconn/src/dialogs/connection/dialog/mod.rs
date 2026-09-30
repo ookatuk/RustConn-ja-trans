@@ -209,6 +209,7 @@ pub struct ConnectionDialog {
     rdp_reconnect_on_resize_check: adw::SwitchRow,
     rdp_mptcp_check: adw::SwitchRow,
     rdp_fido2_check: adw::SwitchRow,
+    rdp_kerberos_check: adw::SwitchRow,
     rdp_jump_host_dropdown: DropDown,
     rdp_connections_data: Rc<RefCell<Vec<(Option<Uuid>, String)>>>,
     rdp_freerdp_clients_data: Rc<RefCell<Vec<String>>>,

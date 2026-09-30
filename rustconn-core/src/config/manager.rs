@@ -1060,9 +1060,16 @@ impl ConfigManager {
             std::io::Read::read_to_end(&mut entry, &mut content).map_err(|e| {
                 ConfigError::Parse(format!("Failed to read {name_str} from archive: {e}"))
             })?;
-            fs::write(&dest_path, &content).map_err(|e| {
-                ConfigError::Write(format!("Failed to write {}: {e}", dest_path.display()))
+            // The backup files are all RustConn's own TOML config files (text),
+            // so decode to UTF-8 and route through the atomic write path
+            // (temp file + owner-only perms + fsync + rename) instead of a bare
+            // fs::write. A raw write left a half-written config on disk if the
+            // process died mid-restore, and skipped the 0600 permissioning that
+            // every other config write gets.
+            let text = String::from_utf8(content).map_err(|e| {
+                ConfigError::Deserialize(format!("Backup entry {name_str} is not valid UTF-8: {e}"))
             })?;
+            self.write_locked(&dest_path, &text)?;
             count += 1;
         }
 
@@ -1387,5 +1394,41 @@ mod tests {
         let loaded = m1.load_connections().unwrap();
         assert_eq!(loaded.len(), 1);
         assert!(loaded[0].name == "Server A" || loaded[0].name == "Server B");
+    }
+
+    #[test]
+    fn test_backup_restore_round_trip() {
+        let (manager, temp) = create_test_manager();
+
+        let conn = Connection::new(
+            "Backup Me".to_string(),
+            "backup.example.com".to_string(),
+            2222,
+            ProtocolConfig::Ssh(SshConfig::default()),
+        );
+        manager
+            .save_connections(std::slice::from_ref(&conn))
+            .unwrap();
+
+        // Back up, then delete the on-disk connections file.
+        let archive = temp.path().join("backup.zip");
+        let backed_up = manager.backup_to_archive(&archive).unwrap();
+        assert!(backed_up >= 1, "at least the connections file is backed up");
+
+        let conn_file = manager.config_dir().join(CONNECTIONS_FILE);
+        std::fs::remove_file(&conn_file).unwrap();
+        assert!(manager.load_connections().unwrap().is_empty());
+
+        // Restore goes through the atomic write path; content must come back
+        // intact and no leftover .tmp file must remain.
+        let restored = manager.restore_from_archive(&archive).unwrap();
+        assert!(restored >= 1);
+        let loaded = manager.load_connections().unwrap();
+        assert_eq!(loaded.len(), 1);
+        assert_eq!(loaded[0].name, "Backup Me");
+        assert!(
+            !conn_file.with_extension("tmp").exists(),
+            "atomic restore must not leave a .tmp file behind"
+        );
     }
 }

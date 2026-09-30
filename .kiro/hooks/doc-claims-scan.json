@@ -1,0 +1,17 @@
+{
+  "version": "v1",
+  "hooks": [
+    {
+      "name": "Doc Claims Scan",
+      "description": "When a Rust source is saved, notes any doc-comment (/// or //!) that references a backticked snake_case identifier with no matching fn/struct/enum/const/trait/type/macro definition in rustconn-core/src or rustconn/src — the 'doc lies' class from the 0.22.12 audit (search_parallel, etc.). Command hook, zero model cost; a NOTE to the shared session report, never a block, because a method-only or field-only name can false-positive. Silent when clean. Fails open. Logic: bin/doc-claims-scan.sh.",
+      "trigger": "PostFileSave",
+      "matcher": "\\.rs$",
+      "action": {
+        "type": "command",
+        "command": ".kiro/hooks/bin/doc-claims-scan.sh"
+      },
+      "timeout": 30,
+      "enabled": true
+    }
+  ]
+}

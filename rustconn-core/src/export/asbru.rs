@@ -305,13 +305,30 @@ impl ExportTarget for AsbruExporter {
             Vec::new()
         };
 
-        // Generate content
-        let content = Self::export(connections, &filtered_groups);
+        // Skip protocols that have no round-trippable Asbru `method:` (SPICE,
+        // Serial, Kubernetes, Mosh, Web) rather than silently writing entries
+        // that neither Asbru-CM nor our own importer can read back. This mirrors
+        // the MobaXterm exporter, which already skips unsupported protocols.
+        let mut exportable: Vec<Connection> = Vec::with_capacity(connections.len());
+        for conn in connections {
+            if self.supports_protocol(&conn.protocol) {
+                exportable.push(conn.clone());
+            } else {
+                result.increment_skipped();
+                result.add_warning(format!(
+                    "Skipped \"{}\": Asbru-CM export does not support the {} protocol",
+                    conn.name, conn.protocol
+                ));
+            }
+        }
+
+        // Generate content from only the exportable connections
+        let content = Self::export(&exportable, &filtered_groups);
 
         // Write to file
         super::write_export_file(&options.output_path, &content)?;
 
-        result.exported_count = connections.len();
+        result.exported_count = exportable.len();
         result.add_output_file(options.output_path.clone());
 
         Ok(result)
@@ -324,9 +341,22 @@ impl ExportTarget for AsbruExporter {
         Ok(format!("{asbru_uuid}:\n{entry}"))
     }
 
-    fn supports_protocol(&self, _protocol: &ProtocolType) -> bool {
-        // Asbru supports SSH, RDP, and VNC
-        true
+    fn supports_protocol(&self, protocol: &ProtocolType) -> bool {
+        // Only the protocols Asbru-CM understands AND our own Asbru importer can
+        // read back. SPICE, Serial, Kubernetes, Mosh and Web have no Asbru
+        // `method:` that round-trips — the importer's protocol match has no arm
+        // for them and skips them as "Unsupported protocol" — so exporting them
+        // would write entries neither Asbru nor RustConn can re-read. ZeroTrust
+        // and SFTP are exported as SSH, which does round-trip.
+        matches!(
+            protocol,
+            ProtocolType::Ssh
+                | ProtocolType::ZeroTrust
+                | ProtocolType::Rdp
+                | ProtocolType::Vnc
+                | ProtocolType::Telnet
+                | ProtocolType::Sftp
+        )
     }
 }
 
@@ -537,7 +567,12 @@ mod tests {
         assert!(exporter.supports_protocol(&ProtocolType::Ssh));
         assert!(exporter.supports_protocol(&ProtocolType::Rdp));
         assert!(exporter.supports_protocol(&ProtocolType::Vnc));
-        assert!(exporter.supports_protocol(&ProtocolType::Spice));
+        assert!(exporter.supports_protocol(&ProtocolType::Telnet));
+        // SPICE and Serial have no round-trippable Asbru `method:` — they must
+        // report unsupported so the exporter skips them instead of writing a
+        // fake entry.
+        assert!(!exporter.supports_protocol(&ProtocolType::Spice));
+        assert!(!exporter.supports_protocol(&ProtocolType::Serial));
     }
 
     #[test]
@@ -595,5 +630,29 @@ mod tests {
 
         // Empty description should not be exported
         assert!(!entry.contains("description:"));
+    }
+
+    #[test]
+    fn test_export_skips_unsupported_protocols() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let output_path = temp_dir.path().join("asbru.yml");
+
+        let connections = vec![
+            create_ssh_connection("ssh-server", "192.168.1.1", 22),
+            Connection::new_spice("spice-vm".to_string(), "192.168.1.2".to_string(), 5900),
+        ];
+
+        let exporter = AsbruExporter::new();
+        let options = ExportOptions::new(ExportFormat::Asbru, output_path.clone());
+        let result = exporter.export(&connections, &[], &options).unwrap();
+
+        // SSH exported, SPICE skipped with a warning; the fake `method: "SPICE"`
+        // entry that neither Asbru nor our importer can read is never written.
+        assert_eq!(result.exported_count, 1);
+        assert_eq!(result.skipped_count, 1);
+        assert!(result.has_warnings());
+        let content = std::fs::read_to_string(&output_path).unwrap();
+        assert!(content.contains("ssh-server"));
+        assert!(!content.contains("SPICE"));
     }
 }

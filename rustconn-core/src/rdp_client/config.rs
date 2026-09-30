@@ -134,11 +134,22 @@ pub struct RdpClientConfig {
     #[serde(default)]
     pub printers: Vec<String>,
 
-    /// Enable smart card redirection
+    /// Enable smart card redirection.
+    ///
+    /// **Reserved / not yet implemented.** The embedded IronRDP client has no
+    /// smart-card (scard) virtual channel — `RustConnRdpdrBackend::handle_scard_call`
+    /// is a no-op — so setting this currently has no effect. The field is kept
+    /// so a future scard implementation and existing persisted configs round-trip
+    /// without a schema change; it is not surfaced in the GUI.
     #[serde(default)]
     pub smartcard_enabled: bool,
 
-    /// Enable microphone redirection
+    /// Enable microphone redirection.
+    ///
+    /// **Reserved / not yet implemented.** The embedded IronRDP client has no
+    /// audio-input (audin) virtual channel, so setting this currently has no
+    /// effect. The field is kept for forward-compatibility and round-tripping;
+    /// it is not surfaced in the GUI.
     #[serde(default)]
     pub microphone_enabled: bool,
 
@@ -161,6 +172,32 @@ pub struct RdpClientConfig {
     /// Requires kernel MPTCP support (Linux 5.6+). Falls back to regular TCP.
     #[serde(default)]
     pub mptcp: bool,
+
+    /// Attempt Kerberos authentication for NLA (CredSSP) instead of NTLM.
+    ///
+    /// When enabled and NLA is on, the client hands IronRDP a `KerberosConfig`
+    /// so its SSPI layer negotiates Kerberos, falling back to NTLM only if the
+    /// server or the local Kerberos setup does not permit it. This is what a
+    /// host in the AD "Protected Users" group requires — that group disables
+    /// NTLM/CredSSP-with-NTLM domain-wide, so an NTLM-only client fails with
+    /// `STATUS_ACCOUNT_RESTRICTION` (0xc000006e) (issue #351).
+    ///
+    /// Off by default: Kerberos on Linux needs a working krb5 environment
+    /// (`/etc/krb5.conf`, DNS/SRV to the KDC, a valid TGT via `kinit`, or a KDC
+    /// proxy URL). Enabling it without that in place trades one auth failure for
+    /// another, so it is a deliberate per-connection opt-in rather than a
+    /// default.
+    #[serde(default)]
+    pub kerberos_enabled: bool,
+
+    /// Optional KDC proxy (MS-KKDCP) URL, e.g. `https://kdc.example.com/KdcProxy`.
+    ///
+    /// Used only when [`Self::kerberos_enabled`] is set. Lets the client reach a
+    /// KDC that is not directly routable (no line of sight to port 88), which is
+    /// the common case behind an RD Gateway. `None` means talk to the KDC
+    /// directly via the system krb5 configuration.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub kdc_proxy_url: Option<String>,
 }
 
 const fn default_true() -> bool {
@@ -261,6 +298,8 @@ impl Default for RdpClientConfig {
             connection_name: None,
             keyboard_layout: None,
             mptcp: false,
+            kerberos_enabled: false,
+            kdc_proxy_url: None,
         }
     }
 }
@@ -419,7 +458,10 @@ impl RdpClientConfig {
         self
     }
 
-    /// Enables or disables smart card redirection
+    /// Sets the smart-card redirection flag.
+    ///
+    /// **Reserved / not yet implemented** — see [`RdpClientConfig::smartcard_enabled`].
+    /// Setting it currently has no effect on the embedded client.
     #[must_use]
     pub const fn with_smartcard(mut self, enabled: bool) -> Self {
         self.smartcard_enabled = enabled;
@@ -445,6 +487,24 @@ impl RdpClientConfig {
     #[must_use]
     pub const fn with_keyboard_layout(mut self, klid: u32) -> Self {
         self.keyboard_layout = Some(klid);
+        self
+    }
+
+    /// Enables or disables Kerberos authentication for NLA (issue #351).
+    ///
+    /// Only takes effect when NLA is also enabled; with NLA off there is no
+    /// CredSSP exchange to negotiate.
+    #[must_use]
+    pub const fn with_kerberos(mut self, enabled: bool) -> Self {
+        self.kerberos_enabled = enabled;
+        self
+    }
+
+    /// Sets the KDC proxy (MS-KKDCP) URL used when Kerberos is enabled.
+    #[must_use]
+    pub fn with_kdc_proxy_url(mut self, url: impl Into<String>) -> Self {
+        let url = url.into();
+        self.kdc_proxy_url = if url.is_empty() { None } else { Some(url) };
         self
     }
 
@@ -538,6 +598,8 @@ impl PartialEq for RdpClientConfig {
             && self.remote_app == other.remote_app
             && self.connection_name == other.connection_name
             && self.keyboard_layout == other.keyboard_layout
+            && self.kerberos_enabled == other.kerberos_enabled
+            && self.kdc_proxy_url == other.kdc_proxy_url
     }
 }
 

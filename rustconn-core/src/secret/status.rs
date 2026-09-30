@@ -1045,12 +1045,29 @@ impl KeePassStatus {
                 wait_for_cli_write(child, "mkdir (parent group)").ok()
             };
 
-            if let Some(ref o) = output {
-                let stderr = String::from_utf8_lossy(&o.stderr);
-                if o.status.success() || stderr.contains("already exists") {
-                    tracing::debug!("Group '{}' ready", current_path);
-                } else {
-                    tracing::debug!("mkdir '{}' result: {}", current_path, stderr);
+            // A failed intermediate group must abort: previously any failure
+            // here (or a swallowed wait error) only logged at debug! and the
+            // function still returned Ok, so `add` would then target a group
+            // that was never created — the save appeared to "succeed" while the
+            // nested groups silently never appeared (issue observed via #350
+            // write-path follow-up). Treat success and "already exists" as fine,
+            // and surface anything else as an error so the caller can report it.
+            match output {
+                Some(ref o) => {
+                    let stderr = String::from_utf8_lossy(&o.stderr);
+                    if o.status.success() || stderr.contains("already exists") {
+                        tracing::debug!("Group '{}' ready", current_path);
+                    } else {
+                        return Err(SecretError::KeePassXC(format!(
+                            "Failed to create parent group '{current_path}': {}",
+                            stderr.trim()
+                        )));
+                    }
+                }
+                None => {
+                    return Err(SecretError::KeePassXC(format!(
+                        "Failed to create parent group '{current_path}': keepassxc-cli mkdir did not complete"
+                    )));
                 }
             }
         }

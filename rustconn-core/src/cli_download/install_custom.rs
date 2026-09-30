@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 
-use super::download::download_with_progress;
+use super::download::{download_with_progress, enforce_checksum_policy};
 use super::extract::{extract_tar_gz, extract_zip};
 use super::{
     CliDownloadError, CliDownloadResult, DownloadCancellation, DownloadProgress,
@@ -122,6 +122,8 @@ pub(super) async fn install_kubectl(
         return Err(CliDownloadError::Cancelled);
     }
 
+    enforce_checksum_policy(component.checksum, component.name, &bytes)?;
+
     let install_dir = cli_dir.join(component.install_subdir);
     tokio::fs::create_dir_all(&install_dir).await?;
 
@@ -221,6 +223,8 @@ pub(super) async fn install_teleport(
     if cancel_token.is_cancelled() {
         return Err(CliDownloadError::Cancelled);
     }
+
+    enforce_checksum_policy(component.checksum, component.name, &bytes)?;
 
     if let Some(ref cb) = progress_callback {
         cb(DownloadProgress {
@@ -329,6 +333,8 @@ pub(super) async fn install_tailscale(
         return Err(CliDownloadError::Cancelled);
     }
 
+    enforce_checksum_policy(component.checksum, component.name, &bytes)?;
+
     if let Some(ref cb) = progress_callback {
         cb(DownloadProgress {
             downloaded: bytes.len() as u64,
@@ -435,6 +441,8 @@ pub(super) async fn install_boundary(
         return Err(CliDownloadError::Cancelled);
     }
 
+    enforce_checksum_policy(component.checksum, component.name, &bytes)?;
+
     if let Some(ref cb) = progress_callback {
         cb(DownloadProgress {
             downloaded: bytes.len() as u64,
@@ -534,6 +542,8 @@ pub(super) async fn install_hoop(
     if cancel_token.is_cancelled() {
         return Err(CliDownloadError::Cancelled);
     }
+
+    enforce_checksum_policy(component.checksum, component.name, &bytes)?;
 
     if let Some(ref cb) = progress_callback {
         cb(DownloadProgress {

@@ -123,6 +123,7 @@ pub(super) struct ConnectionDialogData<'a> {
     pub rdp_reconnect_on_resize_check: &'a adw::SwitchRow,
     pub rdp_mptcp_check: &'a adw::SwitchRow,
     pub rdp_fido2_check: &'a adw::SwitchRow,
+    pub rdp_kerberos_check: &'a adw::SwitchRow,
     pub rdp_jump_host_dropdown: &'a DropDown,
     pub rdp_connections_data: &'a Rc<RefCell<Vec<(Option<Uuid>, String)>>>,
     pub rdp_freerdp_clients_data: &'a Rc<RefCell<Vec<String>>>,
@@ -1686,6 +1687,10 @@ impl ConnectionDialogData<'_> {
             reconnect_on_resize: self.rdp_reconnect_on_resize_check.is_active(),
             mptcp: self.rdp_mptcp_check.is_active(),
             fido2_enabled: self.rdp_fido2_check.is_active(),
+            kerberos_enabled: self.rdp_kerberos_check.is_active(),
+            // No KDC-proxy URL field in the connection editor yet; direct-KDC
+            // Kerberos via the system krb5 config covers the common case.
+            kdc_proxy_url: None,
             script_paste_via_clipboard: true,
             remote_app_program: {
                 let text = self.rdp_remote_app_program_entry.text();

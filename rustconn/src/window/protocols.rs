@@ -1627,6 +1627,22 @@ fn start_spice_connection_internal(
         if let Some(ref socket_path) = opts.unix_socket_path {
             config = config.with_unix_socket(socket_path);
         }
+        // Proxmox VE proxy tunnelling: the editor stores `proxy`, but the launch
+        // mapping dropped it, so `--spice-proxy` was never emitted and the
+        // Proxmox-only proxy field was silently dead. Thread it through here.
+        if let Some(ref proxy) = opts.proxy {
+            config = config.with_proxy(proxy.clone());
+        }
+        // Shared folders (webdav) were likewise stored but never mapped, so the
+        // configured shares never reached the viewer. The persisted `SharedFolder`
+        // carries local_path + share_name; the client type defaults read_only=false.
+        for folder in &opts.shared_folders {
+            config =
+                config.with_shared_folder(rustconn_core::spice_client::SpiceSharedFolder::new(
+                    folder.local_path.clone(),
+                    folder.share_name.clone(),
+                ));
+        }
     }
 
     // Issue #308: hand remote-viewer the resolved password so it stops

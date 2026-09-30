@@ -307,7 +307,10 @@ impl RdpdrBackend for RustConnRdpdrBackend {
         _req: DeviceControlRequest<ScardIoCtlCode>,
         _call: ScardCall,
     ) -> PduResult<()> {
-        // Smart card not supported
+        // Smart card redirection is not implemented for the embedded client:
+        // there is no scard virtual channel, so any scard IOCTL is acknowledged
+        // and dropped. `RdpClientConfig::smartcard_enabled` is a reserved field
+        // with no effect until this is implemented.
         Ok(())
     }
 

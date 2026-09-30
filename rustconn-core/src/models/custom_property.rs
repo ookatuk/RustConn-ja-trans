@@ -12,7 +12,10 @@ pub enum PropertyType {
     /// Plain text field
     #[default]
     Text,
-    /// URL field (can be rendered as clickable link)
+    /// URL field. A semantic type tag distinguishing a value that holds a URL
+    /// from plain text; the connection editor offers it as a distinct property
+    /// type. Note: the value is not yet rendered as a clickable link in the UI —
+    /// it is currently displayed and edited the same as `Text`.
     Url,
     /// Protected field (encrypted storage, masked display)
     Protected,
