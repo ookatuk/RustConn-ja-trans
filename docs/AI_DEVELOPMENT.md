@@ -54,7 +54,7 @@ RustConn uses Kiro **steering files** and **hooks** in two complementary layers:
 
 ## Steering Files
 
-`.kiro/steering/` currently holds **30** files. The agent loads each according to
+`.kiro/steering/` currently holds **31** files. The agent loads each according to
 its `inclusion:` front-matter:
 
 | Mode | What it means | Roughly |
@@ -121,7 +121,7 @@ enough that the number was off by thirteen.
 
 ## Hooks
 
-`.kiro/hooks/` currently holds **19** hooks, one JSON file each, in the v2 format
+`.kiro/hooks/` currently holds **21** hooks, one JSON file each, in the v2 format
 the agent executes directly. Triggers are PascalCase.
 
 | Trigger | Hooks | What the group is for |

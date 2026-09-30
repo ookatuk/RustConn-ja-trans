@@ -1,0 +1,16 @@
+{
+  "version": "v1",
+  "hooks": [
+    {
+      "name": "Changelog Entry Guard",
+      "trigger": "PreToolUse",
+      "description": "At `git commit`, asks if the edit journal has a behavioural source change (a non-test .rs under a crate's src/) but CHANGELOG.md is not among the session's edits. Mirrors commit-review-gate: `ask`, not block, because an internal refactor legitimately needs no entry and a guard cannot tell one from a behaviour change. Scope is the agent's own writes (target/.kiro-session-edits), never the dirty tree. Fails open. Logic: bin/changelog-entry-guard.sh.",
+      "matcher": "^(execute_bash|executeBash|bash|shell|mcp_kirograph_kirograph_exec|@kirograph/kirograph_exec)$",
+      "action": {
+        "type": "command",
+        "command": ".kiro/hooks/bin/changelog-entry-guard.sh"
+      },
+      "timeout": 10
+    }
+  ]
+}

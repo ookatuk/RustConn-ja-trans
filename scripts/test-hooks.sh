@@ -259,6 +259,34 @@ crg pass 'a mention is not a commit' rustconn-pty-sys/src/lib.rs 'echo "git comm
 crg ask 'a commit after git add' rustconn-pty-sys/src/lib.rs 'git add a && git commit -m "x"'
 crg ask 'an env-prefixed commit' rustconn-pty-sys/src/lib.rs 'GIT_EDITOR=true git commit'
 
+# ── changelog-entry-guard ────────────────────────────────────────────────────
+g=changelog-entry-guard.sh
+ceg() { # ceg ask|pass <label> <journal-lines> <command>
+    printf '%s\n' "$3" >"$journal"
+    run_hook "$g" "$(shell_payload "$4")"
+    if printf '%s' "$out" | grep -q '"permissionDecision":"ask"'; then got=ask; else got=pass; fi
+    if [ "$got" = "$1" ]; then report ok "$g: $2"; else report FAIL "$g: $2" "want $1, got $got"; fi
+}
+ceg ask 'src change without a CHANGELOG edit' 'rustconn-core/src/spice_client/mod.rs' 'git commit -m x'
+ceg ask 'GUI src change without a CHANGELOG edit' 'rustconn/src/window/protocols.rs' 'git commit -m x'
+ceg pass 'src change WITH a CHANGELOG edit' 'rustconn-core/src/spice_client/mod.rs
+CHANGELOG.md' 'git commit -m x'
+ceg pass 'only a test file changed' 'rustconn-core/src/foo_tests.rs' 'git commit -m x'
+ceg pass 'only a tests/ file changed' 'rustconn-core/tests/properties/foo.rs' 'git commit -m x'
+ceg pass 'only a doc changed' 'docs/AI_DEVELOPMENT.md' 'git commit -m x'
+ceg pass 'a dry-run commit records nothing' 'rustconn-core/src/spice_client/mod.rs' 'git commit --dry-run'
+ceg pass 'a mention is not a commit' 'rustconn-core/src/spice_client/mod.rs' 'echo "git commit"'
+ceg ask 'a commit after git add' 'rustconn-core/src/spice_client/mod.rs' 'git add a && git commit -m x'
+
+# ── doc-claims-scan ──────────────────────────────────────────────────────────
+# A NOTE hook: it writes to the session report and always exits 0. Assert it
+# does not crash and exits 0 on a saved .rs payload (the FP-tolerant contract).
+g=doc-claims-scan.sh
+dcs_payload=$(jq -cn --arg f "rustconn-core/src/search/mod.rs" '{file_path: $f}')
+expect_exit 0 "$g" 'exits 0 on a real .rs save' "$dcs_payload"
+expect_exit 0 "$g" 'exits 0 on a non-rs file' "$(jq -cn '{file_path: "docs/x.md"}')"
+expect_exit 0 "$g" 'exits 0 with no file_path' '{}'
+
 # ── matchers in .kiro/hooks/*.json ───────────────────────────────────────────
 # Written anchored, so substring and full-match semantics agree.
 expect_match() { # expect_match <hook> yes|no <tool>...
@@ -283,6 +311,10 @@ for h in bash-serialization-guard release-manual-only-guard; do
 done
 expect_match commit-review-gate yes execute_bash mcp_kirograph_kirograph_exec @kirograph/kirograph_exec
 expect_match commit-review-gate no read_code fs_write
+expect_match changelog-entry-guard yes execute_bash mcp_kirograph_kirograph_exec @kirograph/kirograph_exec
+expect_match changelog-entry-guard no read_code fs_write
+expect_match doc-claims-scan yes foo.rs models/protocol.rs
+expect_match doc-claims-scan no foo.md foo.json foo.toml
 expect_match edit-journal yes fs_write fs_append str_replace delete_file smart_relocate semantic_rename "${kg_writes[@]}"
 expect_match edit-journal no read_code read_file execute_bash mcp_kirograph_kirograph_read
 expect_match crate-boundary-guard yes fs_write fs_append str_replace "${kg_writes[@]}"

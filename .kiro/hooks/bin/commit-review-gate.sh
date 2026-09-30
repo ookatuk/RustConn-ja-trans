@@ -72,6 +72,15 @@ if grep -qxF 'po/uk.po' -- "$journal" 2>/dev/null; then
     needed="$needed uk-translation-reviewer (po/uk.po changed — DSTU terminology, Kharkiv orthography, imperative mood);"
 fi
 
+# config-mapping-reviewer: persisted<->runtime config drift and export/import
+# round-trips. A stored-but-unread field or a fake export `method:` compiles and
+# passes clippy, so the quality gate never catches it (SPICE proxy, RDP smartcard,
+# Asbru export all shipped broken before 0.22.12). The file set mirrors
+# config-mapping-guide.md's fileMatch.
+if grep -qE '^(rustconn-core/src/models/protocol\.rs|rustconn-core/src/[a-z_]+_client/config\.rs|rustconn-core/src/protocol/freerdp\.rs|rustconn/src/window/(protocols|rdp_vnc)\.rs|rustconn/src/embedded_rdp/launcher\.rs|rustconn-core/src/(export|import)/.*\.rs)$' -- "$journal" 2>/dev/null; then
+    needed="$needed config-mapping-reviewer (a persisted config, runtime config, launch mapper or import/export converter changed — check for stored-but-unread fields and broken round-trips);"
+fi
+
 [ -n "$needed" ] || exit 0
 
 reason="This change touches code that gets a dedicated review before it lands:${needed} Run the reviewer(s) now, or confirm they already ran this session. Scope is the agent's own edits from target/.kiro-session-edits, not the dirty tree."
