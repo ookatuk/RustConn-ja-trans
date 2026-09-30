@@ -8,7 +8,7 @@ msgstr ""
 "Project-Id-Version: rustconn 0.22.8\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-09-30 13:55+0900\n"
-"PO-Revision-Date: 2026-09-30 15:37+0900\n"
+"PO-Revision-Date: 2026-09-30 16:51+0900\n"
 "Last-Translator: ookatu <okatuhumi@gmail.com>\n"
 "Language-Team: Japanese\n"
 "Language: ja\n"
@@ -2042,16 +2042,16 @@ msgstr "説明"
 
 #: rustconn/src/dialogs/connection/general_tab.rs:537
 msgid "Well-Known"
-msgstr "一般的"
+msgstr "システムポート "
 
 #: rustconn/src/dialogs/connection/general_tab.rs:539
 msgid "Registered"
-msgstr "登録済み"
+msgstr "ユーザーポート "
 
 #: rustconn/src/dialogs/connection/general_tab.rs:541
 #: rustconn/src/window/edit_group.rs:1504
 msgid "Dynamic"
-msgstr "ダイナミック"
+msgstr "動的・私用"
 
 #: rustconn/src/dialogs/connection/kubernetes.rs:47
 #: rustconn/src/dialogs/connection_wizard/connection_page.rs:182
@@ -2563,7 +2563,7 @@ msgstr "FreeRDPクライアント"
 
 #: rustconn/src/dialogs/connection/rdp.rs:516
 msgid "External client binary. Automatic picks the best available"
-msgstr "外部のクライアント実行ファイル。利用可能なものから自動的に選択します。"
+msgstr "外部クライアントの実行ファイル。利用可能なものから自動的に選択します。"
 
 #: rustconn/src/dialogs/connection/rdp.rs:531
 msgid "TLS Security Level"
@@ -3085,113 +3085,121 @@ msgstr "Unixソケット"
 
 #: rustconn/src/dialogs/connection/spice.rs:305
 msgid "Connect via local unix socket instead of network"
-msgstr ""
+msgstr "ネットワーク経由ではなく、ローカルのUnixソケット経由で接続する"
 
 #: rustconn/src/dialogs/connection/spice.rs:320
 #: rustconn/src/dialogs/connection/spice.rs:323
 msgid "Browse for unix socket file"
-msgstr ""
+msgstr "Unixソケットファイルの参照"
 
 #: rustconn/src/dialogs/connection/spice.rs:329
 msgid "Socket Path"
-msgstr ""
+msgstr "ソケットのパス"
 
 #: rustconn/src/dialogs/connection/spice.rs:330
 msgid "Path to SPICE unix socket file"
-msgstr ""
+msgstr "SPICE Unixソケットファイルへのパス"
 
 #: rustconn/src/dialogs/connection/spice.rs:348
 msgid "Tunnel SPICE through an SSH connection"
-msgstr ""
+msgstr "SSH接続経由でSPICEをトンネルする"
 
 #: rustconn/src/dialogs/connection/spice.rs:366
 msgid "Select SPICE Unix Socket"
-msgstr ""
+msgstr "SPICE Unixソケットを選択"
 
 #: rustconn/src/dialogs/connection/ssh.rs:144
 msgid "MOSH Settings"
-msgstr ""
+msgstr "MOSH 設定"
 
 #: rustconn/src/dialogs/connection/ssh.rs:145
 msgid "Configure UDP port range and prediction behavior."
-msgstr ""
+msgstr "UDPポート範囲と予測動作を設定します。"
 
 #: rustconn/src/dialogs/connection/ssh.rs:149
 msgid "Port Range"
-msgstr ""
+msgstr "ポート範囲"
 
 #: rustconn/src/dialogs/connection/ssh.rs:150
 msgid "UDP port range for MOSH (start:end)"
-msgstr ""
+msgstr "MOSH用UDPポート範囲 (開始:終了)"
 
 #: rustconn/src/dialogs/connection/ssh.rs:156
 msgid "Adaptive"
-msgstr ""
+msgstr "適応モード"
 
 #: rustconn/src/dialogs/connection/ssh.rs:156
 msgid "Always"
-msgstr ""
+msgstr "常に有効"
 
 #: rustconn/src/dialogs/connection/ssh.rs:156
 msgid "Never"
-msgstr ""
+msgstr "無効"
 
 #: rustconn/src/dialogs/connection/ssh.rs:164
 msgid "Predict Mode"
-msgstr ""
+msgstr "予測モード"
 
 #: rustconn/src/dialogs/connection/ssh.rs:165
 msgid "Controls speculative local echo of keystrokes"
-msgstr ""
+msgstr "キー入力の反映の投機的先読みを制御"
 
 #: rustconn/src/dialogs/connection/ssh.rs:172
 msgid "Server Binary"
-msgstr ""
+msgstr "サーバー実行ファイル"
 
 #: rustconn/src/dialogs/connection/ssh.rs:173
 msgid "Path to mosh-server on the remote host (optional)"
-msgstr ""
+msgstr "リモートホスト上のmosh-serverのパス (任意)"
 
 #: rustconn/src/dialogs/connection/ssh.rs:182
 msgid "Elevated Credentials"
-msgstr ""
+msgstr "権限の昇格"
 
 #: rustconn/src/dialogs/connection/ssh.rs:184
 msgid ""
 "Answer sudo, su and doas password prompts with this connection's password"
 msgstr ""
+"sudo, su, doasのパスワード要求に対し、接続に使用したパスワードを自動送信する"
 
 #: rustconn/src/dialogs/connection/ssh.rs:189
 msgid "Inject Password at Escalation Prompts"
-msgstr ""
+msgstr "権限昇格のプロンプトでパスワードを自動送信"
 
 #: rustconn/src/dialogs/connection/ssh.rs:191
 msgid "Only the active prompt line is answered, never a prompt left on screen"
 msgstr ""
+"アクティブなプロンプト行に対してのみ応答が行われ、画面上にプロンプ​​トが残され"
+"ることはありません。"
 
 #: rustconn/src/dialogs/connection/ssh.rs:198
 msgid "Delay Before Sending"
-msgstr ""
+msgstr "送信前の遅延"
 
 #: rustconn/src/dialogs/connection/ssh.rs:200
 msgid ""
 "Milliseconds to wait after the prompt appears — raise it for network "
 "equipment"
 msgstr ""
+"プロンプトが表示された後に待機する時間 (ミリ秒)。ネットワーク機器の場合は値を"
+"大きくしてください。"
 
 #: rustconn/src/dialogs/connection/ssh.rs:221
 msgid ""
 "One anchored regex per line, for example ^Secret code:\\s*$. Leave empty to "
 "use the built-in sudo, su, doas and enable patterns."
 msgstr ""
+"1行につき1つのアンカー付き正規表現（例: ^Secret code:\\s*$）を指定します。空"
+"欄のままにすると、組み込みの sudo、su、doas 用のパターンが使用されます。"
 
 #: rustconn/src/dialogs/connection/ssh.rs:231
 msgid "Custom Prompt Patterns"
-msgstr ""
+msgstr "カスタムプロンプトパターン"
 
 #: rustconn/src/dialogs/connection/ssh.rs:233
 msgid "One regex per line; empty means the built-in patterns"
 msgstr ""
+"1行につき1つの正規表現を記述します。空行はデフォルトのパターンを意味します。"
 
 #: rustconn/src/dialogs/connection/ssh.rs:299
 #: rustconn/src/dialogs/connection_wizard/auth_page.rs:107
@@ -3202,85 +3210,85 @@ msgstr ""
 #: rustconn/src/window/edit_group.rs:268 rustconn/src/window/edit_group.rs:656
 #: rustconn/src/window/edit_group.rs:679
 msgid "Password"
-msgstr ""
+msgstr "パスワード"
 
 #: rustconn/src/dialogs/connection/ssh.rs:300
 #: rustconn/src/dialogs/template.rs:631 rustconn/src/window/edit_group.rs:657
 #: rustconn/src/window/edit_group.rs:680
 msgid "Public Key"
-msgstr ""
+msgstr "公開鍵認証"
 
 #: rustconn/src/dialogs/connection/ssh.rs:301
 #: rustconn/src/dialogs/template.rs:632 rustconn/src/window/edit_group.rs:659
 #: rustconn/src/window/edit_group.rs:682
 msgid "Keyboard Interactive"
-msgstr ""
+msgstr "対話型認証"
 
 #: rustconn/src/dialogs/connection/ssh.rs:302
 #: rustconn/src/dialogs/connection_wizard/auth_page.rs:337
 #: rustconn/src/dialogs/settings/ssh_agent_tab.rs:31
 #: rustconn/src/dialogs/template.rs:633
 msgid "SSH Agent"
-msgstr ""
+msgstr "SSHエージェント"
 
 #: rustconn/src/dialogs/connection/ssh.rs:303
 #: rustconn/src/dialogs/connection_wizard/auth_page.rs:338
 #: rustconn/src/dialogs/template.rs:634
 msgid "Security Key (FIDO2)"
-msgstr ""
+msgstr "セキリュティキー (FIDO2)"
 
 #: rustconn/src/dialogs/connection/ssh.rs:311
 #: rustconn/src/dialogs/connection_wizard/auth_page.rs:96
 #: rustconn/src/dialogs/template.rs:645
 msgid "Method"
-msgstr ""
+msgstr "認証方法"
 
 #: rustconn/src/dialogs/connection/ssh.rs:312
 #: rustconn/src/dialogs/template.rs:646
 msgid "How to authenticate with the server"
-msgstr ""
+msgstr "サーバーへ認証する方式"
 
 #: rustconn/src/dialogs/connection/ssh.rs:319
 #: rustconn/src/dialogs/connection_wizard/auth_page.rs:139
 #: rustconn/src/dialogs/template.rs:652
 msgid "Default"
-msgstr ""
+msgstr "デフォルト"
 
 #: rustconn/src/dialogs/connection/ssh.rs:320
 #: rustconn/src/dialogs/settings/secrets_tab/mod.rs:737
 #: rustconn/src/dialogs/template.rs:652
 msgid "File"
-msgstr ""
+msgstr "ファイル"
 
 #: rustconn/src/dialogs/connection/ssh.rs:321
 #: rustconn/src/dialogs/template.rs:652 rustconn/src/window/edit_group.rs:658
 #: rustconn/src/window/edit_group.rs:681
 msgid "Agent"
-msgstr ""
+msgstr "エージェント"
 
 #: rustconn/src/dialogs/connection/ssh.rs:322
 msgid "Inherit from group"
-msgstr ""
+msgstr "グループから継承"
 
 #: rustconn/src/dialogs/connection/ssh.rs:330
 #: rustconn/src/dialogs/template.rs:662
 msgid "Key Source"
-msgstr ""
+msgstr "秘密鍵の場所"
 
 #: rustconn/src/dialogs/connection/ssh.rs:341
 #: rustconn/src/dialogs/template.rs:671
 msgid "Path to SSH key"
-msgstr ""
+msgstr "SSH鍵のパス"
 
 #: rustconn/src/dialogs/connection/ssh.rs:346
 #: rustconn/src/dialogs/settings/secrets_tab/mod.rs:2222
 #: rustconn/src/dialogs/settings/secrets_tab/mod.rs:2225
 msgid "Browse for key file"
-msgstr ""
+msgstr "鍵ファイルの参照"
 
 #: rustconn/src/dialogs/connection/ssh.rs:350
 msgid "Browse for SSH key file"
-msgstr ""
+msgstr "SSH鍵ファイルの参照"
 
 #: rustconn/src/dialogs/connection/ssh.rs:354
 #: rustconn/src/dialogs/connection_wizard/auth_page.rs:124
@@ -3288,205 +3296,212 @@ msgstr ""
 #: rustconn/src/dialogs/settings/secrets_tab/mod.rs:2235
 #: rustconn/src/dialogs/template.rs:676
 msgid "Key File"
-msgstr ""
+msgstr "鍵ファイル"
 
 #: rustconn/src/dialogs/connection/ssh.rs:355
 #: rustconn/src/dialogs/template.rs:677
 msgid "Path to private key file"
-msgstr ""
+msgstr "プライベート鍵の参照"
 
 #: rustconn/src/dialogs/connection/ssh.rs:362
 #: rustconn/src/dialogs/widgets.rs:61
 msgid "(No keys loaded)"
-msgstr ""
+msgstr "(鍵がロードされていません)"
 
 #: rustconn/src/dialogs/connection/ssh.rs:371
 msgid "Key"
-msgstr ""
+msgstr "鍵"
 
 #: rustconn/src/dialogs/connection/ssh.rs:372
 msgid "Select from SSH agent"
-msgstr ""
+msgstr "SSHエージェントから選択"
 
 #: rustconn/src/dialogs/connection/ssh.rs:413
 msgid "Key file not found"
-msgstr ""
+msgstr "鍵ファイルが見つかりません"
 
 #: rustconn/src/dialogs/connection/ssh.rs:574
 #: rustconn/src/window/edit_group.rs:812
 msgid "Connect via another SSH connection"
-msgstr ""
+msgstr "別のSSH接続経由で接続"
 
 #: rustconn/src/dialogs/connection/ssh.rs:580
 #: rustconn/src/dialogs/template.rs:697
 msgid "ProxyJump"
-msgstr ""
+msgstr "プロキシジャンプ"
 
 #: rustconn/src/dialogs/connection/ssh.rs:587
 msgid "ProxyCommand"
-msgstr ""
+msgstr "プロキシコマンド"
 
 #: rustconn/src/dialogs/connection/ssh.rs:588
 msgid "Custom proxy command (e.g., for .onion hosts)"
-msgstr ""
+msgstr "カスタムプロキシーコマンド（例：.onionホスト用）"
 
 #: rustconn/src/dialogs/connection/ssh.rs:595
 #: rustconn/src/dialogs/template.rs:705
 msgid "Use Only Specified Key"
-msgstr ""
+msgstr "指定されたキーのみを使用"
 
 #: rustconn/src/dialogs/connection/ssh.rs:596
 #: rustconn/src/dialogs/template.rs:706
 msgid "Prevents trying other keys (IdentitiesOnly)"
-msgstr ""
+msgstr "他のキーを試行するのを防ぐ (IdentitiesOnly)"
 
 #: rustconn/src/dialogs/connection/ssh.rs:602
 #: rustconn/src/dialogs/template.rs:712
 msgid "Connection Multiplexing"
-msgstr ""
+msgstr "接続多重化"
 
 #: rustconn/src/dialogs/connection/ssh.rs:603
 #: rustconn/src/dialogs/template.rs:713
 msgid "Reuse connections (ControlMaster)"
-msgstr ""
+msgstr "接続の再利用 (ControlMaster)"
 
 #: rustconn/src/dialogs/connection/ssh.rs:611
 msgid "Keep-Alive Interval"
-msgstr ""
+msgstr "接続維持シグナルの送信間隔"
 
 #: rustconn/src/dialogs/connection/ssh.rs:612
 msgid "Seconds between keep-alive packets (0 = disabled)"
-msgstr ""
+msgstr "接続維持パケットの送信間隔 (秒) (0 = 無効)"
 
 #: rustconn/src/dialogs/connection/ssh.rs:619
 msgid "Keep-Alive Count"
-msgstr ""
+msgstr "最大試行回数"
 
 #: rustconn/src/dialogs/connection/ssh.rs:620
 msgid "Disconnect after this many unanswered packets"
-msgstr ""
+msgstr "応答のないパケットがこの数に達したら切断する"
 
 #: rustconn/src/dialogs/connection/ssh.rs:652
 #: rustconn/src/dialogs/template.rs:721
 msgid "Session"
-msgstr ""
+msgstr "セッション"
 
 #: rustconn/src/dialogs/connection/ssh.rs:657
 #: rustconn/src/dialogs/template.rs:726
 msgid "Agent Forwarding"
-msgstr ""
+msgstr "エージェント転送"
 
 #: rustconn/src/dialogs/connection/ssh.rs:658
 #: rustconn/src/dialogs/template.rs:727
 msgid "Forward SSH agent to remote host (-A)"
-msgstr ""
+msgstr "SSHエージェントをリモートホストに転送する (-A)"
 
 #: rustconn/src/dialogs/connection/ssh.rs:663
 msgid "Waypipe"
-msgstr ""
+msgstr "Waypipe"
 
 #: rustconn/src/dialogs/connection/ssh.rs:664
 msgid "Wayland application forwarding via waypipe"
-msgstr ""
+msgstr "WaylandアプリケーションをWaypipeを使用してホストに転送する"
 
 #: rustconn/src/dialogs/connection/ssh.rs:669
 msgid "X11 Forwarding"
-msgstr ""
+msgstr "X11転送"
 
 #: rustconn/src/dialogs/connection/ssh.rs:670
 msgid "Forward X11 display to local host (-X)"
-msgstr ""
+msgstr "X11ディスプレイをローカルホストに転送する (-X)"
 
 #: rustconn/src/dialogs/connection/ssh.rs:675
 #: rustconn/src/dialogs/connection/vnc.rs:197
 msgid "Compression"
-msgstr ""
+msgstr "圧縮"
 
 #: rustconn/src/dialogs/connection/ssh.rs:676
 msgid "Enable compression for slow connections (-C)"
-msgstr ""
+msgstr "低速接続向けに圧縮を有効にする (-C)"
 
 #: rustconn/src/dialogs/connection/ssh.rs:681
 msgid "Verbose"
-msgstr ""
+msgstr "冗長ログ表示"
 
 #: rustconn/src/dialogs/connection/ssh.rs:682
 msgid "Show SSH debug output for troubleshooting (-v)"
-msgstr ""
+msgstr "トラブルシューティング用にSSHのデバッグ出力を表示 (-v)"
 
 #: rustconn/src/dialogs/connection/ssh.rs:689
 msgid "Use multiple network paths for mobility and aggregation (mptcpize run)"
 msgstr ""
+"モビリティと帯域のために複数のネットワークパスを使用する（mptcpize run）"
 
 #: rustconn/src/dialogs/connection/ssh.rs:692
 msgid ""
 "Use multiple network paths for mobility and aggregation. Install mptcpize "
 "(mptcpd) to enable"
-msgstr ""
+msgstr "mptcpize (mptcpd) をインストールして有効にします。"
 
 #: rustconn/src/dialogs/connection/ssh.rs:696
 msgid ""
 "Use multiple network paths (mptcpize run). Not available: kernel MPTCP is "
 "disabled"
 msgstr ""
+"複数のネットワークパスを使用します (mptcpize run)。カーネルのMPTCPが無効に"
+"なっている場合は利用できません"
 
 #: rustconn/src/dialogs/connection/ssh.rs:704
 #: rustconn/src/dialogs/template.rs:739
 msgid "Startup Command"
-msgstr ""
+msgstr "起動コマンド"
 
 #: rustconn/src/dialogs/connection/ssh.rs:705
 #: rustconn/src/dialogs/template.rs:740
 msgid "Execute after connection established"
-msgstr ""
+msgstr "接続確立後に実行"
 
 #: rustconn/src/dialogs/connection/ssh.rs:706
 #: rustconn/src/dialogs/template.rs:734
 msgid "Command to run on connect"
-msgstr ""
+msgstr "接続時に実行するコマンド"
 
 #: rustconn/src/dialogs/connection/ssh.rs:711
 #: rustconn/src/dialogs/template.rs:753
 msgid "Custom Options"
-msgstr ""
+msgstr "カスタム設定s"
 
 #: rustconn/src/dialogs/connection/ssh.rs:712
 msgid "Key=Value, comma-separated (-o flags)"
-msgstr ""
+msgstr "鍵=値 (カンマ区切り、-o フラグ)"
 
 #: rustconn/src/dialogs/connection/ssh.rs:719
 #: rustconn/src/window/edit_group.rs:840
 msgid "SSH Agent Socket"
-msgstr ""
+msgstr "SSHエージェントのソケット"
 
 #: rustconn/src/dialogs/connection/ssh.rs:722
 msgid "Overrides global setting and auto-detected socket for this connection"
-msgstr ""
+msgstr "この接続について、グローバル設定および自動検出されたソケットを上書き"
 
 #: rustconn/src/dialogs/connection/ssh.rs:749
 msgid "PKCS#11 Provider"
-msgstr ""
+msgstr "PKCS#11プロパイダー"
 
 #: rustconn/src/dialogs/connection/ssh.rs:752
 msgid ""
 "Path to a PKCS#11 library for hardware-token login (e.g. /usr/lib64/"
 "libykcs11.so.2)"
 msgstr ""
+"イハードウェアトークンを使用した、ログイン用のPKCS#11ライブラリーへのパス "
+"(例: /usr/lib64/libykcs11.so.2)"
 
 #: rustconn/src/dialogs/connection/ssh.rs:778
 msgid "SFTP Remote Directory"
-msgstr ""
+msgstr "SFTP リモートディレクトリ"
 
 #: rustconn/src/dialogs/connection/ssh.rs:781
 msgid ""
 "Directory the SFTP file browser opens in. Leave empty to detect the home "
 "directory automatically."
 msgstr ""
+"SFTPファイルブラウザが最初に開くディレクトリ。ホームディレクトリを自動的に検"
+"出させたい場合は、空欄にしてください。"
 
 #: rustconn/src/dialogs/connection/ssh.rs:810
 #: rustconn/src/dialogs/connection/telnet.rs:52
 msgid "Keyboard"
-msgstr ""
+msgstr "キーボード"
 
 #: rustconn/src/dialogs/connection/ssh.rs:812
 #: rustconn/src/dialogs/connection/telnet.rs:54
@@ -3494,113 +3509,118 @@ msgid ""
 "If Backspace or Delete is not recognised, try Backspace (^H) or Delete (^?) "
 "—              devices that reject one default usually reject both"
 msgstr ""
+"Backspace, Delete が認識されない場合は、Backspace (^H) またはDelete (^?) を試"
+"してください。通常、一方の初期設定が効かないデバイスでは、両方とも効かない傾"
+"向があります。"
 
 #: rustconn/src/dialogs/connection/ssh.rs:823
 #: rustconn/src/dialogs/connection/telnet.rs:74
 msgid "Backspace sends"
-msgstr ""
+msgstr "Backspaceを送信する方法"
 
 #: rustconn/src/dialogs/connection/ssh.rs:824
 #: rustconn/src/dialogs/connection/telnet.rs:75
 msgid "What the Backspace key sends to the remote"
-msgstr ""
+msgstr "Backspaceキーをリモート側に送信する方法"
 
 #: rustconn/src/dialogs/connection/ssh.rs:836
 #: rustconn/src/dialogs/connection/telnet.rs:93
 msgid "Delete sends"
-msgstr ""
+msgstr "Deleteキーを送信する方法"
 
 #: rustconn/src/dialogs/connection/ssh.rs:837
 #: rustconn/src/dialogs/connection/telnet.rs:94
 msgid "What the Delete key sends to the remote"
-msgstr ""
+msgstr "Deleteキーをリモート側に送信する方法"
 
 #: rustconn/src/dialogs/connection/ssh.rs:869
 msgid "Port Forwarding"
-msgstr ""
+msgstr "ポート転送"
 
 #: rustconn/src/dialogs/connection/ssh.rs:870
 msgid "Forward ports through the SSH tunnel"
-msgstr ""
+msgstr "SSHトンネル経由でポートを転送する"
 
 #: rustconn/src/dialogs/connection/ssh.rs:875
 #: rustconn/src/dialogs/tunnel_builder/step_forwards.rs:420
 msgid "Local (-L)"
-msgstr ""
+msgstr "ローカル (-L)"
 
 #: rustconn/src/dialogs/connection/ssh.rs:876
 #: rustconn/src/dialogs/tunnel_builder/step_forwards.rs:421
 msgid "Remote (-R)"
-msgstr ""
+msgstr "リモート (-R)"
 
 #: rustconn/src/dialogs/connection/ssh.rs:877
 #: rustconn/src/dialogs/tunnel_builder/step_forwards.rs:422
 msgid "Dynamic (-D)"
-msgstr ""
+msgstr "動的 (-D)"
 
 #: rustconn/src/dialogs/connection/ssh.rs:885
 msgid "Direction"
-msgstr ""
+msgstr "方向"
 
 #: rustconn/src/dialogs/connection/ssh.rs:886
 msgid "Type of port forwarding"
-msgstr ""
+msgstr "ポートフォワーディングの種類"
 
 #: rustconn/src/dialogs/connection/ssh.rs:899
 #: rustconn/src/dialogs/tunnel_builder/step_forwards.rs:459
 msgid "Local Port"
-msgstr ""
+msgstr "ローカルポート"
 
 #: rustconn/src/dialogs/connection/ssh.rs:900
 msgid "Port to bind locally"
-msgstr ""
+msgstr "ローカルでバインドするポート"
 
 #: rustconn/src/dialogs/connection/ssh.rs:911
 #: rustconn/src/dialogs/tunnel_builder/step_forwards.rs:477
 msgid "Remote Host"
-msgstr ""
+msgstr "リモートのホスト"
 
 #: rustconn/src/dialogs/connection/ssh.rs:912
 msgid "Destination host on the remote side"
-msgstr ""
+msgstr "リモート側の宛先ホスト"
 
 #: rustconn/src/dialogs/connection/ssh.rs:925
 #: rustconn/src/dialogs/tunnel_builder/step_forwards.rs:493
 msgid "Remote Port"
-msgstr ""
+msgstr "リモートのポート"
 
 #: rustconn/src/dialogs/connection/ssh.rs:926
 msgid "Destination port on the remote side"
-msgstr ""
+msgstr "リモート側の宛先ポート"
 
 #: rustconn/src/dialogs/connection/ssh.rs:942
 msgid "Add Forward"
-msgstr ""
+msgstr "転送先を追加"
 
 #: rustconn/src/dialogs/connection/ssh.rs:972
 msgid "Port already in use"
-msgstr ""
+msgstr "ポートは既に使用されています"
 
 #: rustconn/src/dialogs/connection/ssh.rs:1049
 msgid "Remove this port forward"
-msgstr ""
+msgstr "このポート転送を削除する"
 
 #: rustconn/src/dialogs/connection/ssh.rs:1052
 msgid "Remove port forward"
-msgstr ""
+msgstr "ポート転送を削除する"
 
 #: rustconn/src/dialogs/connection/telnet.rs:38
 msgid "⚠ Telnet transmits data in plain text. Use SSH for secure connections."
 msgstr ""
+"⚠ Telnetはデータをプレーンテキストで送信します。安全な接続にはSSHを使用してく"
+"ださい。"
 
 #: rustconn/src/dialogs/connection/vnc.rs:98
 #: rustconn/src/dialogs/connection/vnc.rs:100
 msgid "VNC viewer"
-msgstr ""
+msgstr "VNCビューアー"
 
 #: rustconn/src/dialogs/connection/vnc.rs:102
 msgid "External viewer binary. Automatic picks the best available"
-msgstr ""
+msgstr "外部のビューアーの実行ファイル。利用可能なものから自動的に選択します。"
 
 #: rustconn/src/dialogs/connection/vnc.rs:146
 #: rustconn/src/dialogs/template.rs:1041 rustconn/src/dialogs/template.rs:1052
