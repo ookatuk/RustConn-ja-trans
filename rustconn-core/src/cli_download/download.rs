@@ -117,8 +117,7 @@ mod tests {
 
     // SHA256 of the ASCII bytes "hello" — precomputed, so a Static policy over
     // exactly this input must verify and any other hash must be a mismatch.
-    const HELLO_SHA256: &str =
-        "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824";
+    const HELLO_SHA256: &str = "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824";
 
     #[test]
     fn verify_checksum_accepts_matching_hash() {

@@ -1067,9 +1067,7 @@ impl ConfigManager {
             // process died mid-restore, and skipped the 0600 permissioning that
             // every other config write gets.
             let text = String::from_utf8(content).map_err(|e| {
-                ConfigError::Deserialize(format!(
-                    "Backup entry {name_str} is not valid UTF-8: {e}"
-                ))
+                ConfigError::Deserialize(format!("Backup entry {name_str} is not valid UTF-8: {e}"))
             })?;
             self.write_locked(&dest_path, &text)?;
             count += 1;

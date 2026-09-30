@@ -401,7 +401,8 @@ mod tests {
         assert!(entry.contains("_is_group: 0"));
         assert!(entry.contains("name: \"webserver\""));
         assert!(entry.contains("ip: \"192.168.1.100\""));
-        assert!(entry.contains("port: 22"));        assert!(entry.contains("method: \"SSH\""));
+        assert!(entry.contains("port: 22"));
+        assert!(entry.contains("method: \"SSH\""));
         assert!(entry.contains("children: {}"));
     }
 

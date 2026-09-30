@@ -1637,12 +1637,11 @@ fn start_spice_connection_internal(
         // configured shares never reached the viewer. The persisted `SharedFolder`
         // carries local_path + share_name; the client type defaults read_only=false.
         for folder in &opts.shared_folders {
-            config = config.with_shared_folder(
-                rustconn_core::spice_client::SpiceSharedFolder::new(
+            config =
+                config.with_shared_folder(rustconn_core::spice_client::SpiceSharedFolder::new(
                     folder.local_path.clone(),
                     folder.share_name.clone(),
-                ),
-            );
+                ));
         }
     }
 
