@@ -134,11 +134,22 @@ pub struct RdpClientConfig {
     #[serde(default)]
     pub printers: Vec<String>,
 
-    /// Enable smart card redirection
+    /// Enable smart card redirection.
+    ///
+    /// **Reserved / not yet implemented.** The embedded IronRDP client has no
+    /// smart-card (scard) virtual channel — `RustConnRdpdrBackend::handle_scard_call`
+    /// is a no-op — so setting this currently has no effect. The field is kept
+    /// so a future scard implementation and existing persisted configs round-trip
+    /// without a schema change; it is not surfaced in the GUI.
     #[serde(default)]
     pub smartcard_enabled: bool,
 
-    /// Enable microphone redirection
+    /// Enable microphone redirection.
+    ///
+    /// **Reserved / not yet implemented.** The embedded IronRDP client has no
+    /// audio-input (audin) virtual channel, so setting this currently has no
+    /// effect. The field is kept for forward-compatibility and round-tripping;
+    /// it is not surfaced in the GUI.
     #[serde(default)]
     pub microphone_enabled: bool,
 
@@ -447,7 +458,10 @@ impl RdpClientConfig {
         self
     }
 
-    /// Enables or disables smart card redirection
+    /// Sets the smart-card redirection flag.
+    ///
+    /// **Reserved / not yet implemented** — see [`RdpClientConfig::smartcard_enabled`].
+    /// Setting it currently has no effect on the embedded client.
     #[must_use]
     pub const fn with_smartcard(mut self, enabled: bool) -> Self {
         self.smartcard_enabled = enabled;
