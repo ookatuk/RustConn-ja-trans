@@ -389,7 +389,7 @@ done
 %{_datadir}/icons/hicolor/*/apps/io.github.totoshko88.RustConn.*
 
 %changelog
-* Wed Sep 30 2026 Anton Isaiev <totoshko88@gmail.com> - 0.22.12-0
+* Thu Oct 01 2026 Anton Isaiev <totoshko88@gmail.com> - 0.22.12-0
 - Version bump to 0.22.12
 - Added: RDP can now authenticate NLA with Kerberos instead of NTLM, an opt-in per-connection switch for the embedded client; required for AD "Protected Users" hosts that disable NTLM domain-wide (issue #351)
 - Fixed: a SPICE connection's saved proxy URL and shared folders now reach remote-viewer; the launch mapping previously dropped both fields

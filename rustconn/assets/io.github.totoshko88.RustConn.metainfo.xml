@@ -140,7 +140,7 @@
     <control>touch</control>
   </supports>
   <releases>
-    <release version="0.22.12" date="2026-09-30">
+    <release version="0.22.12" date="2026-10-01">
       <description>
         <p>Version 0.22.12 - Kerberos RDP authentication, SPICE launch fixes and download-integrity hardening:</p>
         <ul>

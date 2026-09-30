@@ -5,7 +5,7 @@ All notable changes to RustConn will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.22.12] - 2026-09-30
+## [0.22.12] - 2026-10-01
 
 ### Added
 - **RDP can now authenticate NLA with Kerberos instead of NTLM (issue [#351](https://github.com/totoshko88/RustConn/issues/351))** — a host whose account is in the Active Directory **Protected Users** group cannot log in over the embedded client: that group disables NTLM (and CredSSP-with-NTLM) domain-wide, so IronRDP's NTLM-only NLA was rejected with `STATUS_ACCOUNT_RESTRICTION` (`0xc000006e`), and the TLS-only fallback gave a black screen against a server that requires NLA.
