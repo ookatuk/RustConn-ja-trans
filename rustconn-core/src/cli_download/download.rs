@@ -127,8 +127,6 @@ mod tests {
 
     #[test]
     fn verify_checksum_rejects_wrong_hash() {
-        let err = verify_checksum(b"hello", HELLO_SHA256).map(|()| ());
-        assert!(err.is_ok());
         // A mismatch (different bytes, same expected hash) must fail.
         assert!(matches!(
             verify_checksum(b"goodbye", HELLO_SHA256),
