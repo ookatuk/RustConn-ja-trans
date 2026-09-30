@@ -230,6 +230,15 @@ pub struct RdpConfig {
     /// Allows using local FIDO2 security keys for authentication in the remote session.
     /// Requires FreeRDP 3.x with `/fido` support. Only applies to External mode.
     pub fido2_enabled: bool,
+    /// Attempt Kerberos authentication for NLA instead of NTLM (issue #351).
+    ///
+    /// Only affects the embedded IronRDP path (CredSSP). Needed for AD
+    /// "Protected Users" hosts, which disable NTLM domain-wide. Requires a
+    /// working local krb5 setup (a TGT via `kinit`, or a KDC proxy URL).
+    pub kerberos_enabled: bool,
+    /// Optional KDC proxy (MS-KKDCP) URL for the Kerberos exchange, used only
+    /// when [`Self::kerberos_enabled`] is set. `None` = direct KDC via krb5.
+    pub kdc_proxy_url: Option<String>,
 }
 
 impl Default for RdpConfig {
@@ -281,6 +290,8 @@ impl Default for RdpConfig {
             force_legacy_graphics: false,
             mptcp: false,
             fido2_enabled: false,
+            kerberos_enabled: false,
+            kdc_proxy_url: None,
         }
     }
 }

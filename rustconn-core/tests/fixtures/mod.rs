@@ -186,6 +186,8 @@ pub fn sample_rdp_connection_with_domain() -> Connection {
         remote_app_name: None,
         mptcp: false,
         fido2_enabled: false,
+        kerberos_enabled: false,
+        kdc_proxy_url: None,
     };
 
     let mut conn = Connection::new(

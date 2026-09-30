@@ -5,6 +5,12 @@ All notable changes to RustConn will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.22.12] - Unreleased
+
+### Added
+- **RDP can now authenticate NLA with Kerberos instead of NTLM (issue [#351](https://github.com/totoshko88/RustConn/issues/351))** — a host whose account is in the Active Directory **Protected Users** group cannot log in over the embedded client: that group disables NTLM (and CredSSP-with-NTLM) domain-wide, so IronRDP's NTLM-only NLA was rejected with `STATUS_ACCOUNT_RESTRICTION` (`0xc000006e`), and the TLS-only fallback gave a black screen against a server that requires NLA.
+IronRDP already supports Kerberos for CredSSP, but RustConn hard-coded `None` for the Kerberos config when finalising the connection, so it only ever attempted NTLM. A new opt-in **"Kerberos Authentication"** switch under the RDP connection editor's Features section threads an `ironrdp::connector::credssp::KerberosConfig` (client hostname, optional KDC-proxy URL) into `connect_finalize`, so the SSPI layer negotiates Kerberos and falls back to NTLM only where the server and the local Kerberos setup permit it. It is off by default and affects the embedded IronRDP path only: Kerberos on Linux needs a working krb5 environment (a valid `/etc/krb5.conf`, DNS/SRV to the KDC, and a ticket via `kinit`, or a reachable KDC proxy). A malformed KDC-proxy URL is logged and dropped rather than aborting the connection, falling through to direct-KDC Kerberos. The flag is persisted per connection and covered by the existing RDP config round-trip tests.
+
 ## [0.22.11] - 2026-09-30
 
 ### Fixed

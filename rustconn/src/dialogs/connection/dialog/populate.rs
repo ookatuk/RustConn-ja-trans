@@ -1334,6 +1334,7 @@ impl ConnectionDialog {
             .set_active(rdp.reconnect_on_resize);
         self.rdp_mptcp_check.set_active(rdp.mptcp);
         self.rdp_fido2_check.set_active(rdp.fido2_enabled);
+        self.rdp_kerberos_check.set_active(rdp.kerberos_enabled);
         self.rdp_disable_nla_check.set_active(rdp.disable_nla);
         self.rdp_security_layer_dropdown
             .set_selected(rdp.security_layer.index());

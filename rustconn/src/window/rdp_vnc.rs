@@ -621,6 +621,13 @@ fn start_embedded_rdp_session(
     // FIDO2/WebAuthn device redirection (FreeRDP 3.x only, external mode)
     embedded_config.fido2_enabled = rdp_config.fido2_enabled;
 
+    // Kerberos NLA opt-in (issue #351). Embedded IronRDP path only — negotiates
+    // Kerberos for CredSSP with NTLM fallback, which an AD "Protected Users"
+    // host requires. The optional KDC proxy URL routes the exchange over
+    // MS-KKDCP when the KDC is not directly reachable.
+    embedded_config.kerberos_enabled = rdp_config.kerberos_enabled;
+    embedded_config.kdc_proxy_url = rdp_config.kdc_proxy_url.clone();
+
     // Wrap in Rc to keep widget alive in notebook
     let embedded_widget = Rc::new(embedded_widget);
 

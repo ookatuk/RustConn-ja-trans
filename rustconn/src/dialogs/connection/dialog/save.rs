@@ -114,6 +114,7 @@ impl ConnectionDialog {
         rdp_reconnect_on_resize_check: &adw::SwitchRow,
         rdp_mptcp_check: &adw::SwitchRow,
         rdp_fido2_check: &adw::SwitchRow,
+        rdp_kerberos_check: &adw::SwitchRow,
         rdp_jump_host_dropdown: &DropDown,
         rdp_connections_data: &Rc<RefCell<Vec<(Option<Uuid>, String)>>>,
         rdp_freerdp_clients_data: &Rc<RefCell<Vec<String>>>,
@@ -337,6 +338,7 @@ impl ConnectionDialog {
         let rdp_reconnect_on_resize_check = rdp_reconnect_on_resize_check.clone();
         let rdp_mptcp_check = rdp_mptcp_check.clone();
         let rdp_fido2_check = rdp_fido2_check.clone();
+        let rdp_kerberos_check = rdp_kerberos_check.clone();
         let rdp_jump_host_dropdown = rdp_jump_host_dropdown.clone();
         let rdp_connections_data = rdp_connections_data.clone();
         let rdp_freerdp_clients_data = rdp_freerdp_clients_data.clone();
@@ -575,6 +577,7 @@ impl ConnectionDialog {
                 rdp_reconnect_on_resize_check: &rdp_reconnect_on_resize_check,
                 rdp_mptcp_check: &rdp_mptcp_check,
                 rdp_fido2_check: &rdp_fido2_check,
+                rdp_kerberos_check: &rdp_kerberos_check,
                 rdp_jump_host_dropdown: &rdp_jump_host_dropdown,
                 rdp_connections_data: &rdp_connections_data,
                 rdp_freerdp_clients_data: &rdp_freerdp_clients_data,

@@ -282,6 +282,18 @@ sandboxed builds bundle a FreeRDP client for the external RDP path: the Flatpak 
 SDL3 client, the snap the X11 client (`xfreerdp3`).
 See [User Guide — Flatpak Components](USER_GUIDE.md#flatpak-components) for details.
 
+**Why the Components dialog shows three sections, not four** — the dialog hides any
+category with no sandbox-compatible, downloadable component. The **Protocol Clients**
+category currently holds only the external TigerVNC `vncviewer`, which needs host
+display access that strict confinement does not grant (`works_in_sandbox: false`), so
+that section is omitted inside a sandbox and only Zero Trust CLIs, Password Manager
+CLIs and Container Orchestration remain. This is expected: the embedded RDP (IronRDP)
+and VNC (vnc-rs) clients are the preferred path, and the external protocol-client
+downloads are only a fallback for non-sandboxed installs (issue
+[#342](https://github.com/totoshko88/RustConn/issues/342)). On ARM64 the Bitwarden CLI
+is additionally not offered (it has no ARM64 build), so the Password Manager section
+lists 1Password only — the section count is still three.
+
 **Recommendation:**
 - **Flatpak:** Recommended for most users. Full functionality with on-demand CLI downloads.
 - **Snap:** Good for users who prefer strict confinement; on-demand CLI downloads and manual interface connections.

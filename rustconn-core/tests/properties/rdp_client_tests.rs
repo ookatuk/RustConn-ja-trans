@@ -134,6 +134,8 @@ fn arb_rdp_client_config() -> impl Strategy<Value = RdpClientConfig> {
                     connection_name: None,
                     keyboard_layout: None,
                     mptcp: false,
+                    kerberos_enabled: false,
+                    kdc_proxy_url: None,
                 }
             },
         )
