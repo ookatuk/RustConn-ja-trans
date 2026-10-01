@@ -153,6 +153,32 @@ impl CachedCredentials {
     }
 }
 
+/// The session's [`CachedCredentials`], one entry per connection.
+///
+/// A type of its own so that forgetting an entry is a tested operation and not
+/// a bare map call buried in [`AppState`], which a unit test cannot build.
+#[derive(Default)]
+struct CredentialCache(HashMap<Uuid, CachedCredentials>);
+
+impl CredentialCache {
+    /// Stores `credentials` for `connection_id`, replacing any earlier entry.
+    fn insert(&mut self, connection_id: Uuid, credentials: CachedCredentials) {
+        self.0.insert(connection_id, credentials);
+    }
+
+    /// The entry for `connection_id`, unless it has expired.
+    fn get(&self, connection_id: Uuid) -> Option<&CachedCredentials> {
+        self.0
+            .get(&connection_id)
+            .filter(|creds| !creds.is_expired())
+    }
+
+    /// Drops the entry for `connection_id`. Returns whether there was one.
+    fn forget(&mut self, connection_id: Uuid) -> bool {
+        self.0.remove(&connection_id).is_some()
+    }
+}
+
 /// What startup found wrong with the config files, reported once by the main window.
 ///
 /// Only the most pressing finding is kept: an unreadable file means defaults
@@ -192,7 +218,7 @@ pub struct AppState {
     ///
     /// The negative counterpart — which connections the vault had *nothing* for —
     /// deliberately does not live here; see [`crate::vault_miss_cache`] for why.
-    password_cache: HashMap<Uuid, CachedCredentials>,
+    password_cache: CredentialCache,
     /// Transient answers to interactive `@ask:` variables, per connection.
     ///
     /// Populated at connect time from the ASK prompt dialog and consumed by the
@@ -671,7 +697,7 @@ impl AppState {
             config_manager,
             cluster_manager,
             settings,
-            password_cache: HashMap::new(),
+            password_cache: CredentialCache::default(),
             ask_answers: HashMap::new(),
             clipboard: ConnectionClipboard::new(),
             history_entries,
@@ -724,9 +750,39 @@ impl AppState {
     /// `get_cached_credentials_mut` or `cleanup_expired_credentials` for cleanup.
     #[must_use]
     pub fn get_cached_credentials(&self, connection_id: Uuid) -> Option<&CachedCredentials> {
-        self.password_cache
-            .get(&connection_id)
-            .filter(|creds| !creds.is_expired())
+        self.password_cache.get(connection_id)
+    }
+
+    /// Drops every cached copy of how to sign in to a connection (issue #351).
+    ///
+    /// For a connection attempt that was refused or never reached a session, so
+    /// the next attempt reads the vault again instead of retrying the same
+    /// answer until [`DEFAULT_CREDENTIAL_TTL_SECONDS`] runs out. After the user
+    /// corrects a vault entry, three copies can still hold the old one:
+    ///
+    /// - this session cache, keyed by connection;
+    /// - the core `SecretManager` cache, keyed by vault entry. It has no removal
+    ///   by entry that leaves the vault alone, so it is cleared whole, which
+    ///   costs other connections one extra lookup at most;
+    /// - Bitwarden's local copy of the vault, which `bw` refreshes only on sync.
+    ///
+    /// Nothing is lost: every copy is read from the vault again on next use.
+    pub fn forget_cached_credentials(&mut self, connection_id: Uuid) {
+        let had_entry = self.password_cache.forget(connection_id);
+        crate::vault_miss_cache::forget(connection_id);
+        rustconn_core::secret::sync_on_next_unlock();
+        // The cache's lock is async, so the clear is spawned, as in
+        // `lock_portable_store`. The `Arc` inside makes the clone clear the
+        // same map.
+        let manager = self.secret_manager.clone();
+        gtk4::glib::spawn_future_local(async move {
+            manager.clear_cache().await;
+        });
+        tracing::debug!(
+            %connection_id,
+            had_entry,
+            "Dropped cached credentials after a failed connection attempt"
+        );
     }
 
     // ========== Interactive (ASK) answers ==========
@@ -2111,6 +2167,30 @@ fn keep_unreadable_file(
 /// Shared application state type
 pub type SharedAppState = Rc<RefCell<AppState>>;
 
+/// Runs [`AppState::forget_cached_credentials`] from a session callback.
+///
+/// A failure is reported from inside widget callbacks, which can run while
+/// the code that started the connection still holds the state. Then the
+/// forgetting waits for the next idle, which is still long before the user can
+/// try again, instead of being skipped.
+pub fn forget_cached_credentials(state: &SharedAppState, connection_id: Uuid) {
+    if let Ok(mut state_mut) = state.try_borrow_mut() {
+        state_mut.forget_cached_credentials(connection_id);
+        return;
+    }
+    let state = state.clone();
+    gtk4::glib::idle_add_local_once(move || {
+        if let Ok(mut state_mut) = state.try_borrow_mut() {
+            state_mut.forget_cached_credentials(connection_id);
+        } else {
+            tracing::warn!(
+                %connection_id,
+                "Application state busy; cached credentials are kept until they expire"
+            );
+        }
+    });
+}
+
 /// Safe read access to `SharedAppState`, preventing borrow panics from
 /// leaking across callback boundaries.
 pub fn with_state<R>(state: &SharedAppState, f: impl FnOnce(&AppState) -> R) -> R {
@@ -2143,6 +2223,62 @@ pub fn create_shared_state() -> Result<SharedAppState, String> {
 // Vault credential operations — extracted to reduce module complexity.
 // Re-exported here so all `crate::state::` paths continue to work.
 pub use crate::vault_ops::*;
+
+#[cfg(test)]
+mod credential_cache_tests {
+    use secrecy::{ExposeSecret, SecretString};
+    use uuid::Uuid;
+
+    use super::{CachedCredentials, CredentialCache, DEFAULT_CREDENTIAL_TTL_SECONDS};
+
+    fn creds(password: &str) -> CachedCredentials {
+        CachedCredentials::new(
+            "user".to_string(),
+            SecretString::from(password.to_string()),
+            String::new(),
+        )
+    }
+
+    /// Issue #351: after a refused sign-in the next attempt must miss the cache
+    /// and read the vault, so the entry has to go, and only that one.
+    #[test]
+    fn a_forgotten_connection_misses_the_cache_and_others_keep_theirs() {
+        let mut cache = CredentialCache::default();
+        let refused = Uuid::new_v4();
+        let other = Uuid::new_v4();
+        cache.insert(refused, creds("wrong"));
+        cache.insert(other, creds("right"));
+
+        assert!(cache.forget(refused));
+
+        assert!(cache.get(refused).is_none());
+        let kept = cache.get(other).expect("an unrelated entry survives");
+        assert_eq!(kept.password.expose_secret(), "right");
+    }
+
+    #[test]
+    fn forgetting_a_connection_with_no_entry_reports_nothing_removed() {
+        let mut cache = CredentialCache::default();
+        assert!(!cache.forget(Uuid::new_v4()));
+    }
+
+    /// WHEN an entry is fresh THEN the cache SHALL CONTINUE TO serve it, and
+    /// WHEN it is past its TTL THEN it SHALL CONTINUE TO be treated as absent.
+    #[test]
+    fn a_fresh_entry_is_served_and_an_expired_one_is_not() {
+        let mut cache = CredentialCache::default();
+        let fresh = Uuid::new_v4();
+        let stale = Uuid::new_v4();
+        cache.insert(fresh, creds("fresh"));
+        let mut old = creds("stale");
+        let age = i64::try_from(DEFAULT_CREDENTIAL_TTL_SECONDS).expect("the TTL fits in i64") + 1;
+        old.cached_at = chrono::Utc::now() - chrono::Duration::seconds(age);
+        cache.insert(stale, old);
+
+        assert!(cache.get(fresh).is_some());
+        assert!(cache.get(stale).is_none());
+    }
+}
 
 #[cfg(test)]
 mod tests {

@@ -114,6 +114,17 @@ fn is_recently_verified() -> bool {
         .is_some_and(|t| t.elapsed().as_secs() < UNLOCK_VERIFY_TTL_SECS)
 }
 
+/// Makes the next [`auto_unlock`] check the session again and run `bw sync`.
+///
+/// For [`UNLOCK_VERIFY_TTL_SECS`] after a check, `auto_unlock` hands back the
+/// stored session without running anything, so `bw` keeps answering from its
+/// local copy of the vault, which does not see an item edited in another
+/// Bitwarden client until the next sync. Call this when credentials read from
+/// the vault were just refused, so the retry reads the item fresh (issue #351).
+pub fn sync_on_next_unlock() {
+    clear_verified();
+}
+
 /// Clears the verification timestamp (e.g. on lock/logout).
 fn clear_verified() {
     if let Ok(mut guard) = BW_LAST_VERIFIED.write() {
@@ -1694,7 +1705,10 @@ mod debug_tests {
 
 #[cfg(test)]
 mod unlock_tests {
-    use super::{BW_INVOCATION_TIMEOUT, redact_session_keys};
+    use super::{
+        BW_INVOCATION_TIMEOUT, is_recently_verified, mark_verified, redact_session_keys,
+        sync_on_next_unlock,
+    };
 
     /// Unlock stderr reaches a debug log *and* the error string the Secrets page
     /// renders. `extract_session_key` looks for the export banner on stdout, so a
@@ -1746,5 +1760,18 @@ Invalid master password.";
     #[test]
     fn the_invocation_budget_clears_a_real_unlock() {
         assert!(BW_INVOCATION_TIMEOUT >= std::time::Duration::from_secs(15));
+    }
+
+    /// After a refused sign-in the next unlock must not take the fast path that
+    /// skips `bw sync`, or a corrected item is not seen (issue #351). No other
+    /// test touches the verification timestamp, so this one does not race.
+    #[test]
+    fn sync_on_next_unlock_forgets_the_recent_check() {
+        mark_verified();
+        assert!(is_recently_verified());
+
+        sync_on_next_unlock();
+
+        assert!(!is_recently_verified());
     }
 }

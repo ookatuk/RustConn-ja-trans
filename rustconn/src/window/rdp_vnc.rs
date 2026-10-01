@@ -673,6 +673,12 @@ fn start_embedded_rdp_session(
             }
             // If never connected, close the tab — no point showing failed tab for initial failure
             if !was_connected_clone.get() {
+                // The attempt never reached a session, so the credentials it
+                // used may be what failed. Drop the cached copy so the next
+                // attempt reads the vault again (issue #351). A session that
+                // connected and dropped later proved its credentials and keeps
+                // them.
+                crate::state::forget_cached_credentials(&state_for_callback, connection_id);
                 notebook_for_state.close_tab(session_id);
                 // Note: specific error toast is shown by connect_error callback.
                 // Only show generic fallback if on_error was not triggered.
@@ -1038,6 +1044,10 @@ fn spawn_external_rdp_attempt(
         let conn_name = conn_name.clone();
         move |error: String| {
             tracing::error!(%error, connection = %conn_name, "RDP session failed shortly after start");
+            // As for the embedded widget: a client that exits right after
+            // launch may have been refused, so the retry reads the vault again
+            // (issue #351).
+            crate::state::forget_cached_credentials(&state, connection_id);
             crate::toast::show_error_toast_on_active_window(&error);
             if let Some(entry_id) = history_entry_id
                 && let Ok(mut state_mut) = state.try_borrow_mut()
@@ -1580,7 +1590,19 @@ fn start_vnc_session_internal(
         let notebook_for_state = notebook.clone();
         let sidebar_for_state = sidebar.clone();
         let state_for_callback = state.clone();
+        let was_ever_connected = std::cell::Cell::new(false);
         vnc_widget.connect_state_changed(move |vnc_state| {
+            if matches!(vnc_state, crate::session::SessionState::Error(_))
+                && !was_ever_connected.get()
+            {
+                // Same rule as RDP: an attempt that never reached a session may
+                // have been refused, so the retry reads the vault again
+                // instead of the cached password (issue #351).
+                crate::state::forget_cached_credentials(&state_for_callback, connection_id);
+            }
+            if vnc_state == crate::session::SessionState::Connected {
+                was_ever_connected.set(true);
+            }
             if vnc_state == crate::session::SessionState::Disconnected {
                 notebook_for_state.stop_recording(session_id);
                 notebook_for_state.mark_tab_disconnected(session_id);

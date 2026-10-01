@@ -47,7 +47,7 @@ pub use bitwarden::{
     get_api_credentials_from_keyring, get_bitwarden_version, get_bw_cmd,
     get_master_password_from_keyring, get_session_key, lock_vault, login_with_api_key, logout,
     resolve_bw_cmd, set_bw_cmd, set_session_key, store_api_credentials_in_keyring,
-    store_master_password_in_keyring, unlock_vault, unlock_vault_blocking,
+    store_master_password_in_keyring, sync_on_next_unlock, unlock_vault, unlock_vault_blocking,
 };
 pub use detection::{
     PasswordManagerInfo, VERSION_REGEX, detect_bitwarden, detect_gnome_secrets, detect_keepass,

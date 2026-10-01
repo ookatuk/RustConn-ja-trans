@@ -1008,6 +1008,17 @@ impl MainWindow {
                     .get_session_info(session_id)
                     .is_some_and(|info| info.protocol == "ssh");
 
+            // A refused password must not be served again from the session
+            // cache for the next five minutes: the retry reads the vault again
+            // (issue #351). OpenSSH also exits 255 for a lost connection (#217),
+            // which then costs one extra vault lookup and no wrong credential.
+            // ponytail: only the target's entry. A refused jump-host password
+            // stays cached until it expires, because the exit status does not
+            // say which hop failed; parse ssh's stderr if that ever matters.
+            if is_ssh_auth_failure {
+                crate::state::forget_cached_credentials(&state_clone, connection_id);
+            }
+
             // Skip auto-reconnect for rapid crashes (session lived < 5 seconds).
             // This prevents infinite reconnect loops when the terminal process
             // crashes immediately (e.g., SIGSEGV in VTE on macOS).
