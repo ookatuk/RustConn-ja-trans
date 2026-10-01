@@ -312,6 +312,10 @@ pub struct MainWindow {
     /// broadcast is not all-visible at once, so its active state must be
     /// impossible to miss (issue #329).
     group_broadcast_banner: adw::Banner,
+    /// Persistent banner below the header bar shown at startup when a config
+    /// file could not be read and was kept aside, or was written by a newer
+    /// RustConn. Filled once by `show_config_file_notice`; Dismiss hides it.
+    config_banner: adw::Banner,
     /// Persistent banner below the header bar for cloud sync failures.
     /// Shown by `show_sync_error_banner`, hidden on the next successful
     /// sync or via its Dismiss button.
@@ -831,6 +835,18 @@ impl MainWindow {
         let toolbar_view = adw::ToolbarView::new();
         toolbar_view.add_top_bar(&header_bar);
 
+        // Persistent banner for config files startup could not read, or found
+        // written by a newer RustConn (GNOME HIG: a state that needs attention
+        // belongs in a banner). Hidden until `show_config_file_notice` fills it.
+        let config_banner = adw::Banner::new("");
+        // The message carries a file path, which is not Pango markup.
+        config_banner.set_use_markup(false);
+        config_banner.set_button_label(Some(&crate::i18n::i18n("Dismiss")));
+        config_banner.connect_button_clicked(|banner| {
+            banner.set_revealed(false);
+        });
+        toolbar_view.add_top_bar(&config_banner);
+
         // Persistent banner for cloud sync failures (GNOME HIG: a state
         // that needs attention belongs in a banner, not a transient toast).
         // Hidden by default; shown via show_sync_error_banner(), hidden on
@@ -1124,6 +1140,7 @@ impl MainWindow {
             group_broadcast,
             group_broadcast_toggle,
             group_broadcast_banner,
+            config_banner,
             sync_banner,
             secret_banner,
         };
@@ -1247,6 +1264,9 @@ impl MainWindow {
 
         // Initialize KeePass button status
         main_window.update_keepass_button_status();
+
+        // Report a config file startup kept aside or found from a newer RustConn
+        main_window.show_config_file_notice();
 
         // Connect signals
         main_window.connect_signals();
@@ -3853,6 +3873,38 @@ impl MainWindow {
     #[must_use]
     pub fn notebook_rc(&self) -> SharedNotebook {
         self.terminal_notebook.clone()
+    }
+
+    /// Reveals the config-file banner when startup kept an unreadable file aside
+    /// or found one written by a newer RustConn.
+    fn show_config_file_notice(&self) {
+        // Taken in a block of its own, so no borrow of the state is held while
+        // the banner's notify handlers run.
+        let notice = {
+            let Ok(mut state) = self.state.try_borrow_mut() else {
+                tracing::warn!("State busy at startup; config file notice not shown");
+                return;
+            };
+            state.take_config_file_notice()
+        };
+        let Some(notice) = notice else {
+            return;
+        };
+        let title = match notice {
+            crate::state::ConfigFileNotice::KeptUnreadable(kept) => {
+                let kept = kept.display().to_string();
+                crate::i18n::i18n_f(
+                    "Settings could not be read, so defaults are in use. The unreadable file was kept as {}.",
+                    &[&kept],
+                )
+            }
+            crate::state::ConfigFileNotice::WrittenByNewer(version) => crate::i18n::i18n_f(
+                "These settings were saved by a newer RustConn ({}). A backup is kept before they are changed.",
+                &[&version],
+            ),
+        };
+        self.config_banner.set_title(&title);
+        self.config_banner.set_revealed(true);
     }
 
     /// Returns the cloud-sync error banner shown below the header bar.

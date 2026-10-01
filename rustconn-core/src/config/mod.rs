@@ -6,6 +6,7 @@
 pub mod keybindings;
 mod manager;
 pub mod settings;
+mod version_skew;
 
 pub use keybindings::{
     KeybindingCategory, KeybindingDef, KeybindingSettings, default_keybindings,
@@ -17,4 +18,6 @@ pub use settings::{
     NetworkSettings, QuickConnectHistoryItem, RendererPreference, SecretBackendType,
     SecretSettings, SessionRestoreSettings, StartupAction, TerminalSettings, UiSettings,
 };
+pub use version_skew::is_newer_than_running;
+pub(crate) use version_skew::quarantine_file;
 // MonitoringSettings is re-exported from the monitoring module, not config

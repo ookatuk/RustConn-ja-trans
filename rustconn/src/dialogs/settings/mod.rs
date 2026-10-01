@@ -1673,6 +1673,11 @@ impl SettingsDialog {
 
             // Create new settings
             let new_settings = AppSettings {
+                // Carried over, not collected: the marker the settings were
+                // loaded with. A save stamps only the copy it writes, so this
+                // matches the snapshot below and cannot make a close look like
+                // a change.
+                written_by: settings_clone.borrow().written_by.clone(),
                 terminal,
                 logging,
                 secrets,

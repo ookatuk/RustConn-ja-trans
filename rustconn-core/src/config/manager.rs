@@ -10,6 +10,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use fs2::FileExt;
 
 use super::settings::AppSettings;
+use super::version_skew::{self, Existing, RUNNING_VERSION, is_newer_than_running};
 use crate::cluster::Cluster;
 use crate::error::{ConfigError, ConfigResult};
 use crate::models::{
@@ -62,9 +63,15 @@ const LOCK_POLL_INTERVAL: std::time::Duration = std::time::Duration::from_millis
 /// not call itself, so it cannot deadlock against itself.
 static CONFIG_WRITE_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
+/// Marked config files a newer `RustConn` wrote, by path, with the version that wrote each.
+type NewerFiles = std::collections::BTreeMap<PathBuf, String>;
+
 /// Wrapper for serializing a list of connections
 #[derive(Debug, Default, serde::Serialize, serde::Deserialize)]
 struct ConnectionsFile {
+    /// Version of the `RustConn` that wrote the file; see [`AppSettings::written_by`].
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    written_by: Option<String>,
     #[serde(default)]
     connections: Vec<Connection>,
 }
@@ -72,8 +79,29 @@ struct ConnectionsFile {
 /// Wrapper for serializing a list of groups
 #[derive(Debug, Default, serde::Serialize, serde::Deserialize)]
 struct GroupsFile {
+    /// Version of the `RustConn` that wrote the file; see [`AppSettings::written_by`].
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    written_by: Option<String>,
     #[serde(default)]
     groups: Vec<ConnectionGroup>,
+}
+
+/// A file wrapper that records which `RustConn` version wrote it.
+trait Marked {
+    /// The `written_by` marker as loaded.
+    fn marker(&self) -> Option<&str>;
+}
+
+impl Marked for ConnectionsFile {
+    fn marker(&self) -> Option<&str> {
+        self.written_by.as_deref()
+    }
+}
+
+impl Marked for GroupsFile {
+    fn marker(&self) -> Option<&str> {
+        self.written_by.as_deref()
+    }
 }
 
 /// Wrapper for serializing a list of snippets
@@ -137,9 +165,26 @@ pub struct ConfigManager {
     config_dir: PathBuf,
     /// Whether `ensure_config_dir()` has already succeeded (avoids repeated syscalls)
     dir_ensured: std::sync::Arc<AtomicBool>,
+    /// Marked files this process loaded that a newer `RustConn` wrote and that
+    /// have not been backed up yet.
+    ///
+    /// Shared across clones like `dir_ensured`, because a file is rarely saved
+    /// through the handle that loaded it: `ConnectionManager` saves on debounce
+    /// workers that hold clones of their own. [`Self::write_locked`] takes a file
+    /// out of here the first time it overwrites it, after copying it aside.
+    newer_files: std::sync::Arc<std::sync::Mutex<NewerFiles>>,
 }
 
 impl ConfigManager {
+    /// File name of the application settings, for [`Self::quarantine_unreadable`].
+    pub const SETTINGS_FILE_NAME: &str = CONFIG_FILE;
+    /// File name of the saved clusters, for [`Self::quarantine_unreadable`].
+    pub const CLUSTERS_FILE_NAME: &str = CLUSTERS_FILE;
+    /// File name of the connection history, for [`Self::quarantine_unreadable`].
+    pub const HISTORY_FILE_NAME: &str = HISTORY_FILE;
+    /// File name of the Simple Sync tombstones, for [`Self::quarantine_unreadable`].
+    pub const TOMBSTONES_FILE_NAME: &str = TOMBSTONES_FILE;
+
     /// Creates a new `ConfigManager` with the default configuration directory
     ///
     /// The default directory is `~/.config/rustconn/`
@@ -154,6 +199,7 @@ impl ConfigManager {
         Ok(Self {
             config_dir,
             dir_ensured: std::sync::Arc::new(AtomicBool::new(false)),
+            newer_files: std::sync::Arc::default(),
         })
     }
 
@@ -165,6 +211,7 @@ impl ConfigManager {
         Self {
             config_dir,
             dir_ensured: std::sync::Arc::new(AtomicBool::new(false)),
+            newer_files: std::sync::Arc::default(),
         }
     }
 
@@ -285,7 +332,9 @@ impl ConfigManager {
     /// permissions, fsync, rename. [`Self::save_toml_file`] and
     /// [`Self::save_toml_file_async`] both funnel through here, which is how the
     /// two stay in step — they used to be separate copies of this sequence, each
-    /// commented "matches the other".
+    /// commented "matches the other". Being the one place is also why the backup
+    /// of a file a newer `RustConn` wrote happens here: see
+    /// [`Self::back_up_newer_file`].
     fn write_locked(&self, path: &Path, content: &str) -> ConfigResult<()> {
         // In-process writers queue here; see CONFIG_WRITE_LOCK. The guard holds
         // `()`, so a poisoned mutex carries no invalid state and recovering is
@@ -296,6 +345,11 @@ impl ConfigManager {
 
         // Advisory lock against other processes (released on drop)
         let _lock = self.acquire_lock()?;
+
+        // A file a newer RustConn wrote is copied aside before this process first
+        // replaces it. Under both locks, so the copy holds exactly the bytes the
+        // rename below replaces; a copy that fails fails this write.
+        self.back_up_newer_file(path)?;
 
         let temp_path = path.with_extension("tmp");
 
@@ -342,6 +396,160 @@ impl ConfigManager {
         Ok(())
     }
 
+    // ========== Version Skew ==========
+
+    /// Returns the marked files this process loaded that a newer `RustConn` wrote.
+    ///
+    /// Each entry is a file's path and the version that wrote it, in path order.
+    /// A file drops out once this process has backed it up on the way to its
+    /// first overwrite, or has loaded it again with a marker that is not newer.
+    #[must_use]
+    pub fn newer_version_files(&self) -> Vec<(PathBuf, String)> {
+        self.lock_newer_files()
+            .iter()
+            .map(|(path, version)| (path.clone(), version.clone()))
+            .collect()
+    }
+
+    /// Copies an unreadable config file aside before a fallback lets a save replace it.
+    ///
+    /// `file_name` names a file in the configuration directory, such as
+    /// [`Self::SETTINGS_FILE_NAME`]. The copy is `<file>.unreadable-<UTC
+    /// timestamp>` beside it, byte for byte and owner-only. Call this before
+    /// falling back to defaults after a [`ConfigError::Deserialize`]: the next
+    /// routine save writes that fallback over the file. An earlier copy holding
+    /// the same bytes is returned instead of a new one.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ConfigError::Validation`] if `file_name` is not a plain file
+    /// name, [`ConfigError::Parse`] if the file cannot be read, and
+    /// [`ConfigError::Write`] if the copy cannot be written.
+    pub fn quarantine_unreadable(&self, file_name: &str) -> ConfigResult<PathBuf> {
+        let mut components = Path::new(file_name).components();
+        let plain = matches!(
+            (components.next(), components.next()),
+            (Some(std::path::Component::Normal(_)), None)
+        );
+        if !plain {
+            return Err(ConfigError::Validation {
+                field: "file_name".to_string(),
+                reason: format!("{file_name:?} is not a plain file name"),
+            });
+        }
+        version_skew::quarantine_file(&self.config_dir.join(file_name))
+    }
+
+    /// Locks the newer-version flags; see the `newer_files` field.
+    ///
+    /// A poisoned lock is recovered: every change to the map is one insert or
+    /// one remove, so a panic elsewhere cannot leave it half-updated.
+    fn lock_newer_files(&self) -> std::sync::MutexGuard<'_, NewerFiles> {
+        self.newer_files
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+    }
+
+    /// Records whether the file at `path` was written by a newer `RustConn`.
+    ///
+    /// A newer marker flags the file for [`Self::back_up_newer_file`] and is
+    /// logged once. Anything else — this version, an older one, no marker, or a
+    /// marker that is not a plain release — clears a flag left by an earlier load
+    /// of the same file: what is on disk now holds nothing newer.
+    fn note_written_by(&self, path: &Path, written_by: Option<&str>) {
+        let Some(version) = written_by.filter(|v| is_newer_than_running(v)) else {
+            self.lock_newer_files().remove(path);
+            return;
+        };
+        let first_sighting = self
+            .lock_newer_files()
+            .insert(path.to_path_buf(), version.to_owned())
+            .is_none();
+        if first_sighting {
+            tracing::warn!(
+                file = %path.display(),
+                written_by = version,
+                running = RUNNING_VERSION,
+                "Config file was written by a newer RustConn; backed up before the first save"
+            );
+        }
+    }
+
+    /// Copies a flagged file to `<file>.<version>.bak` before its first overwrite here.
+    ///
+    /// Runs inside [`Self::write_locked`] with both locks held, so the copy holds
+    /// exactly the bytes about to be replaced, and only for a file one of this
+    /// process's loads flagged as written by a newer `RustConn`. Once the copy is
+    /// on disk the flag is cleared: one backup per file per process, however many
+    /// saves follow. An existing backup of the same name is replaced; it holds an
+    /// older state of what that same version wrote.
+    ///
+    /// The version is read again from the bytes on disk. Another process may have
+    /// rewritten the file since it was loaded; if this or an older version did,
+    /// nothing newer is left to protect, and copying it would overwrite a good
+    /// backup with a worse one.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ConfigError::Write`] if the file cannot be read or the copy
+    /// cannot be written. The flag stays set, so the next save tries again: a
+    /// newer version's file is never overwritten without its copy.
+    fn back_up_newer_file(&self, path: &Path) -> ConfigResult<()> {
+        // Bound on its own line so the guard is dropped before anything below
+        // takes the lock again.
+        let flagged = self.lock_newer_files().get(path).cloned();
+        let Some(flagged) = flagged else {
+            return Ok(());
+        };
+
+        let bytes = match fs::read(path) {
+            Ok(bytes) => bytes,
+            // Gone since it was loaded: there is nothing left to copy.
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+                self.lock_newer_files().remove(path);
+                return Ok(());
+            }
+            Err(e) => {
+                return Err(ConfigError::Write(format!(
+                    "Failed to read {} to back it up: {e}",
+                    path.display()
+                )));
+            }
+        };
+
+        let version = match version_skew::probe_written_by(&bytes) {
+            Ok(Some(on_disk)) if is_newer_than_running(&on_disk) => on_disk,
+            // Rewritten since by this version or an older one.
+            Ok(_) => {
+                self.lock_newer_files().remove(path);
+                return Ok(());
+            }
+            // No longer TOML at all: keep it anyway, under the version flagged.
+            Err(_) => flagged,
+        };
+
+        let mut backup_name = path.file_name().unwrap_or_default().to_os_string();
+        backup_name.push(format!(".{version}.bak"));
+        let backup = path.with_file_name(backup_name);
+
+        version_skew::write_owner_only(&backup, &bytes, Existing::Replace).map_err(|e| {
+            ConfigError::Write(format!(
+                "Failed to back up {} to {}: {e}",
+                path.display(),
+                backup.display()
+            ))
+        })?;
+        self.lock_newer_files().remove(path);
+
+        tracing::info!(
+            file = %path.display(),
+            backup = %backup.display(),
+            written_by = %version,
+            "Backed up a config file written by a newer RustConn before changing it"
+        );
+        Ok(())
+    }
+
     /// Ensures the logs directory exists
     ///
     /// # Errors
@@ -372,7 +580,8 @@ impl ConfigManager {
     /// Returns an error if the file exists but cannot be parsed.
     pub fn load_connections(&self) -> ConfigResult<Vec<Connection>> {
         let path = self.config_dir.join(CONNECTIONS_FILE);
-        Self::load_toml_file::<ConnectionsFile>(&path).map(|f| f.connections)
+        let file: ConnectionsFile = self.load_marked_toml_file(&path)?;
+        Ok(file.connections)
     }
 
     /// Saves connections to the configuration file
@@ -386,6 +595,7 @@ impl ConfigManager {
         self.ensure_config_dir()?;
         let path = self.config_dir.join(CONNECTIONS_FILE);
         let file = ConnectionsFile {
+            written_by: Some(RUNNING_VERSION.to_owned()),
             connections: connections.to_vec(),
         };
         self.save_toml_file(&path, &file)
@@ -402,6 +612,7 @@ impl ConfigManager {
         self.ensure_config_dir()?;
         let path = self.config_dir.join(CONNECTIONS_FILE);
         let file = ConnectionsFile {
+            written_by: Some(RUNNING_VERSION.to_owned()),
             connections: connections.to_vec(),
         };
         self.save_toml_file_async(&path, &file).await
@@ -418,7 +629,8 @@ impl ConfigManager {
     /// Returns an error if the file exists but cannot be parsed.
     pub fn load_groups(&self) -> ConfigResult<Vec<ConnectionGroup>> {
         let path = self.config_dir.join(GROUPS_FILE);
-        Self::load_toml_file::<GroupsFile>(&path).map(|f| f.groups)
+        let file: GroupsFile = self.load_marked_toml_file(&path)?;
+        Ok(file.groups)
     }
 
     /// Saves connection groups to the configuration file
@@ -432,6 +644,7 @@ impl ConfigManager {
         self.ensure_config_dir()?;
         let path = self.config_dir.join(GROUPS_FILE);
         let file = GroupsFile {
+            written_by: Some(RUNNING_VERSION.to_owned()),
             groups: groups.to_vec(),
         };
         self.save_toml_file(&path, &file)
@@ -448,6 +661,7 @@ impl ConfigManager {
         self.ensure_config_dir()?;
         let path = self.config_dir.join(GROUPS_FILE);
         let file = GroupsFile {
+            written_by: Some(RUNNING_VERSION.to_owned()),
             groups: groups.to_vec(),
         };
         self.save_toml_file_async(&path, &file).await
@@ -678,7 +892,9 @@ impl ConfigManager {
 
     /// Loads application settings from the configuration file
     ///
-    /// Returns default settings if the file doesn't exist.
+    /// Returns default settings if the file doesn't exist. A file a newer
+    /// `RustConn` wrote is flagged, so the first save backs it up before
+    /// replacing it.
     ///
     /// # Errors
     ///
@@ -688,12 +904,16 @@ impl ConfigManager {
         if !path.exists() {
             return Ok(AppSettings::default());
         }
-        Self::load_toml_file(&path)
+        let settings: AppSettings = Self::load_toml_file(&path)?;
+        self.note_written_by(&path, settings.written_by.as_deref());
+        Ok(settings)
     }
 
     /// Saves application settings to the configuration file
     ///
-    /// Creates the configuration directory if it doesn't exist.
+    /// Creates the configuration directory if it doesn't exist. The file records
+    /// this version in [`AppSettings::written_by`]; `settings` itself is left
+    /// untouched.
     ///
     /// # Errors
     ///
@@ -701,7 +921,14 @@ impl ConfigManager {
     pub fn save_settings(&self, settings: &AppSettings) -> ConfigResult<()> {
         self.ensure_config_dir()?;
         let path = self.config_dir.join(CONFIG_FILE);
-        self.save_toml_file(&path, settings)
+        // Stamped on a copy, never on `settings`: the caller's value keeps the
+        // marker it was loaded with, so a save cannot make two in-memory settings
+        // compare unequal and send a "settings changed" check round again.
+        let stamped = AppSettings {
+            written_by: Some(RUNNING_VERSION.to_owned()),
+            ..settings.clone()
+        };
+        self.save_toml_file(&path, &stamped)
     }
 
     // ========== Global Variables ==========
@@ -746,6 +973,38 @@ impl ConfigManager {
             .map_err(|e| ConfigError::Parse(format!("Failed to read {}: {}", path.display(), e)))?;
 
         Self::parse_toml(&content, path)
+    }
+
+    /// Loads a TOML file that records which `RustConn` wrote it, flagging a newer one.
+    ///
+    /// The marker comes from the parsed file. When the full parse fails, a probe
+    /// that reads nothing but the marker runs on the same text, so a file this
+    /// version cannot read is still recognised as a newer one's — and the caller
+    /// still gets the full parse's error, which says what is wrong, not the
+    /// probe's.
+    fn load_marked_toml_file<T>(&self, path: &Path) -> ConfigResult<T>
+    where
+        T: serde::de::DeserializeOwned + Default + Marked,
+    {
+        if !path.exists() {
+            return Ok(T::default());
+        }
+
+        let content = fs::read_to_string(path)
+            .map_err(|e| ConfigError::Parse(format!("Failed to read {}: {}", path.display(), e)))?;
+
+        match Self::parse_toml::<T>(&content, path) {
+            Ok(file) => {
+                self.note_written_by(path, file.marker());
+                Ok(file)
+            }
+            Err(e) => {
+                if let Ok(written_by) = version_skew::probe_written_by(content.as_bytes()) {
+                    self.note_written_by(path, written_by.as_deref());
+                }
+                Err(e)
+            }
+        }
     }
 
     /// Parses TOML content with validation
@@ -1430,5 +1689,246 @@ mod tests {
             !conn_file.with_extension("tmp").exists(),
             "atomic restore must not leave a .tmp file behind"
         );
+    }
+
+    // ========== Version skew ==========
+
+    /// Names of the `.bak` files in `dir`, sorted.
+    fn backups_in(dir: &Path) -> Vec<String> {
+        let mut names: Vec<String> = fs::read_dir(dir)
+            .unwrap()
+            .map(|entry| entry.unwrap().file_name().to_string_lossy().into_owned())
+            .filter(|name| Path::new(name).extension().is_some_and(|ext| ext == "bak"))
+            .collect();
+        names.sort();
+        names
+    }
+
+    /// A file from before the marker existed is not "newer", and saving it backs
+    /// nothing up.
+    #[test]
+    fn an_unmarked_file_loads_unflagged_and_saves_without_a_backup() {
+        let (manager, _temp) = create_test_manager();
+        let path = manager.config_dir().join(CONFIG_FILE);
+        fs::write(&path, "[terminal]\nfont_size = 13\n").unwrap();
+
+        let settings = manager.load_settings().unwrap();
+        assert_eq!(settings.written_by, None);
+        assert_eq!(settings.terminal.font_size, 13);
+        assert!(manager.newer_version_files().is_empty());
+
+        manager.save_settings(&settings).unwrap();
+        assert!(backups_in(manager.config_dir()).is_empty());
+    }
+
+    /// A newer version's file is copied byte for byte before the first save, and
+    /// only before the first.
+    #[test]
+    fn a_newer_file_is_backed_up_once_before_the_first_save() {
+        let (manager, _temp) = create_test_manager();
+        let path = manager.config_dir().join(CONFIG_FILE);
+        let original = "written_by = \"99.0.0\"\n\n[terminal]\nfont_size = 13\n";
+        fs::write(&path, original).unwrap();
+
+        let settings = manager.load_settings().unwrap();
+        let flagged = vec![(path, "99.0.0".to_string())];
+        assert_eq!(manager.newer_version_files(), flagged);
+
+        // Through a clone, the way ConnectionManager's debounce workers save.
+        let worker = manager.clone();
+        worker.save_settings(&settings).unwrap();
+        let backup = manager.config_dir().join("config.toml.99.0.0.bak");
+        assert_eq!(fs::read(&backup).unwrap(), original.as_bytes());
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let mode = fs::metadata(&backup).unwrap().permissions().mode();
+            assert_eq!(mode & 0o777, 0o600);
+        }
+        assert!(manager.newer_version_files().is_empty());
+
+        manager.save_settings(&settings).unwrap();
+        let backups = backups_in(manager.config_dir());
+        assert_eq!(backups, ["config.toml.99.0.0.bak"]);
+        assert_eq!(fs::read(&backup).unwrap(), original.as_bytes());
+    }
+
+    /// A save stamps the running version on the file, not on the caller's value,
+    /// and a marker from this version or an older one is not flagged.
+    #[test]
+    fn saves_stamp_the_running_version_and_older_markers_are_not_flagged() {
+        let (manager, _temp) = create_test_manager();
+        let path = manager.config_dir().join(CONFIG_FILE);
+        let settings = AppSettings::default();
+
+        manager.save_settings(&settings).unwrap();
+        assert_eq!(settings.written_by, None);
+        let reloaded = manager.load_settings().unwrap();
+        assert_eq!(reloaded.written_by.as_deref(), Some(RUNNING_VERSION));
+
+        for marker in ["0.0.1", RUNNING_VERSION] {
+            fs::write(&path, format!("written_by = \"{marker}\"\n")).unwrap();
+            let loaded = manager.load_settings().unwrap();
+            assert_eq!(loaded.written_by.as_deref(), Some(marker));
+            assert!(manager.newer_version_files().is_empty(), "{marker}");
+        }
+        manager.save_settings(&settings).unwrap();
+        assert!(backups_in(manager.config_dir()).is_empty());
+    }
+
+    /// The marker line is the only change to what a save writes.
+    #[test]
+    fn a_save_writes_what_it_did_before_plus_the_marker_line() {
+        let (manager, _temp) = create_test_manager();
+        let mut settings = AppSettings::default();
+        settings.terminal.font_size = 15;
+        settings.logging.enabled = true;
+        // `written_by` is `None` here, so it is skipped: the file as written
+        // before the marker existed.
+        let unmarked = toml::to_string_pretty(&settings).unwrap();
+
+        manager.save_settings(&settings).unwrap();
+
+        let saved = fs::read_to_string(manager.config_dir().join(CONFIG_FILE)).unwrap();
+        let marker_line = format!("written_by = \"{RUNNING_VERSION}\"\n");
+        assert_eq!(saved.matches(&marker_line).count(), 1, "{saved}");
+        assert_eq!(saved.replacen(&marker_line, "", 1), unmarked);
+    }
+
+    /// A value this version does not know fails the load, and the file can be
+    /// kept aside, byte for byte and owner-only, before defaults replace it.
+    #[test]
+    fn an_unknown_enum_value_fails_the_load_and_the_file_can_be_kept_aside() {
+        let (manager, _temp) = create_test_manager();
+        let path = manager.config_dir().join(CONFIG_FILE);
+        let content = "[secrets]\npreferred_backend = \"future_backend\"\n";
+        fs::write(&path, content).unwrap();
+
+        let error = manager.load_settings().unwrap_err();
+        assert!(matches!(error, ConfigError::Deserialize(_)), "{error}");
+
+        let name = ConfigManager::SETTINGS_FILE_NAME;
+        let kept = manager.quarantine_unreadable(name).unwrap();
+        assert_eq!(kept.parent(), Some(manager.config_dir()));
+        let kept_name = kept.file_name().unwrap().to_string_lossy().into_owned();
+        assert!(
+            kept_name.starts_with("config.toml.unreadable-"),
+            "{kept_name}"
+        );
+        assert_eq!(fs::read(&kept).unwrap(), content.as_bytes());
+        assert_eq!(fs::read(&path).unwrap(), content.as_bytes());
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let mode = fs::metadata(&kept).unwrap().permissions().mode();
+            assert_eq!(mode & 0o777, 0o600);
+        }
+
+        // The same bytes on the next start reuse the copy instead of adding one.
+        let again = manager.quarantine_unreadable(name).unwrap();
+        assert_eq!(again, kept);
+    }
+
+    /// `quarantine_unreadable` only ever copies a file in the config directory.
+    #[test]
+    fn quarantine_takes_only_a_plain_file_name() {
+        let (manager, _temp) = create_test_manager();
+        for name in ["../config.toml", "/etc/passwd", "sub/config.toml", ""] {
+            let result = manager.quarantine_unreadable(name);
+            assert!(
+                matches!(result, Err(ConfigError::Validation { .. })),
+                "{name:?}"
+            );
+        }
+    }
+
+    /// `connections.toml` is flagged by its marker even when this version cannot
+    /// parse it, and the probe never hides the full parse's error.
+    #[test]
+    fn a_newer_connections_file_is_flagged_and_an_unknown_protocol_still_fails() {
+        let (manager, _temp) = create_test_manager();
+        let path = manager.config_dir().join(CONNECTIONS_FILE);
+        let conn = Connection::new(
+            "Probe".to_string(),
+            "probe.example.com".to_string(),
+            22,
+            ProtocolConfig::Ssh(SshConfig::default()),
+        );
+        manager
+            .save_connections(std::slice::from_ref(&conn))
+            .unwrap();
+        let ours = fs::read_to_string(&path).unwrap();
+        let our_marker = format!("written_by = \"{RUNNING_VERSION}\"");
+        assert!(ours.contains(&our_marker), "{ours}");
+
+        // Readable, from a newer version: it loads, and it is flagged.
+        let newer = ours.replacen(&our_marker, "written_by = \"99.0.0\"", 1);
+        fs::write(&path, &newer).unwrap();
+        assert_eq!(manager.load_connections().unwrap().len(), 1);
+        let flagged = vec![(path.clone(), "99.0.0".to_string())];
+        assert_eq!(manager.newer_version_files(), flagged);
+
+        // Not readable by this version: still flagged, and the load fails with
+        // the full parse's error.
+        let unknown = newer.replacen("type = \"Ssh\"", "type = \"Teleport\"", 1);
+        assert_ne!(unknown, newer, "the fixture must carry the protocol tag");
+        fs::write(&path, &unknown).unwrap();
+        let fresh = ConfigManager::with_config_dir(manager.config_dir().to_path_buf());
+        let error = fresh.load_connections().unwrap_err();
+        assert!(matches!(error, ConfigError::Deserialize(_)), "{error}");
+        assert!(error.to_string().contains("Teleport"), "{error}");
+        assert_eq!(fresh.newer_version_files(), flagged);
+    }
+
+    /// A flagged file that another process has since rewritten from this version
+    /// holds nothing newer, so it is not copied under the newer version's name.
+    #[test]
+    fn a_file_rewritten_since_by_this_version_is_not_backed_up() {
+        let (manager, _temp) = create_test_manager();
+        let path = manager.config_dir().join(CONFIG_FILE);
+        fs::write(&path, "written_by = \"99.0.0\"\n").unwrap();
+        let settings = manager.load_settings().unwrap();
+
+        fs::write(&path, format!("written_by = \"{RUNNING_VERSION}\"\n")).unwrap();
+        manager.save_settings(&settings).unwrap();
+
+        assert!(backups_in(manager.config_dir()).is_empty());
+        assert!(manager.newer_version_files().is_empty());
+    }
+
+    /// A backup that cannot be written stops the save: the newer file stays as
+    /// it was, and stays flagged for the next attempt.
+    #[test]
+    fn a_failed_backup_aborts_the_write() {
+        let (manager, _temp) = create_test_manager();
+        let path = manager.config_dir().join(CONFIG_FILE);
+        let original = "written_by = \"99.0.0\"\n";
+        fs::write(&path, original).unwrap();
+        let settings = manager.load_settings().unwrap();
+        // A directory where the backup has to go makes the copy fail.
+        fs::create_dir(manager.config_dir().join("config.toml.99.0.0.bak")).unwrap();
+
+        let error = manager.save_settings(&settings).unwrap_err();
+
+        assert!(matches!(error, ConfigError::Write(_)), "{error}");
+        assert_eq!(fs::read_to_string(&path).unwrap(), original);
+        assert_eq!(manager.newer_version_files().len(), 1);
+    }
+
+    /// Restoring writes the archived bytes as they are; the marker is not
+    /// stamped again.
+    #[test]
+    fn restore_writes_the_archived_bytes_as_they_are() {
+        let (manager, temp) = create_test_manager();
+        let path = manager.config_dir().join(CONFIG_FILE);
+        let archived = "written_by = \"0.0.1\"\n\n[terminal]\nfont_size = 13\n";
+        fs::write(&path, archived).unwrap();
+        let archive = temp.path().join("backup.zip");
+        manager.backup_to_archive(&archive).unwrap();
+        fs::remove_file(&path).unwrap();
+
+        manager.restore_from_archive(&archive).unwrap();
+
+        assert_eq!(fs::read_to_string(&path).unwrap(), archived);
     }
 }

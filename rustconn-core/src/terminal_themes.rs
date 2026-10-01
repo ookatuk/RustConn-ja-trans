@@ -4,7 +4,7 @@
 //! Built-in themes are always available; user-created custom themes
 //! are persisted to `~/.config/rustconn/custom_themes.json`.
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
 use serde::{Deserialize, Serialize};
@@ -125,12 +125,21 @@ pub const FOLLOW_SYSTEM_THEME: &str = "Follow System";
 /// Global store for custom themes (loaded once, mutated via add/remove).
 static CUSTOM_THEMES: Mutex<Option<Vec<TerminalTheme>>> = Mutex::new(None);
 
+/// Where an unreadable `custom_themes.json` was copied aside, until it is reported.
+///
+/// Set by [`load_custom_themes_from_disk`], taken by
+/// [`TerminalTheme::preload_custom_themes`].
+static UNREADABLE_CUSTOM_THEMES: Mutex<Option<PathBuf>> = Mutex::new(None);
+
 /// Returns the path to the custom themes JSON file.
 fn custom_themes_path() -> Option<PathBuf> {
     dirs::config_dir().map(|d| d.join("rustconn").join("custom_themes.json"))
 }
 
 /// Loads custom themes from disk. Returns empty vec on any error.
+///
+/// A file that is there but does not parse is copied aside first: the empty
+/// list returned instead is what the next theme save writes over it.
 fn load_custom_themes_from_disk() -> Vec<TerminalTheme> {
     let Some(path) = custom_themes_path() else {
         return Vec::new();
@@ -139,8 +148,40 @@ fn load_custom_themes_from_disk() -> Vec<TerminalTheme> {
         return Vec::new();
     }
     match std::fs::read_to_string(&path) {
-        Ok(data) => serde_json::from_str::<Vec<TerminalTheme>>(&data).unwrap_or_default(),
+        Ok(data) => match serde_json::from_str::<Vec<TerminalTheme>>(&data) {
+            Ok(themes) => themes,
+            Err(e) => {
+                keep_unreadable_custom_themes(&path, &e);
+                Vec::new()
+            }
+        },
         Err(_) => Vec::new(),
+    }
+}
+
+/// Copies an unreadable `custom_themes.json` aside and records where, for startup to report.
+fn keep_unreadable_custom_themes(path: &Path, error: &serde_json::Error) {
+    // serde_json can quote the offending value, so the message stays at debug.
+    tracing::debug!(error = %error, "custom_themes.json parse error");
+    match crate::config::quarantine_file(path) {
+        Ok(kept) => {
+            tracing::warn!(
+                file = %path.display(),
+                kept_as = %kept.display(),
+                "Custom themes could not be read; kept a copy and using none"
+            );
+            let mut slot = UNREADABLE_CUSTOM_THEMES
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
+            *slot = Some(kept);
+        }
+        Err(e) => {
+            tracing::warn!(
+                file = %path.display(),
+                error = %e,
+                "Custom themes could not be read or kept aside; using none"
+            );
+        }
     }
 }
 
@@ -261,6 +302,29 @@ impl TerminalTheme {
     #[must_use]
     pub fn custom_theme_names() -> Vec<String> {
         get_custom_themes().into_iter().map(|t| t.name).collect()
+    }
+
+    /// Loads the custom themes now rather than on first use, and reports an unreadable file.
+    ///
+    /// Returns where an unreadable `custom_themes.json` was copied aside, once:
+    /// `None` if the file was readable or missing, if keeping the copy failed
+    /// (that is logged), or if it was already reported. Startup calls this so
+    /// the file is reported with the config files rather than whenever a
+    /// terminal first needs a theme.
+    #[must_use]
+    pub fn preload_custom_themes() -> Option<PathBuf> {
+        {
+            let mut themes = CUSTOM_THEMES
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
+            if themes.is_none() {
+                *themes = Some(load_custom_themes_from_disk());
+            }
+        }
+        UNREADABLE_CUSTOM_THEMES
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .take()
     }
 
     /// Checks whether a theme name is built-in, and so not editable or removable.
