@@ -251,6 +251,33 @@ pub fn shutdown_sessions_for_exit(notebook: &SharedNotebook) {
     }
 }
 
+/// Bridges hardware-key touch notifications from the worker thread that runs
+/// `keepassxc-cli` to the main-thread banner (issue #350).
+///
+/// GTK widgets are `!Send`, so this cannot touch the banner directly. It sends
+/// a `true` when a touch-waiting run starts and a `false` when it ends over an
+/// `mpsc` channel; a `glib::timeout_add_local` drain on the main thread nets
+/// the deltas into an in-flight count and reveals the banner while it is above
+/// zero. `mpsc::Sender<bool>` is `Send + Sync` (Rust ≥ 1.72), which the
+/// [`TouchObserver`](rustconn_core::secret::TouchObserver) bound requires.
+struct BannerTouchObserver {
+    tx: std::sync::mpsc::Sender<bool>,
+}
+
+impl rustconn_core::secret::TouchObserver for BannerTouchObserver {
+    fn touch_started(&self) {
+        let _ = self.tx.send(true);
+        // Wake the main loop so the drain reveals the banner promptly rather
+        // than on the next 50 ms tick.
+        glib::MainContext::ref_thread_default().wakeup();
+    }
+
+    fn touch_finished(&self) {
+        let _ = self.tx.send(false);
+        glib::MainContext::ref_thread_default().wakeup();
+    }
+}
+
 /// Main application window wrapper
 ///
 /// Provides access to the main window and its components.
@@ -873,6 +900,43 @@ impl MainWindow {
             banner.set_revealed(false);
         });
         toolbar_view.add_top_bar(&secret_banner);
+
+        // Persistent banner shown while a `keepassxc-cli` run blocks on a
+        // hardware-key touch (issue #350). GTK widgets are !Send, so the
+        // worker-thread touch observer bridges to the main thread the same way
+        // BusyStack does: it sends a +1/-1 delta over an mpsc channel, and a
+        // glib::timeout_add_local drain tracks the in-flight count and reveals
+        // the banner whenever it is above zero. Informational — no button.
+        let touch_banner = adw::Banner::new(&crate::i18n::i18n(
+            "Touch your hardware key to unlock the password database",
+        ));
+        toolbar_view.add_top_bar(&touch_banner);
+        {
+            // true = a touch-waiting run started, false = it ended. One run can
+            // be challenged twice (open + save), and several may overlap, so we
+            // net the deltas into a count rather than treating each as a toggle.
+            let (touch_tx, touch_rx) = std::sync::mpsc::channel::<bool>();
+            rustconn_core::secret::set_touch_observer(Some(std::sync::Arc::new(
+                BannerTouchObserver { tx: touch_tx },
+            )));
+            let banner = touch_banner.clone();
+            let rx = std::sync::Mutex::new(touch_rx);
+            let in_flight = std::cell::Cell::new(0_i32);
+            glib::timeout_add_local(std::time::Duration::from_millis(50), move || {
+                if let Ok(guard) = rx.lock() {
+                    let mut count = in_flight.get();
+                    while let Ok(started) = guard.try_recv() {
+                        count += if started { 1 } else { -1 };
+                    }
+                    // Deltas are matched one-to-one by the TouchGuard, but clamp
+                    // defensively so a dropped message can never pin the banner on.
+                    count = count.max(0);
+                    in_flight.set(count);
+                    banner.set_revealed(count > 0);
+                }
+                glib::ControlFlow::Continue
+            });
+        }
 
         // Persistent banner shown while cross-tab group broadcast is active
         // (issue #329). Unlike a split broadcast, whose panels are all on screen,

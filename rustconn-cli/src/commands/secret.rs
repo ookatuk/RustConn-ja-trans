@@ -1,11 +1,33 @@
 //! Secret backend management commands.
 
 use std::path::Path;
+use std::sync::Arc;
 
 use crate::cli::SecretCommands;
 use crate::error::CliError;
 #[cfg(feature = "secret-management")]
 use crate::util::{create_config_manager, find_connection};
+
+/// Prints a one-line cue on stderr when a `keepassxc-cli` run blocks on a
+/// hardware-key touch.
+///
+/// KeePassXC's own "touch your YubiKey" prompt never reaches the user because
+/// RustConn runs the CLI with `-q` and reads its output only after it exits
+/// (issue #350). This observer turns the start of a touch-waiting run into a
+/// visible line. It writes only when stderr is a terminal, so a scripted
+/// `rustconn-cli secret …` in a pipe stays quiet.
+struct StderrTouchCue;
+
+impl rustconn_core::secret::TouchObserver for StderrTouchCue {
+    fn touch_started(&self) {
+        use std::io::IsTerminal;
+        if std::io::stderr().is_terminal() {
+            eprintln!("👆 Touch your hardware key to unlock the KeePass database…");
+        }
+    }
+
+    fn touch_finished(&self) {}
+}
 
 /// Creates a `PassBackend` from the current app settings.
 #[cfg(feature = "secret-management")]
@@ -25,6 +47,10 @@ fn create_pass_backend(
 /// - [`CliError::Secret`] when the configured secret backend is unreachable
 ///   or the requested operation (get / set / delete / status) fails
 pub fn cmd_secret(config_path: Option<&Path>, subcmd: SecretCommands) -> Result<(), CliError> {
+    // Every secret subcommand can open a KeePass database, and any of them may
+    // block on a hardware-key touch. Install the stderr cue once for all of them.
+    rustconn_core::secret::set_touch_observer(Some(Arc::new(StderrTouchCue)));
+
     match subcmd {
         #[cfg(feature = "secret-management")]
         SecretCommands::Status => cmd_secret_status(config_path),

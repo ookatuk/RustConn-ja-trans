@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: rustconn 0.22.12\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-01 23:38+0300\n"
+"POT-Creation-Date: 2026-10-02 02:20+0300\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -51,8 +51,8 @@ msgstr ""
 #: rustconn/src/window/connection_dialogs.rs:1083
 #: rustconn/src/window/edit_group.rs:1889
 #: rustconn/src/window/edit_group.rs:1937
-#: rustconn/src/window/group_broadcast.rs:379 rustconn/src/window/mod.rs:2981
-#: rustconn/src/window/mod.rs:3865 rustconn/src/window/operations.rs:82
+#: rustconn/src/window/group_broadcast.rs:379 rustconn/src/window/mod.rs:3045
+#: rustconn/src/window/mod.rs:3929 rustconn/src/window/operations.rs:82
 #: rustconn/src/window/operations.rs:456 rustconn/src/window/operations.rs:639
 #: rustconn/src/window/sessions.rs:339 rustconn/src/window/workspaces.rs:548
 msgid "Cancel"
@@ -195,7 +195,7 @@ msgid "Enter Password Manually"
 msgstr ""
 
 #: rustconn/src/dialogs/backend_missing.rs:56 rustconn/src/vault_ops.rs:66
-#: rustconn/src/vault_ops.rs:316 rustconn/src/window/mod.rs:868
+#: rustconn/src/vault_ops.rs:316 rustconn/src/window/mod.rs:895
 msgid "Open Settings"
 msgstr ""
 
@@ -4165,7 +4165,7 @@ msgid "Copy"
 msgstr ""
 
 #: rustconn/src/dialogs/credential_transfer.rs:152
-#: rustconn/src/terminal/playback.rs:264 rustconn/src/window/mod.rs:883
+#: rustconn/src/terminal/playback.rs:264 rustconn/src/window/mod.rs:947
 msgid "Stop"
 msgstr ""
 
@@ -4269,7 +4269,7 @@ msgstr ""
 #: rustconn/src/dialogs/settings/cloud_sync_tab.rs:238
 #: rustconn/src/dialogs/tunnel_builder/mod.rs:618
 #: rustconn/src/dialogs/widgets.rs:598 rustconn/src/terminal/tab_menu.rs:481
-#: rustconn/src/vault_ops.rs:65 rustconn/src/window/mod.rs:3866
+#: rustconn/src/vault_ops.rs:65 rustconn/src/window/mod.rs:3930
 msgid "Close"
 msgstr ""
 
@@ -10641,7 +10641,7 @@ msgid "Tab Overview (Ctrl+Shift+O)"
 msgstr ""
 
 #: rustconn/src/terminal/mod.rs:493 rustconn/src/terminal/tab_lifecycle.rs:35
-#: rustconn/src/terminal/tab_lifecycle.rs:50 rustconn/src/window/mod.rs:3441
+#: rustconn/src/terminal/tab_lifecycle.rs:50 rustconn/src/window/mod.rs:3505
 msgid "Welcome"
 msgstr ""
 
@@ -10883,7 +10883,7 @@ msgstr ""
 msgid "About RustConn"
 msgstr ""
 
-#: rustconn/src/vault_ops.rs:50 rustconn/src/window/mod.rs:4809
+#: rustconn/src/vault_ops.rs:50 rustconn/src/window/mod.rs:4873
 msgid "Passphrase Does Not Open the Portable File"
 msgstr ""
 
@@ -11758,35 +11758,39 @@ msgstr ""
 msgid "Global variables could not be saved to disk."
 msgstr ""
 
-#: rustconn/src/window/mod.rs:844 rustconn/src/window/mod.rs:855
+#: rustconn/src/window/mod.rs:871 rustconn/src/window/mod.rs:882
 msgid "Dismiss"
 msgstr ""
 
-#: rustconn/src/window/mod.rs:2270
+#: rustconn/src/window/mod.rs:911
+msgid "Touch your hardware key to unlock the password database"
+msgstr ""
+
+#: rustconn/src/window/mod.rs:2334
 msgid "Already running in an external window"
 msgstr ""
 
-#: rustconn/src/window/mod.rs:2421
+#: rustconn/src/window/mod.rs:2485
 msgid "Connection to ‘{}’ failed"
 msgstr ""
 
-#: rustconn/src/window/mod.rs:2674 rustconn/src/window/mod.rs:2688
+#: rustconn/src/window/mod.rs:2738 rustconn/src/window/mod.rs:2752
 msgid "Pre-connect task failed: {}"
 msgstr ""
 
-#: rustconn/src/window/mod.rs:2722
+#: rustconn/src/window/mod.rs:2786
 msgid "Port knock failed: {}"
 msgstr ""
 
-#: rustconn/src/window/mod.rs:2771
+#: rustconn/src/window/mod.rs:2835
 msgid "SPA failed: {}"
 msgstr ""
 
-#: rustconn/src/window/mod.rs:2967
+#: rustconn/src/window/mod.rs:3031
 msgid "{} (via {})"
 msgstr ""
 
-#: rustconn/src/window/mod.rs:2973
+#: rustconn/src/window/mod.rs:3037
 msgid ""
 "This connection no longer goes where it did.\n"
 "\n"
@@ -11800,31 +11804,31 @@ msgid ""
 "credentials to a different machine."
 msgstr ""
 
-#: rustconn/src/window/mod.rs:2978
+#: rustconn/src/window/mod.rs:3042
 msgid "Routing changed for “{}”"
 msgstr ""
 
-#: rustconn/src/window/mod.rs:2982 rustconn/src/window/rdp_vnc.rs:751
+#: rustconn/src/window/mod.rs:3046 rustconn/src/window/rdp_vnc.rs:757
 msgid "Connect Anyway"
 msgstr ""
 
-#: rustconn/src/window/mod.rs:3067 rustconn/src/window/mod.rs:3242
+#: rustconn/src/window/mod.rs:3131 rustconn/src/window/mod.rs:3306
 msgid "Connection “{}” created"
 msgstr ""
 
-#: rustconn/src/window/mod.rs:3446
+#: rustconn/src/window/mod.rs:3510
 msgid "RustConn - {}"
 msgstr ""
 
-#: rustconn/src/window/mod.rs:3592
+#: rustconn/src/window/mod.rs:3656
 msgid "Settings saved"
 msgstr ""
 
-#: rustconn/src/window/mod.rs:3629
+#: rustconn/src/window/mod.rs:3693
 msgid "Passphrase Not Saved on This Computer"
 msgstr ""
 
-#: rustconn/src/window/mod.rs:3631
+#: rustconn/src/window/mod.rs:3695
 msgid ""
 "The passphrase could not be encrypted for local storage, so it is kept for "
 "this session only and you will be asked for it again after a restart. Choose "
@@ -11832,66 +11836,66 @@ msgid ""
 "directory."
 msgstr ""
 
-#: rustconn/src/window/mod.rs:3677
+#: rustconn/src/window/mod.rs:3741
 msgid "Credentials Not Saved to Keyring"
 msgstr ""
 
-#: rustconn/src/window/mod.rs:3679
+#: rustconn/src/window/mod.rs:3743
 msgid ""
 "The system keyring did not accept the credentials, so they are kept for this "
 "session only and will be gone after a restart. Check that your keyring "
 "service is running and unlocked, then save the settings again."
 msgstr ""
 
-#: rustconn/src/window/mod.rs:3859
+#: rustconn/src/window/mod.rs:3923
 msgid "Close RustConn?"
 msgstr ""
 
-#: rustconn/src/window/mod.rs:3861
+#: rustconn/src/window/mod.rs:3925
 msgid "{} session tab(s) are open. Active connections will be disconnected."
 msgstr ""
 
-#: rustconn/src/window/mod.rs:3898
+#: rustconn/src/window/mod.rs:3962
 msgid ""
 "Settings could not be read, so defaults are in use. The unreadable file was "
 "kept as {}."
 msgstr ""
 
-#: rustconn/src/window/mod.rs:3903
+#: rustconn/src/window/mod.rs:3967
 msgid ""
 "These settings were saved by a newer RustConn ({}). A backup is kept before "
 "they are changed."
 msgstr ""
 
-#: rustconn/src/window/mod.rs:3928
+#: rustconn/src/window/mod.rs:3992
 msgid "Cloud sync failed for '{}': {}"
 msgstr ""
 
-#: rustconn/src/window/mod.rs:4109
+#: rustconn/src/window/mod.rs:4173
 msgid "Startup connection not found"
 msgstr ""
 
-#: rustconn/src/window/mod.rs:4145
+#: rustconn/src/window/mod.rs:4209
 msgid "Failed to open .rdp file"
 msgstr ""
 
-#: rustconn/src/window/mod.rs:4181
+#: rustconn/src/window/mod.rs:4245
 msgid "Failed to open .vv file"
 msgstr ""
 
-#: rustconn/src/window/mod.rs:4218
+#: rustconn/src/window/mod.rs:4282
 msgid "Tunnel “{}” stopped: {}"
 msgstr ""
 
-#: rustconn/src/window/mod.rs:4234
+#: rustconn/src/window/mod.rs:4298
 msgid "Gave up reconnecting tunnel “{}”: {}"
 msgstr ""
 
-#: rustconn/src/window/mod.rs:4725
+#: rustconn/src/window/mod.rs:4789
 msgid "Successfully exported {} connection(s). {} skipped."
 msgstr ""
 
-#: rustconn/src/window/mod.rs:4811
+#: rustconn/src/window/mod.rs:4875
 msgid ""
 "The passphrase you saved does not decrypt the portable credential file, so "
 "none of the passwords in it can be read. Open Settings ▸ Secrets and enter "
@@ -12086,7 +12090,7 @@ msgstr ""
 msgid "Could not launch external viewer ‘{}’: {}"
 msgstr ""
 
-#: rustconn/src/window/protocols.rs:1280 rustconn/src/window/rdp_vnc.rs:1528
+#: rustconn/src/window/protocols.rs:1280 rustconn/src/window/rdp_vnc.rs:1538
 msgid "No VNC viewer found. Install TigerVNC or Remmina."
 msgstr ""
 
@@ -12122,21 +12126,21 @@ msgstr ""
 msgid "SSH tunnel failed: {}"
 msgstr ""
 
-#: rustconn/src/window/rdp_vnc.rs:747
+#: rustconn/src/window/rdp_vnc.rs:753
 msgid "Use Legacy RDP Security?"
 msgstr ""
 
-#: rustconn/src/window/rdp_vnc.rs:749
+#: rustconn/src/window/rdp_vnc.rs:755
 msgid ""
 "This server only supports Standard RDP Security, which is weaker than TLS or "
 "Network Level Authentication. Continue with the external RDP client?"
 msgstr ""
 
-#: rustconn/src/window/rdp_vnc.rs:780 rustconn/src/window/rdp_vnc.rs:1070
+#: rustconn/src/window/rdp_vnc.rs:786 rustconn/src/window/rdp_vnc.rs:1080
 msgid "Certificate changed"
 msgstr ""
 
-#: rustconn/src/window/rdp_vnc.rs:782 rustconn/src/window/rdp_vnc.rs:1072
+#: rustconn/src/window/rdp_vnc.rs:788 rustconn/src/window/rdp_vnc.rs:1082
 msgid "Accept new certificate"
 msgstr ""
 
