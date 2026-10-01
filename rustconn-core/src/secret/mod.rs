@@ -34,6 +34,7 @@ mod resolver;
 pub mod script_resolver;
 pub mod serde_helpers;
 mod status;
+mod touch;
 mod verification;
 
 pub use async_resolver::{
@@ -99,6 +100,7 @@ pub use portable_encrypted_file::{
 };
 pub use resolver::CredentialResolver;
 pub use status::{KeePassStatus, parse_keepassxc_version};
+pub use touch::{TouchObserver, set_touch_observer};
 pub use verification::{
     CredentialStatus, CredentialVerificationManager, DialogPreFillData, VerifiedCredentials,
 };
