@@ -724,8 +724,8 @@ impl AppState {
 
     /// Caches credentials for a connection (session-only)
     ///
-    /// Credentials are cached with a default TTL and will automatically expire.
-    /// Use `cache_credentials_with_ttl` for custom expiration times.
+    /// Credentials are cached with [`DEFAULT_CREDENTIAL_TTL_SECONDS`] and will
+    /// automatically expire.
     pub fn cache_credentials(
         &mut self,
         connection_id: Uuid,
@@ -745,9 +745,9 @@ impl AppState {
 
     /// Gets cached credentials for a connection if not expired
     ///
-    /// Returns `None` if credentials are not cached or have expired.
-    /// Note: This method does not remove expired credentials. Use
-    /// `get_cached_credentials_mut` or `cleanup_expired_credentials` for cleanup.
+    /// Returns `None` if credentials are not cached or have expired. An expired
+    /// entry stays in the map until the connection is cached again or
+    /// [`Self::forget_cached_credentials`] drops it.
     #[must_use]
     pub fn get_cached_credentials(&self, connection_id: Uuid) -> Option<&CachedCredentials> {
         self.password_cache.get(connection_id)
