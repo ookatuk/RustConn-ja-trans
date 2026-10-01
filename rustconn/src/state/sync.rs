@@ -174,9 +174,14 @@ impl AppState {
         // Update existing connections
         for (conn_id, sync_conn) in &merge_result.connections_to_update {
             if let Some(existing) = self.connection_manager.get_connection(*conn_id) {
-                // Detect name change and migrate credential entry in the secret
-                // backend so the password remains accessible under the new
-                // name-based key (issue #263).
+                // ponytail: this name-change branch is unreachable today and
+                // becomes live with id-based matching in 0.23. `merge_connections`
+                // keys an update on `(name, group path)`, so a connection that
+                // reaches `connections_to_update` matched by name — the names are
+                // equal by construction and this `if` is never true. Once 0.23
+                // matches by `SyncConnection::id` instead, a rename on the Master
+                // will arrive here as an update with a different name, and this is
+                // the migration that keeps the vault entry reachable (issue #263).
                 if existing.name != sync_conn.name
                     && existing.password_source == rustconn_core::models::PasswordSource::Vault
                 {
