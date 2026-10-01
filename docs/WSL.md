@@ -171,7 +171,8 @@ like a native Windows app (Alt-Tab, taskbar pinning, clipboard sharing).
 - **Embedded RDP may fail with "decode error"** — the built-in IronRDP
   client does not yet support all RDP extensions. If the embedded client
   fails, RustConn automatically falls back to FreeRDP. Install it:
-  `sudo apt install freerdp3-x11` (or `freerdp2-x11` on older distros).
+  `sudo apt install freerdp3-x11`. RustConn needs FreeRDP 3; a FreeRDP 2
+  client (`freerdp2-x11`) is detected and not used.
   Alternatively, use an external RDP session (right-click → Connect External).
 - **Embedded RDP/VNC rendering is slower than on native Linux** — WSLg adds
   a compositing hop (RDP-over-vsock). For heavy remote-desktop work prefer

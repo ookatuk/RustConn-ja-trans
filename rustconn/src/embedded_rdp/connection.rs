@@ -13,9 +13,12 @@ use rustconn_core::rdp_client::RdpClientCommand;
 use secrecy::ExposeSecret;
 
 use super::launcher::{FreeRdpLaunchResult, SafeFreeRdpLauncher, StderrLines, StdoutLines};
-use super::thread::FreeRdpThread;
+use super::thread::{
+    EMBEDDED_STDERR_LOG_BYTES, FreeRdpThread, embedded_exit_is_failure, tail_excerpt,
+};
 use super::types::{
-    EmbeddedRdpError, FreeRdpThreadState, RdpCommand, RdpConfig, RdpConnectionState, RdpEvent,
+    EmbeddedClientExit, EmbeddedRdpError, FreeRdpThreadState, RdpCommand, RdpConfig,
+    RdpConnectionState, RdpEvent,
 };
 use crate::i18n::{i18n, i18n_f};
 
@@ -492,6 +495,132 @@ fn report_external_failure(cells: &ExternalFailureCells, failure: &FreerdpFailur
     *cells.on_error.borrow_mut() = ecb;
 }
 
+/// Reports how the embedded FreeRDP client's process ended.
+///
+/// An exit inside [`super::thread::EMBEDDED_EARLY_EXIT_WINDOW`] is a failed
+/// connection, classified from the client's stderr the way the external
+/// client's early exit is. A later exit is the session ending. Before the exit
+/// was watched at all, either one left the tab showing "Connected" over a client
+/// that was gone (issue #351).
+fn report_embedded_client_exit(exit: &EmbeddedClientExit, cells: &ExternalFailureCells) {
+    let status = exit.status.to_string();
+    // Bounded, and FreeRDP's own output: the args file is never read back, and
+    // a line quoting a password switch never made it into the tail.
+    let stderr_excerpt = tail_excerpt(&exit.stderr_tail, EMBEDDED_STDERR_LOG_BYTES);
+    tracing::debug!(
+        protocol = "rdp",
+        status = %status,
+        running_ms = exit.running_for.as_millis(),
+        stderr_tail = %stderr_excerpt,
+        "[FreeRDP] Embedded client exited"
+    );
+    if embedded_exit_is_failure(exit.running_for) {
+        tracing::error!(
+            protocol = "rdp",
+            status = %status,
+            "[FreeRDP] Embedded client exited right after launch — connection failed"
+        );
+        let failure = classify_client_output(&exit.stderr_tail, &status);
+        report_external_failure(cells, &failure);
+    } else {
+        tracing::info!(protocol = "rdp", status = %status, "[FreeRDP] Embedded session ended");
+        *cells.state.borrow_mut() = RdpConnectionState::Disconnected;
+        cells.drawing_area.queue_draw();
+        super::with_callback(&cells.on_state_changed, |callback| {
+            callback(RdpConnectionState::Disconnected);
+        });
+    }
+}
+
+/// Tells the user which FreeRDP was refused, once per launch (issue #351).
+///
+/// Only a version that was read is named; a client whose version could not be
+/// read is covered by the error that follows on its own.
+pub(crate) fn warn_unsupported_freerdp(version: Option<rustconn_core::protocol::FreeRdpVersion>) {
+    if let Some(version) = version {
+        crate::toast::show_warning_toast_on_active_window(&i18n_f(
+            "FreeRDP {} is not supported. Install FreeRDP 3.",
+            &[&version.to_string()],
+        ));
+    }
+}
+
+/// The error for a launch that found no FreeRDP 3 client.
+pub(crate) fn no_supported_freerdp_message() -> String {
+    i18n("RDP connection failed. Install FreeRDP 3 for external RDP sessions.")
+}
+
+/// Why a connection has to use FreeRDP instead of the embedded IronRDP client.
+///
+/// Turned into a translated sentence by [`Self::message`]. The reason used to be
+/// a formatted `Debug` dump — "Security layer Tls / TLS level None requires
+/// FreeRDP (IronRDP only supports TLS 1.2+)" — shown untranslated, and for a
+/// TLS-only connection it did not even name the cause (issue #351).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum FreeRdpRequirement {
+    /// The legacy RDP security layer, which has no TLS at all
+    LegacyRdpSecurity,
+    /// TLS without Network Level Authentication
+    TlsWithoutNla,
+    /// A TLS security level below 2, which allows TLS 1.0 and 1.1
+    LegacyTls,
+    /// A RemoteApp (RAIL) program, which IronRDP cannot host
+    RemoteApp,
+    /// Audio left playing on the remote computer, which IronRDP cannot request
+    RemoteAudio,
+}
+
+impl FreeRdpRequirement {
+    /// The first cause that sends `config` to FreeRDP, in the order the
+    /// connection editor lists them, or `None` when IronRDP can serve it.
+    fn of(config: &RdpConfig) -> Option<Self> {
+        if matches!(
+            config.security_layer,
+            rustconn_core::models::RdpSecurityLayer::Rdp
+        ) {
+            return Some(Self::LegacyRdpSecurity);
+        }
+        if config.security_layer.requires_freerdp() {
+            return Some(Self::TlsWithoutNla);
+        }
+        if config.tls_security_level.is_some_and(|level| level < 2) {
+            return Some(Self::LegacyTls);
+        }
+        if config
+            .remote_app_program
+            .as_ref()
+            .is_some_and(|program| !program.is_empty())
+        {
+            return Some(Self::RemoteApp);
+        }
+        if config.audio_mode.requires_freerdp() {
+            return Some(Self::RemoteAudio);
+        }
+        None
+    }
+
+    /// The notice shown when the connection switches to FreeRDP.
+    fn message(self) -> String {
+        match self {
+            Self::LegacyRdpSecurity => i18n(
+                "The embedded client does not support the legacy RDP security layer. Using FreeRDP instead.",
+            ),
+            Self::TlsWithoutNla => {
+                i18n("The embedded client does not support TLS without NLA. Using FreeRDP instead.")
+            }
+            Self::LegacyTls => i18n(
+                "The embedded client does not support TLS security levels below 2. Using FreeRDP instead.",
+            ),
+            Self::RemoteApp => {
+                i18n("The embedded client does not support RemoteApp. Using FreeRDP instead.")
+            }
+            Self::RemoteAudio => i18n(
+                "The embedded client does not support playing audio on the remote computer. Using FreeRDP instead.",
+            ),
+        }
+    }
+}
+
 /// Groups the shared state references needed by `handle_ironrdp_error`.
 ///
 /// Replaces the 13-parameter function signature with a single context struct,
@@ -675,34 +804,22 @@ impl super::EmbeddedRdpWidget {
         // Check if IronRDP embedded mode is available
         // This is determined at compile time via the rdp-embedded feature flag
         if Self::is_ironrdp_available() {
-            // Skip IronRDP if security settings require FreeRDP
-            // (RDP Security Layer, TLS-only, low TLS security level, or RemoteApp)
-            // "Play on the remote computer" needs INFO_REMOTECONSOLEAUDIO,
-            // which ironrdp-connector never sets, so it goes through FreeRDP
-            // like the other capabilities IronRDP cannot express (issue #245).
-            let audio_needs_freerdp = config.audio_mode.requires_freerdp();
-            let force_freerdp = config.security_layer.requires_freerdp()
-                || config.tls_security_level.is_some_and(|l| l < 2)
-                || audio_needs_freerdp
-                || config
-                    .remote_app_program
-                    .as_ref()
-                    .is_some_and(|p| !p.is_empty());
-
-            if force_freerdp {
-                let reason = if audio_needs_freerdp {
-                    "Playing audio on the remote computer requires FreeRDP \
-                     (IronRDP cannot request remote console audio)"
-                        .to_string()
-                } else {
-                    format!(
-                        "Security layer {:?} / TLS level {:?} requires FreeRDP \
-                         (IronRDP only supports TLS 1.2+)",
-                        config.security_layer, config.tls_security_level
-                    )
-                };
-                tracing::info!(protocol = "rdp", %reason, "Skipping IronRDP for legacy security");
-                self.report_fallback(&reason);
+            // Skip IronRDP when the connection needs something only FreeRDP can
+            // do: the RDP security layer, TLS without NLA, a TLS security level
+            // below 2, RemoteApp, or "Play on the remote computer", which needs
+            // INFO_REMOTECONSOLEAUDIO that ironrdp-connector never sets (issue
+            // #245). The user is told which, in their language (issue #351).
+            if let Some(requirement) = FreeRdpRequirement::of(config) {
+                tracing::info!(
+                    protocol = "rdp",
+                    requirement = ?requirement,
+                    security_layer = ?config.security_layer,
+                    tls_security_level = ?config.tls_security_level,
+                    audio_mode = ?config.audio_mode,
+                    remote_app = config.remote_app_program.as_ref().is_some_and(|p| !p.is_empty()),
+                    "Skipping IronRDP: this connection needs FreeRDP"
+                );
+                self.report_fallback(&requirement.message());
             } else {
                 // extra_args are FreeRDP command-line options; the embedded
                 // IronRDP client has no command line to put them on, so they
@@ -759,10 +876,16 @@ impl super::EmbeddedRdpWidget {
         if Self::detect_wlfreerdp() && !is_remote_app && !has_gateway {
             match self.connect_embedded(config) {
                 Ok(()) => {
-                    // Check if fallback was triggered by the thread
-                    if let Some(ref thread) = *self.freerdp_thread.borrow()
-                        && thread.fallback_triggered()
-                    {
+                    // Check if fallback was triggered by the thread. Asked
+                    // without keeping the cell borrowed: cleaning up takes the
+                    // thread out of it. A failure the thread reports later
+                    // reaches the same fallback through the polling loop.
+                    let fallback = self
+                        .freerdp_thread
+                        .borrow()
+                        .as_ref()
+                        .is_some_and(FreeRdpThread::fallback_triggered);
+                    if fallback {
                         // Fallback was triggered, clean up and try external mode
                         self.cleanup_embedded_mode();
                         return self.connect_external_with_notification(config);
@@ -2373,6 +2496,11 @@ impl super::EmbeddedRdpWidget {
                         host = %config.host,
                         "[IronRDP] External FreeRDP fallback failed"
                     );
+                    // Name the FreeRDP 2 that was refused, if that is why
+                    // (issue #351); the error below says what to install.
+                    if let EmbeddedRdpError::NoSupportedFreeRdp(unsupported) = error {
+                        warn_unsupported_freerdp(unsupported);
+                    }
                     Self::report_ironrdp_error(
                         &context,
                         &i18n(
@@ -2701,15 +2829,16 @@ impl super::EmbeddedRdpWidget {
     }
 
     /// Connects using external mode with user notification
+    ///
+    /// The notice comes from the launch once the client is up. Sent up front,
+    /// as it used to be, it promised a window ahead of a launch that then found
+    /// no FreeRDP 3 to run (issue #351).
     pub(super) fn connect_external_with_notification(
         &self,
         config: &RdpConfig,
     ) -> Result<(), EmbeddedRdpError> {
-        // Notify user about fallback
-        self.report_fallback("RDP session will open in external window");
-
-        // Connect using external mode
-        self.connect_external(config)
+        let generation = *self.connection_generation.borrow();
+        Self::launch_external_with_context(&self.external_launch_context(generation), config, true)
     }
 
     /// Connects using embedded mode (wlfreerdp) with thread isolation
@@ -2744,11 +2873,28 @@ impl super::EmbeddedRdpWidget {
         let drawing_area = self.drawing_area.clone();
         let on_state_changed = self.on_state_changed.clone();
         let on_error = self.on_error.clone();
-        let on_fallback = self.on_fallback.clone();
         let rdp_width_ref = self.rdp_width.clone();
         let rdp_height_ref = self.rdp_height.clone();
         let is_embedded = self.is_embedded.clone();
         let freerdp_thread_ref = self.freerdp_thread.clone();
+        // This attempt's generation. A disconnect or a newer attempt bumps the
+        // counter, and this loop must not act on the thread that replaced it.
+        let generation = *self.connection_generation.borrow();
+        let connection_generation = self.connection_generation.clone();
+        // An exit of the client right after launch is reported exactly as the
+        // external client's early exit is (issue #351).
+        let failure_cells = ExternalFailureCells {
+            state: self.state.clone(),
+            on_state_changed: self.on_state_changed.clone(),
+            on_error: self.on_error.clone(),
+            on_cert_changed: self.on_cert_changed.clone(),
+            drawing_area: self.drawing_area.clone(),
+            host: config.host.clone(),
+            port: config.port,
+        };
+        // The external client takes over when the thread cannot start its own.
+        let external_context = self.external_launch_context(generation);
+        let fallback_config = config.clone();
 
         // Mouse jiggler handles + config — armed on Connected here because this
         // event path sets the state directly, bypassing set_state (#185).
@@ -2756,84 +2902,107 @@ impl super::EmbeddedRdpWidget {
         let jiggler_config = self.config.clone();
 
         glib::timeout_add_local(std::time::Duration::from_millis(33), move || {
-            // Check if we're still in embedded mode
-            if !*is_embedded.borrow() {
+            // Check if we're still in embedded mode, and still this attempt
+            if !*is_embedded.borrow() || *connection_generation.borrow() != generation {
                 return glib::ControlFlow::Break;
             }
 
-            // Try to get events from the FreeRDP thread
-            if let Some(ref thread) = *freerdp_thread_ref.borrow() {
-                while let Some(event) = thread.try_recv_event() {
-                    match event {
-                        RdpEvent::Connected => {
-                            tracing::debug!(protocol = "rdp", "FreeRDP connected");
-                            *state.borrow_mut() = RdpConnectionState::Connected;
-                            if let Some(ref callback) = *on_state_changed.borrow() {
-                                callback(RdpConnectionState::Connected);
-                            }
-                            if let Some(interval) = jiggler_config
-                                .borrow()
-                                .as_ref()
-                                .filter(|c| c.jiggler_enabled)
-                                .map(|c| c.jiggler_interval_secs)
-                            {
-                                jiggler.start(interval);
-                            }
-                            drawing_area.queue_draw();
+            // Drain the events before acting on any of them: a callback below
+            // can end the session, which takes the thread out of this cell, so
+            // the cell must not stay borrowed while they run.
+            let events: Vec<RdpEvent> = match freerdp_thread_ref.borrow().as_ref() {
+                Some(thread) => std::iter::from_fn(|| thread.try_recv_event()).collect(),
+                None => return glib::ControlFlow::Break,
+            };
+
+            for event in events {
+                match event {
+                    RdpEvent::Connected => {
+                        tracing::debug!(protocol = "rdp", "FreeRDP connected");
+                        *state.borrow_mut() = RdpConnectionState::Connected;
+                        super::with_callback(&on_state_changed, |callback| {
+                            callback(RdpConnectionState::Connected);
+                        });
+                        if let Some(interval) = jiggler_config
+                            .borrow()
+                            .as_ref()
+                            .filter(|c| c.jiggler_enabled)
+                            .map(|c| c.jiggler_interval_secs)
+                        {
+                            jiggler.start(interval);
                         }
-                        RdpEvent::Disconnected => {
-                            tracing::debug!(protocol = "rdp", "FreeRDP disconnected");
-                            jiggler.stop();
-                            *state.borrow_mut() = RdpConnectionState::Disconnected;
-                            if let Some(ref callback) = *on_state_changed.borrow() {
-                                callback(RdpConnectionState::Disconnected);
+                        drawing_area.queue_draw();
+                    }
+                    RdpEvent::Disconnected => {
+                        tracing::debug!(protocol = "rdp", "FreeRDP disconnected");
+                        jiggler.stop();
+                        *state.borrow_mut() = RdpConnectionState::Disconnected;
+                        super::with_callback(&on_state_changed, |callback| {
+                            callback(RdpConnectionState::Disconnected);
+                        });
+                        drawing_area.queue_draw();
+                        return glib::ControlFlow::Break;
+                    }
+                    RdpEvent::Error(msg) => {
+                        tracing::error!(protocol = "rdp", error = %msg, "FreeRDP error");
+                        jiggler.stop();
+                        *state.borrow_mut() = RdpConnectionState::Error;
+                        super::with_callback(&on_error, |callback| callback(&msg));
+                        drawing_area.queue_draw();
+                        return glib::ControlFlow::Break;
+                    }
+                    RdpEvent::FallbackTriggered(reason) => {
+                        // The thread could not start its client. Hand the
+                        // session to the external client instead of leaving it
+                        // in Connecting with nothing behind it.
+                        tracing::warn!(
+                            protocol = "rdp",
+                            reason = %reason,
+                            "Embedded FreeRDP could not start — using the external client"
+                        );
+                        jiggler.stop();
+                        *is_embedded.borrow_mut() = false;
+                        let thread = freerdp_thread_ref.borrow_mut().take();
+                        if let Some(mut thread) = thread {
+                            thread.shutdown();
+                        }
+                        let _ = Self::launch_external_with_context(
+                            &external_context,
+                            &fallback_config,
+                            true,
+                        );
+                        return glib::ControlFlow::Break;
+                    }
+                    RdpEvent::ClientExited(exit) => {
+                        jiggler.stop();
+                        report_embedded_client_exit(&exit, &failure_cells);
+                        return glib::ControlFlow::Break;
+                    }
+                    RdpEvent::FrameUpdate {
+                        x,
+                        y,
+                        width,
+                        height,
+                    } => {
+                        if width > 0 && height > 0 {
+                            let current_w = *rdp_width_ref.borrow();
+                            let current_h = *rdp_height_ref.borrow();
+                            if width != current_w || height != current_h {
+                                tracing::debug!(
+                                    protocol = "rdp",
+                                    width,
+                                    height,
+                                    "FreeRDP resolution changed"
+                                );
+                                *rdp_width_ref.borrow_mut() = width;
+                                *rdp_height_ref.borrow_mut() = height;
                             }
-                            drawing_area.queue_draw();
-                            return glib::ControlFlow::Break;
                         }
-                        RdpEvent::Error(msg) => {
-                            tracing::error!(protocol = "rdp", error = %msg, "FreeRDP error");
-                            jiggler.stop();
-                            *state.borrow_mut() = RdpConnectionState::Error;
-                            if let Some(ref callback) = *on_error.borrow() {
-                                callback(&msg);
-                            }
-                            drawing_area.queue_draw();
-                            return glib::ControlFlow::Break;
-                        }
-                        RdpEvent::FallbackTriggered(reason) => {
-                            tracing::warn!(protocol = "rdp", reason = %reason, "Fallback triggered");
-                            if let Some(ref callback) = *on_fallback.borrow() {
-                                callback(&reason);
-                            }
-                            return glib::ControlFlow::Break;
-                        }
-                        RdpEvent::FrameUpdate {
-                            x,
-                            y,
-                            width,
-                            height,
-                        } => {
-                            if width > 0 && height > 0 {
-                                let current_w = *rdp_width_ref.borrow();
-                                let current_h = *rdp_height_ref.borrow();
-                                if width != current_w || height != current_h {
-                                    tracing::debug!(
-                                        protocol = "rdp",
-                                        width,
-                                        height,
-                                        "FreeRDP resolution changed"
-                                    );
-                                    *rdp_width_ref.borrow_mut() = width;
-                                    *rdp_height_ref.borrow_mut() = height;
-                                }
-                            }
-                            drawing_area.queue_draw();
-                            let _ = (x, y); // Suppress unused warnings
-                        }
-                        RdpEvent::AuthRequired => {
-                            tracing::debug!(protocol = "rdp", "FreeRDP authentication required");
-                        }
+                        drawing_area.queue_draw();
+                        let _ = (x, y); // Suppress unused warnings
+                    }
+                    RdpEvent::AuthRequired => {
+                        tracing::debug!(protocol = "rdp", "FreeRDP authentication required");
                     }
                 }
             }
@@ -2857,14 +3026,6 @@ impl super::EmbeddedRdpWidget {
                 "External RDP launch cancelled because the attempt is stale"
             );
             return Ok(());
-        }
-
-        if notify_fallback {
-            let callback = context.on_fallback.borrow_mut().take();
-            if let Some(ref callback) = callback {
-                callback(&i18n("RDP session will open in an external window"));
-            }
-            *context.on_fallback.borrow_mut() = callback;
         }
 
         let launch_handle = SafeFreeRdpLauncher::new().launch_background(config.clone());
@@ -2906,6 +3067,13 @@ impl super::EmbeddedRdpWidget {
                     }
                     *launch_context.on_state_changed.borrow_mut() = callback;
                     launch_context.drawing_area.queue_draw();
+                    if notify_fallback {
+                        let callback = launch_context.on_fallback.borrow_mut().take();
+                        if let Some(ref callback) = callback {
+                            callback(&i18n("RDP session will open in an external window"));
+                        }
+                        *launch_context.on_fallback.borrow_mut() = callback;
+                    }
                     arm_external_exit_watchdog(
                         launch_context.process.clone(),
                         launch_context.state.clone(),
@@ -2920,13 +3088,24 @@ impl super::EmbeddedRdpWidget {
                     );
                 }
                 Err(error) => {
-                    let message = if error.to_string().contains("not found")
-                        || error.to_string().contains("No such file")
-                    {
-                        i18n("RDP connection failed. Install FreeRDP 3 for external RDP sessions.")
-                    } else {
-                        i18n_f("Failed to start FreeRDP: {}", &[&error.to_string()])
+                    let detail = error.to_string();
+                    let client_missing =
+                        detail.contains("not found") || detail.contains("No such file");
+                    let message = match error {
+                        // Only FreeRDP 2, or nothing at all, is installed: say
+                        // so once, then fail (issue #351).
+                        EmbeddedRdpError::NoSupportedFreeRdp(unsupported) => {
+                            warn_unsupported_freerdp(unsupported);
+                            no_supported_freerdp_message()
+                        }
+                        _ if client_missing => no_supported_freerdp_message(),
+                        _ => i18n_f("Failed to start FreeRDP: {}", &[&detail]),
                     };
+                    tracing::error!(
+                        protocol = "rdp",
+                        error = %detail,
+                        "[FreeRDP] External client could not be launched"
+                    );
                     Self::report_external_error(&launch_context, &message);
                 }
             }
@@ -2952,14 +3131,6 @@ impl super::EmbeddedRdpWidget {
             callback(message);
         }
         *context.on_error.borrow_mut() = error_callback;
-    }
-
-    /// Connects using external mode (xfreerdp)
-    ///
-    /// Uses `SafeFreeRdpLauncher` to handle Qt/Wayland warning suppression.
-    fn connect_external(&self, config: &RdpConfig) -> Result<(), EmbeddedRdpError> {
-        let generation = *self.connection_generation.borrow();
-        Self::launch_external_with_context(&self.external_launch_context(generation), config, false)
     }
 
     /// Disconnects from the RDP server
@@ -3150,10 +3321,109 @@ impl super::EmbeddedRdpWidget {
 
 #[cfg(test)]
 mod tests {
+    use rustconn_core::models::{RdpAudioMode, RdpSecurityLayer};
+
     use super::{
-        FreerdpFailure, certificate_thumbprints, classify_client_output,
-        reports_changed_certificate,
+        FreeRdpRequirement, FreerdpFailure, RdpConfig, certificate_thumbprints,
+        classify_client_output, reports_changed_certificate,
     };
+
+    fn config_with(change: impl FnOnce(&mut RdpConfig)) -> RdpConfig {
+        let mut config = RdpConfig::new("rdp.example.com");
+        change(&mut config);
+        config
+    }
+
+    /// The reporter's connection: security layer TLS, no TLS level set. The
+    /// cause is TLS without NLA — not a TLS version, which the old message
+    /// claimed while printing "TLS level None" (issue #351).
+    #[test]
+    fn a_tls_only_connection_names_tls_without_nla() {
+        let config = config_with(|c| c.security_layer = RdpSecurityLayer::Tls);
+        assert_eq!(
+            FreeRdpRequirement::of(&config),
+            Some(FreeRdpRequirement::TlsWithoutNla)
+        );
+        // TLS without NLA comes first even when a legacy TLS level is set too.
+        let config = config_with(|c| {
+            c.security_layer = RdpSecurityLayer::Tls;
+            c.tls_security_level = Some(0);
+        });
+        assert_eq!(
+            FreeRdpRequirement::of(&config),
+            Some(FreeRdpRequirement::TlsWithoutNla)
+        );
+    }
+
+    #[test]
+    fn each_freerdp_only_setting_maps_to_its_own_cause() {
+        let cases = [
+            (
+                config_with(|c| c.security_layer = RdpSecurityLayer::Rdp),
+                FreeRdpRequirement::LegacyRdpSecurity,
+            ),
+            (
+                config_with(|c| c.tls_security_level = Some(1)),
+                FreeRdpRequirement::LegacyTls,
+            ),
+            (
+                config_with(|c| {
+                    c.security_layer = RdpSecurityLayer::Nla;
+                    c.tls_security_level = Some(0);
+                }),
+                FreeRdpRequirement::LegacyTls,
+            ),
+            (
+                config_with(|c| c.remote_app_program = Some("||notepad".to_string())),
+                FreeRdpRequirement::RemoteApp,
+            ),
+            (
+                config_with(|c| c.audio_mode = RdpAudioMode::Remote),
+                FreeRdpRequirement::RemoteAudio,
+            ),
+        ];
+        for (config, expected) in cases {
+            assert_eq!(FreeRdpRequirement::of(&config), Some(expected));
+        }
+    }
+
+    #[test]
+    fn a_connection_ironrdp_can_serve_needs_no_freerdp() {
+        for config in [
+            RdpConfig::new("rdp.example.com"),
+            config_with(|c| c.security_layer = RdpSecurityLayer::Nla),
+            config_with(|c| c.tls_security_level = Some(2)),
+            config_with(|c| c.remote_app_program = Some(String::new())),
+            config_with(|c| c.audio_mode = RdpAudioMode::Local),
+        ] {
+            assert_eq!(FreeRdpRequirement::of(&config), None);
+        }
+    }
+
+    /// Every cause reads as a sentence: no `Debug` output, and each one names
+    /// what it is about.
+    #[test]
+    fn each_cause_has_its_own_readable_message() {
+        let causes = [
+            FreeRdpRequirement::LegacyRdpSecurity,
+            FreeRdpRequirement::TlsWithoutNla,
+            FreeRdpRequirement::LegacyTls,
+            FreeRdpRequirement::RemoteApp,
+            FreeRdpRequirement::RemoteAudio,
+        ];
+        let messages: Vec<String> = causes.iter().map(|cause| cause.message()).collect();
+        for message in &messages {
+            assert!(message.ends_with("Using FreeRDP instead."), "{message}");
+            assert!(
+                !message.contains("None") && !message.contains("Some("),
+                "{message}"
+            );
+        }
+        let mut distinct = messages;
+        distinct.sort();
+        distinct.dedup();
+        assert_eq!(distinct.len(), causes.len());
+    }
 
     /// What FreeRDP 3.x actually writes to stdout when a stored certificate no
     /// longer matches, taken from the report in issue #324. The drain thread
@@ -3245,6 +3515,20 @@ mod tests {
             classify_client_output(&joined, "exit status: 1"),
             FreerdpFailure::Error(_)
         ));
+    }
+
+    /// The embedded client's stderr tail is joined with newlines rather than
+    /// spaces; the classifier reads it the same way (issue #351).
+    #[test]
+    fn an_embedded_stderr_tail_is_classified_like_external_output() {
+        let tail = "[WARN][com.freerdp.client] - starting\n\
+                    [ERROR][com.freerdp.core] - ERRCONNECT_CONNECT_TRANSPORT_FAILED [0x0002000D]";
+        match classify_client_output(tail, "exit status: 131") {
+            FreerdpFailure::Error(msg) => assert!(msg.contains("unreachable"), "{msg}"),
+            FreerdpFailure::CertificateMismatch(msg) => {
+                panic!("unexpected certificate classification: {msg}")
+            }
+        }
     }
 
     #[test]

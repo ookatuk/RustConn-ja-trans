@@ -82,7 +82,9 @@ Depends: ${shlibs:Depends}, ${misc:Depends},
 # distribution build. The embedded client loads through openh264-sys2, which
 # validates the library's SHA-256 against Cisco's own published binaries and
 # refuses everything else — see docs/INSTALL.md and RUSTCONN_OPENH264.
-Recommends: freerdp2-x11 | freerdp3-x11 | freerdp3-wayland, tigervnc-viewer, virt-viewer, picocom, libopenh264-8 | libopenh264-7
+# FreeRDP 3 only: RustConn hands FreeRDP its command line through /args-from:,
+# which FreeRDP 2 (freerdp2-x11) rejects, so it is never launched (issue #351).
+Recommends: freerdp3-x11 | freerdp3-wayland, tigervnc-viewer, virt-viewer, picocom, libopenh264-8 | libopenh264-7
 Description: Modern connection manager for SSH, RDP, VNC, SPICE and more
  RustConn is a modern connection manager for Linux with a GTK4/Wayland-native
  interface. Manage SSH, RDP, VNC, SPICE, MOSH, Telnet, Serial, Kubernetes, and

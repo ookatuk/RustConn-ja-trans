@@ -23,7 +23,7 @@ Package: rustconn
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends},
          openssh-client
-Recommends: freerdp2-x11 | freerdp3-x11 | freerdp3-wayland,
+Recommends: freerdp3-x11 | freerdp3-wayland,
             tigervnc-viewer,
             virt-viewer,
             picocom,

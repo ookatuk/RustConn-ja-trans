@@ -11,19 +11,22 @@
 //! setting an error state rather than propagating the panic.
 
 use std::collections::HashMap;
-#[cfg(feature = "rdp-embedded")]
 use std::collections::VecDeque;
-use std::io::Write;
+use std::io::{BufRead, BufReader, Write};
 use std::path::PathBuf;
-use std::process::{Child, Command, Stdio};
+use std::process::{Child, ChildStderr, Command, Stdio};
 use std::sync::{Arc, Mutex, mpsc};
 use std::thread::{self, JoinHandle};
+use std::time::{Duration, Instant};
 
+use rustconn_core::protocol::FreeRdpSelection;
 #[cfg(feature = "rdp-embedded")]
 use rustconn_core::rdp_client::ClipboardFileInfo;
 use secrecy::ExposeSecret;
 
-use super::types::{EmbeddedRdpError, FreeRdpThreadState, RdpCommand, RdpConfig, RdpEvent};
+use super::types::{
+    EmbeddedClientExit, EmbeddedRdpError, FreeRdpThreadState, RdpCommand, RdpConfig, RdpEvent,
+};
 
 // ============================================================================
 // Clipboard File Transfer State (for rdp-embedded feature)
@@ -607,6 +610,224 @@ fn lock_or_recover<T>(mutex: &Mutex<T>) -> std::sync::MutexGuard<'_, T> {
 }
 
 // ============================================================================
+// Embedded Client Exit Watch
+// ============================================================================
+
+/// Bytes of the embedded client's stderr kept to explain an early exit.
+///
+/// 16 KiB holds the last few dozen lines FreeRDP prints before it gives up,
+/// which is where the reason is, while a client that logs for hours cannot
+/// grow it.
+pub const EMBEDDED_STDERR_TAIL_BYTES: usize = 16 * 1024;
+
+/// How much of that tail goes into the debug log when the client exits.
+pub const EMBEDDED_STDERR_LOG_BYTES: usize = 2 * 1024;
+
+/// Longest stderr line kept; a longer one is cut so that a single runaway line
+/// cannot push the rest of the tail out.
+const STDERR_LINE_MAX_BYTES: usize = 1024;
+
+/// How long after launch an exit of the embedded client means the connection
+/// failed, rather than a session that ended.
+///
+/// A real session does not end within seconds of starting, while a client that
+/// rejects its command line, fails authentication or cannot reach the host
+/// exits well inside this window — the reasoning the external client's watchdog
+/// applies as well. Five seconds also leaves room for a slow TLS handshake.
+pub const EMBEDDED_EARLY_EXIT_WINDOW: Duration = Duration::from_secs(5);
+
+/// How often the FreeRDP thread looks at its client while it waits for a
+/// command. Commands are still taken the moment they arrive.
+const CLIENT_EXIT_POLL_INTERVAL: Duration = Duration::from_millis(100);
+
+/// How long an exit waits for the stderr reader to drain what the client wrote
+/// just before it went.
+const STDERR_DRAIN_TIMEOUT: Duration = Duration::from_millis(500);
+
+/// Poll interval while waiting for the stderr reader to finish.
+const STDERR_DRAIN_POLL: Duration = Duration::from_millis(10);
+
+/// Whether an embedded client that exited after `running_for` failed to
+/// connect, as opposed to a session that ended.
+#[must_use]
+pub fn embedded_exit_is_failure(running_for: Duration) -> bool {
+    running_for < EMBEDDED_EARLY_EXIT_WINDOW
+}
+
+/// The last lines a client wrote to stderr, bounded in bytes.
+///
+/// Replaces the `/dev/null` the embedded launch used to send stderr to. That
+/// redirect hid Qt chatter, and with it the one line saying why a client exited
+/// right after launch; this keeps FreeRDP's lines and drops the chatter.
+#[derive(Debug)]
+pub struct StderrTail {
+    lines: VecDeque<String>,
+    bytes: usize,
+    capacity: usize,
+}
+
+impl StderrTail {
+    /// Creates an empty tail that keeps at most `capacity` bytes of lines.
+    #[must_use]
+    pub fn new(capacity: usize) -> Self {
+        Self {
+            lines: VecDeque::new(),
+            bytes: 0,
+            capacity,
+        }
+    }
+
+    /// Records one line, dropping blank lines, Qt platform noise and any line
+    /// that repeats a password switch.
+    pub fn push_line(&mut self, raw: &str) {
+        let line = raw.trim();
+        if line.is_empty() || is_qt_noise(line) || echoes_password_switch(line) {
+            return;
+        }
+        let line = truncate_at_char_boundary(line, STDERR_LINE_MAX_BYTES);
+        self.bytes += line.len();
+        self.lines.push_back(line.to_owned());
+        while self.bytes > self.capacity {
+            let Some(oldest) = self.lines.pop_front() else {
+                break;
+            };
+            self.bytes -= oldest.len();
+        }
+    }
+
+    /// The kept lines, oldest first, one per line.
+    #[must_use]
+    pub fn joined(&self) -> String {
+        let lines: Vec<&str> = self.lines.iter().map(String::as_str).collect();
+        lines.join("\n")
+    }
+}
+
+/// Whether a stderr line is Qt platform chatter rather than FreeRDP's own
+/// output: the `qt.qpa.*` logging categories, `QObject`/`QSocketNotifier`
+/// threading warnings and Qt's session-type notice.
+fn is_qt_noise(line: &str) -> bool {
+    line.starts_with("qt.")
+        || line.starts_with("QObject::")
+        || line.contains("QSocketNotifier")
+        || line.contains("QT_QPA_PLATFORM")
+}
+
+/// Whether a stderr line repeats a password switch.
+///
+/// The password only ever travels in the `/args-from:` file. FreeRDP quotes an
+/// argument it rejects, so a line naming one of these switches is dropped
+/// rather than kept — and later logged.
+fn echoes_password_switch(line: &str) -> bool {
+    const PASSWORD_SWITCHES: [&str; 4] = ["/p:", "/password:", "/gp:", "/gateway-password:"];
+    let lower = line.to_ascii_lowercase();
+    PASSWORD_SWITCHES
+        .iter()
+        .any(|switch| lower.contains(switch))
+}
+
+/// The first `max_bytes` of `text`, cut back to a character boundary.
+fn truncate_at_char_boundary(text: &str, max_bytes: usize) -> &str {
+    if text.len() <= max_bytes {
+        return text;
+    }
+    let mut end = max_bytes;
+    while !text.is_char_boundary(end) {
+        end -= 1;
+    }
+    &text[..end]
+}
+
+/// The last `max_bytes` of `text`, moved forward to a character boundary.
+#[must_use]
+pub fn tail_excerpt(text: &str, max_bytes: usize) -> &str {
+    if text.len() <= max_bytes {
+        return text;
+    }
+    let mut start = text.len() - max_bytes;
+    while !text.is_char_boundary(start) {
+        start += 1;
+    }
+    &text[start..]
+}
+
+/// Drains a client's stderr into `tail` until the pipe closes.
+///
+/// Reads raw lines rather than `String`s: `BufRead::lines` stops at the first
+/// invalid UTF-8 byte, after which nothing reads the pipe and a chatty client
+/// blocks on it once it is full.
+fn spawn_stderr_reader(pipe: ChildStderr, tail: Arc<Mutex<StderrTail>>) -> JoinHandle<()> {
+    thread::spawn(move || {
+        let mut reader = BufReader::new(pipe);
+        let mut line = Vec::new();
+        loop {
+            line.clear();
+            match reader.read_until(b'\n', &mut line) {
+                Ok(0) | Err(_) => break,
+                Ok(_) => lock_or_recover(&tail).push_line(&String::from_utf8_lossy(&line)),
+            }
+        }
+    })
+}
+
+/// What the FreeRDP thread keeps about the client it launched.
+struct ClientWatch {
+    /// When the client was spawned
+    launched_at: Instant,
+    /// The bounded tail of its stderr
+    stderr: Arc<Mutex<StderrTail>>,
+    /// The thread draining its stderr
+    stderr_reader: Option<JoinHandle<()>>,
+}
+
+impl ClientWatch {
+    /// Gives the stderr reader a moment to finish, so the lines the client
+    /// wrote just before it exited are in the tail.
+    fn drain_stderr(&self) {
+        let Some(reader) = self.stderr_reader.as_ref() else {
+            return;
+        };
+        let deadline = Instant::now() + STDERR_DRAIN_TIMEOUT;
+        while !reader.is_finished() && Instant::now() < deadline {
+            thread::sleep(STDERR_DRAIN_POLL);
+        }
+    }
+}
+
+/// Collects the client's exit, if it has exited since the last look.
+fn reap_exited_client(
+    shared: &Arc<Mutex<FreeRdpSharedState>>,
+    watch: &ClientWatch,
+) -> Option<EmbeddedClientExit> {
+    let status = {
+        let mut state = lock_or_recover(shared);
+        let status = match state.process.as_mut()?.try_wait() {
+            Ok(Some(status)) => status,
+            Ok(None) => return None,
+            Err(error) => {
+                tracing::debug!(
+                    protocol = "rdp",
+                    %error,
+                    "Could not poll the embedded FreeRDP client"
+                );
+                return None;
+            }
+        };
+        state.process = None;
+        state.state = FreeRdpThreadState::Idle;
+        status
+    };
+    let running_for = watch.launched_at.elapsed();
+    watch.drain_stderr();
+    let stderr_tail = lock_or_recover(&watch.stderr).joined();
+    Some(EmbeddedClientExit {
+        status,
+        running_for,
+        stderr_tail,
+    })
+}
+
+// ============================================================================
 // FreeRDP Thread Isolation
 // ============================================================================
 
@@ -699,15 +920,39 @@ impl FreeRdpThread {
         // in multi-threaded context (unsafe since Rust 1.66+).
 
         let mut current_config = Some(initial_config);
+        // The client this thread launched, while it runs.
+        let mut watch: Option<ClientWatch> = None;
 
         loop {
-            match cmd_rx.recv() {
-                Ok(RdpCommand::Connect(config)) => {
+            let command = match cmd_rx.recv_timeout(CLIENT_EXIT_POLL_INTERVAL) {
+                Ok(command) => command,
+                Err(mpsc::RecvTimeoutError::Timeout) => {
+                    // The client going away is an event too. Nothing used to
+                    // look, so a client that exited right after launch left the
+                    // session showing "Connected" over nothing (issue #351).
+                    if let Some(exit) = watch
+                        .as_ref()
+                        .and_then(|running| reap_exited_client(&shared, running))
+                    {
+                        watch = None;
+                        let _ = evt_tx.send(RdpEvent::ClientExited(exit));
+                    }
+                    continue;
+                }
+                Err(mpsc::RecvTimeoutError::Disconnected) => {
+                    lock_or_recover(&shared).cleanup_process();
+                    break;
+                }
+            };
+
+            match command {
+                RdpCommand::Connect(config) => {
                     lock_or_recover(&shared).state = FreeRdpThreadState::Connecting;
                     current_config = Some(*config.clone());
 
                     match Self::launch_freerdp(&config, &shared) {
-                        Ok(()) => {
+                        Ok(launched) => {
+                            watch = Some(launched);
                             lock_or_recover(&shared).state = FreeRdpThreadState::Connected;
                             let _ = evt_tx.send(RdpEvent::Connected);
                         }
@@ -720,44 +965,41 @@ impl FreeRdpThread {
                         }
                     }
                 }
-                Ok(RdpCommand::Disconnect) => {
+                RdpCommand::Disconnect => {
+                    watch = None;
                     let mut s = lock_or_recover(&shared);
                     s.cleanup_process();
                     s.state = FreeRdpThreadState::Idle;
                     drop(s);
                     let _ = evt_tx.send(RdpEvent::Disconnected);
                 }
-                Ok(RdpCommand::KeyEvent {
+                RdpCommand::KeyEvent {
                     keyval: _,
                     pressed: _,
-                }) => {
+                } => {
                     // Forward keyboard event to FreeRDP process
                 }
-                Ok(RdpCommand::MouseEvent {
+                RdpCommand::MouseEvent {
                     x: _,
                     y: _,
                     button: _,
                     pressed: _,
-                }) => {
+                } => {
                     // Forward mouse event to FreeRDP process
                 }
-                Ok(RdpCommand::Resize { width, height }) => {
+                RdpCommand::Resize { width, height } => {
                     if let Some(ref mut config) = current_config {
                         config.width = width;
                         config.height = height;
                     }
                 }
-                Ok(RdpCommand::SendCtrlAltDel) => {
+                RdpCommand::SendCtrlAltDel => {
                     tracing::debug!("[FreeRDP] Ctrl+Alt+Del requested");
                 }
-                Ok(RdpCommand::Shutdown) => {
+                RdpCommand::Shutdown => {
                     let mut s = lock_or_recover(&shared);
                     s.state = FreeRdpThreadState::ShuttingDown;
                     s.cleanup_process();
-                    break;
-                }
-                Err(_) => {
-                    lock_or_recover(&shared).cleanup_process();
                     break;
                 }
             }
@@ -766,18 +1008,30 @@ impl FreeRdpThread {
 
     /// Launches FreeRDP with Qt error suppression
     ///
-    /// Uses mutex poisoning recovery for safe process handle storage.
+    /// Uses mutex poisoning recovery for safe process handle storage. Returns
+    /// what the thread needs to notice the client exiting and say why.
     fn launch_freerdp(
         config: &RdpConfig,
         shared: &Arc<Mutex<FreeRdpSharedState>>,
-    ) -> Result<(), EmbeddedRdpError> {
-        // Try wlfreerdp first for embedded mode
-        let binary = "wlfreerdp";
-        if !rustconn_core::which::is_available(binary) {
-            return Err(EmbeddedRdpError::WlFreeRdpNotAvailable);
-        }
+    ) -> Result<ClientWatch, EmbeddedRdpError> {
+        // `wlfreerdp3`, or a `wlfreerdp` that reports FreeRDP 3. Debian and
+        // Ubuntu ship FreeRDP 2 as `wlfreerdp`, which rejects the `/args-from:`
+        // command line below and prints its usage banner instead of
+        // connecting (issue #351). `detect_wlfreerdp` asks the same question
+        // before this mode is chosen.
+        let binary = match super::detect::select_embedded_wlfreerdp() {
+            FreeRdpSelection::Supported(binary) => binary,
+            selection => {
+                tracing::info!(
+                    protocol = "rdp",
+                    unsupported_version = ?selection.unsupported_version(),
+                    "No FreeRDP 3 Wayland client for embedded mode"
+                );
+                return Err(EmbeddedRdpError::WlFreeRdpNotAvailable);
+            }
+        };
 
-        let mut cmd = Command::new(binary);
+        let mut cmd = Command::new(&binary);
 
         // Set environment to suppress Qt warnings
         cmd.env("QT_LOGGING_RULES", "qt.qpa.wayland=false;qt.qpa.*=false");
@@ -820,10 +1074,10 @@ impl FreeRdpThread {
         // client, which reads `config.dynamic_resolution` / `config.smart_sizing`
         // (issue #341). This is the embedded wlfreerdp widget: its size follows
         // the DrawingArea geometry and the Display Control Channel, so the
-        // external-window sizing switches do not apply, and `wlfreerdp` is
-        // hardcoded above because only a Wayland-native client embeds as a
-        // subsurface — the SDL3 client that is now preferred for external
-        // launches (#340) cannot. The one exception is a custom `/smart-sizing`
+        // external-window sizing switches do not apply, and only `wlfreerdp3`
+        // and `wlfreerdp` are candidates above because only a Wayland-native
+        // client embeds as a subsurface — the SDL3 client that is now preferred
+        // for external launches (#340) cannot. The one exception is a custom `/smart-sizing`
         // argument: FreeRDP refuses it beside `/dynamic-resolution`, so the
         // shared resolver leaves the switch out and the custom one stands.
         let sizing =
@@ -854,30 +1108,45 @@ impl FreeRdpThread {
             plain_args.push(format!("/v:{}:{}", config.host, config.port));
         }
 
-        // Write all arguments (plain + secret) to the ephemeral args file
-        let _args_guard =
-            match super::ephemeral_args::EphemeralRdpArgs::write_all(&plain_args, &secret_args) {
-                Ok(guard) => {
-                    cmd.arg(super::detect::args_from_argument(binary, guard.path()));
-                    guard
-                }
-                Err(e) => {
-                    return Err(EmbeddedRdpError::FreeRdpInit(format!(
-                        "could not prepare RDP args file: {e}"
-                    )));
-                }
-            };
+        // Write all arguments (plain + secret) to the ephemeral args file; the
+        // password travels in it and nowhere else. The shared helper picks the
+        // `/args-from:` spelling this client's version accepts.
+        let prepared_args = super::launcher::SafeFreeRdpLauncher::prepare_args_file(
+            &binary,
+            &plain_args,
+            &secret_args,
+        )?;
+        cmd.arg(prepared_args.argument());
 
-        // Redirect stderr to suppress Qt warnings
-        cmd.stderr(Stdio::null());
+        // Nobody can answer a prompt here. With stdin at /dev/null FreeRDP
+        // declines a certificate question and exits — which the exit watch then
+        // reports — instead of blocking on the terminal RustConn started from.
+        cmd.stdin(Stdio::null());
+
+        // Keep stderr instead of discarding it: when the client exits right
+        // after launch it is the only record of why. The tail drops the Qt noise
+        // the old /dev/null redirect was there to hide.
+        cmd.stderr(Stdio::piped());
 
         match cmd.spawn() {
-            Ok(child) => {
+            Ok(mut child) => {
+                // FreeRDP opens the args file after exec, not before `spawn`
+                // returns, so the file has to outlive this call for a moment;
+                // dropping it here raced the client's own argument parsing.
+                prepared_args.retain_for_post_spawn_parse();
+                let stderr = Arc::new(Mutex::new(StderrTail::new(EMBEDDED_STDERR_TAIL_BYTES)));
+                let stderr_reader = child
+                    .stderr
+                    .take()
+                    .map(|pipe| spawn_stderr_reader(pipe, Arc::clone(&stderr)));
                 lock_or_recover(shared).process = Some(child);
-                // _args_guard is dropped here after FreeRDP has consumed
-                // the file during argument parsing (synchronous before fork).
-                Ok(())
+                Ok(ClientWatch {
+                    launched_at: Instant::now(),
+                    stderr,
+                    stderr_reader,
+                })
             }
+            // `prepared_args` drops here and removes the file at once.
             Err(e) => Err(EmbeddedRdpError::FreeRdpInit(e.to_string())),
         }
     }
@@ -920,6 +1189,87 @@ impl FreeRdpThread {
 impl Drop for FreeRdpThread {
     fn drop(&mut self) {
         self.shutdown();
+    }
+}
+
+#[cfg(test)]
+mod client_watch_tests {
+    use std::time::Duration;
+
+    use super::{
+        EMBEDDED_EARLY_EXIT_WINDOW, EMBEDDED_STDERR_TAIL_BYTES, StderrTail,
+        embedded_exit_is_failure, tail_excerpt,
+    };
+
+    #[test]
+    fn the_tail_keeps_only_the_last_lines() {
+        let mut tail = StderrTail::new(10);
+        for line in ["aaaa", "bbbb", "cccc"] {
+            tail.push_line(line);
+        }
+        assert_eq!(tail.joined(), "bbbb\ncccc");
+    }
+
+    /// What the old `/dev/null` redirect existed to hide goes; FreeRDP's own
+    /// error line, which says why the client exited, stays.
+    #[test]
+    fn the_tail_drops_qt_noise_and_blank_lines() {
+        let mut tail = StderrTail::new(EMBEDDED_STDERR_TAIL_BYTES);
+        for line in [
+            "qt.qpa.wayland: Wayland does not support QWindow::requestActivate()\n",
+            "QSocketNotifier: Can only be used with threads started with QThread",
+            "Warning: Ignoring XDG_SESSION_TYPE=wayland on Gnome. \
+             Use QT_QPA_PLATFORM=wayland to run on Wayland anyway.",
+            "QObject::connect: invalid nullptr parameter",
+            "",
+            "   \r\n",
+            "[ERROR][com.freerdp.core] - ERRCONNECT_LOGON_FAILURE [0x00020014]\r\n",
+        ] {
+            tail.push_line(line);
+        }
+        assert_eq!(
+            tail.joined(),
+            "[ERROR][com.freerdp.core] - ERRCONNECT_LOGON_FAILURE [0x00020014]"
+        );
+    }
+
+    #[test]
+    fn a_line_quoting_a_password_switch_is_not_kept() {
+        let mut tail = StderrTail::new(EMBEDDED_STDERR_TAIL_BYTES);
+        tail.push_line("Failed at index 3 [/p:hunter2]: Unexpected keyword");
+        tail.push_line("Failed at index 4 [/GP:hunter2]: Unexpected keyword");
+        assert_eq!(tail.joined(), "");
+    }
+
+    #[test]
+    fn a_runaway_line_is_cut_at_a_character_boundary() {
+        let mut tail = StderrTail::new(EMBEDDED_STDERR_TAIL_BYTES);
+        tail.push_line(&"€".repeat(1000));
+        let kept = tail.joined();
+        assert!(
+            !kept.is_empty() && kept.len() <= 1024,
+            "kept {} bytes",
+            kept.len()
+        );
+        assert!(kept.chars().all(|c| c == '€'));
+    }
+
+    #[test]
+    fn the_log_excerpt_is_the_end_of_the_tail() {
+        assert_eq!(tail_excerpt("abcdef", 3), "def");
+        assert_eq!(tail_excerpt("abc", 10), "abc");
+        // A cut inside a character moves forward to the next one.
+        assert_eq!(tail_excerpt("aéb", 2), "b");
+    }
+
+    /// An exit right after launch is a failed connection; one after the window
+    /// is a session that ended, which keeps showing Connected until it does.
+    #[test]
+    fn only_an_exit_inside_the_window_is_a_failure() {
+        assert!(embedded_exit_is_failure(Duration::ZERO));
+        assert!(embedded_exit_is_failure(Duration::from_millis(400)));
+        assert!(!embedded_exit_is_failure(EMBEDDED_EARLY_EXIT_WINDOW));
+        assert!(!embedded_exit_is_failure(Duration::from_hours(1)));
     }
 }
 

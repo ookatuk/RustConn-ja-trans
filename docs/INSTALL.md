@@ -442,9 +442,11 @@ FreeRDP detection priority:
 
 The client reported as installed and the client launched come from the same list. A connection can also name its client explicitly (FreeRDP client in the RDP editor, `--rdp-freerdp-client` on the CLI).
 
+RustConn needs **FreeRDP 3**. It hands FreeRDP its whole command line through an `/args-from:` file, so the password never appears on the process's command line, and FreeRDP 2 rejects that switch. Each client's version is checked before it is used: a FreeRDP 2 client — `xfreerdp` from `freerdp2-x11` or `wlfreerdp` from `freerdp2-wayland` on Debian and Ubuntu — is skipped, left out of the editor's client list, and reported with the version that was found when nothing else is installed (issue #351). On Debian and Ubuntu install `freerdp3-x11` or `freerdp3-wayland`; both can live beside the FreeRDP 2 packages.
+
 | Protocol | Client | Package |
 |----------|--------|---------|
-| RDP (fallback) | FreeRDP 3 (Wayland) | `freerdp3` or `freerdp2` |
+| RDP (fallback) | FreeRDP 3 | `freerdp3-x11` / `freerdp3-wayland` (Debian, Ubuntu), `freerdp` (Fedora, openSUSE, Arch) |
 | VNC (fallback) | TigerVNC | `tigervnc-viewer` |
 | SPICE (fallback) | remote-viewer | `virt-viewer` |
 | Telnet | telnet | `telnet` or `inetutils-telnet` |

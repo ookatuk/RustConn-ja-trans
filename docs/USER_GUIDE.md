@@ -1140,6 +1140,16 @@ always uses an X11 client regardless of this setting, because the `wl*`/`sdl*`
 clients cannot host individual application windows. From the CLI:
 `--rdp-freerdp-client NAME` (pass an empty string on `update` to clear it).
 
+*Changed in 0.22.13.* Only FreeRDP 3 clients are used. RustConn passes FreeRDP
+its command line through an `/args-from:` file, which FreeRDP 2 rejects, and on
+Debian and Ubuntu FreeRDP 2 installs under the same names (`xfreerdp`,
+`wlfreerdp`) that FreeRDP 3 uses elsewhere — so each client's version is checked
+before it is launched. A FreeRDP 2 client is left out of the list, a connection
+pinned to one falls back to auto-detection, and the embedded `wlfreerdp` mode
+needs `wlfreerdp3` or a `wlfreerdp` that is FreeRDP 3. When only FreeRDP 2 is
+installed, RustConn says which version it found and asks for FreeRDP 3
+(issue #351).
+
 #### Server Certificate Changes
 
 RDP servers almost always present a self-signed certificate. Like SSH's
@@ -1362,7 +1372,8 @@ Launch individual remote applications instead of a full desktop session. The rem
 **How It Works:**
 - RemoteApp uses the RAIL (Remote Applications Integrated Locally) protocol extension
 - RustConn automatically uses FreeRDP for RemoteApp sessions — IronRDP does not support RAIL
-- FreeRDP must be installed on the system (bundled in Flatpak builds)
+- Sign-in is restricted to NTLM by default (`/auth-pkg-list:ntlm`): it works for standalone servers and needs no Kerberos setup on this machine. With **Kerberos Authentication** on, the restriction is left out and FreeRDP negotiates Kerberos through the system krb5 configuration (a ticket from `kinit`) — required for an AD "Protected Users" account, which has NTLM disabled. *Changed in 0.22.13* (issue #351)
+- FreeRDP 3's X11 client (`xfreerdp3`, or an `xfreerdp` that is FreeRDP 3) must be installed on the system; the Flatpak looks for it on the host, because its bundled FreeRDP has no X11 client
 - The Arguments and Display Name fields appear only after entering a Program path
 
 **Program Path Format:**

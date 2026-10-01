@@ -33,6 +33,10 @@ pub enum EmbeddingError {
     /// Client process failed to start
     #[error("Failed to start client process: {0}")]
     ProcessStartFailed(String),
+    /// No FreeRDP 3 client is installed. Carries the version of the FreeRDP
+    /// that was refused — FreeRDP 2 — when one was found (issue #351).
+    #[error("No supported FreeRDP client is installed (RustConn needs FreeRDP 3)")]
+    NoSupportedFreeRdp(Option<rustconn_core::protocol::FreeRdpVersion>),
     /// Client exited unexpectedly
     #[error("Client exited with code {code}")]
     ClientExited {
@@ -313,9 +317,10 @@ impl RdpLauncher {
     /// made while this watcher, not the registry's exit-only poll, owns it.
     ///
     /// # Errors
-    /// Returns an error if the FreeRDP binary is missing or the process fails to
-    /// spawn. Early post-spawn failures are reported asynchronously through
-    /// `callbacks` instead, so the GTK main loop is never blocked.
+    /// Returns [`EmbeddingError::NoSupportedFreeRdp`] if no FreeRDP 3 client is
+    /// installed, or an error if the process fails to spawn. Early post-spawn
+    /// failures are reported asynchronously through `callbacks` instead, so the
+    /// GTK main loop is never blocked.
     pub fn start(
         tab: &EmbeddedSessionTab,
         config: &rustconn_core::protocol::FreeRdpConfig,
@@ -333,18 +338,22 @@ impl RdpLauncher {
         // Honour the connection's explicit FreeRDP client choice, falling back
         // to auto-detection when it is unavailable (issue #340). Shares the one
         // resolver with the embedded-widget launcher rather than keeping this
-        // path's own candidate list.
-        let binary = crate::embedded_rdp::detect::resolve_freerdp_binary(
+        // path's own candidate list, and with it the FreeRDP 3 requirement:
+        // FreeRDP 2 rejects the `/args-from:` command line below (issue #351).
+        // Runs on the main thread; each version probe is bounded and cached.
+        let selection = crate::embedded_rdp::detect::resolve_freerdp_binary(
             config.client_override.as_deref(),
             config.is_remote_app(),
             None,
-        )
-        .ok_or_else(|| {
-            EmbeddingError::ProcessStartFailed(
-                "FreeRDP client not found. Install sdl-freerdp3, sdl-freerdp, xfreerdp3, or xfreerdp."
-                    .to_string(),
-            )
-        })?;
+        );
+        let binary = match selection {
+            rustconn_core::protocol::FreeRdpSelection::Supported(binary) => binary,
+            refused => {
+                return Err(EmbeddingError::NoSupportedFreeRdp(
+                    refused.unsupported_version(),
+                ));
+            }
+        };
 
         // A Flatpak host client comes back as `host:<name>`; keep the marker
         // for logging but spawn through `flatpak-spawn --host` with the bare

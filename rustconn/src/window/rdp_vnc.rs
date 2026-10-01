@@ -979,6 +979,9 @@ fn start_external_rdp_session(
         ignore_certificate: rdp_config.ignore_certificate,
         fido2_enabled: rdp_config.fido2_enabled,
         client_override: rdp_config.freerdp_client_override.clone(),
+        // Lets a RemoteApp session negotiate Kerberos instead of NTLM, which an
+        // AD "Protected Users" account cannot use (issue #351).
+        kerberos_enabled: rdp_config.kerberos_enabled,
     };
 
     // A tunnelled session's SshTunnel must outlive every launch attempt: a
@@ -1128,11 +1131,20 @@ fn spawn_external_rdp_attempt(
     if let Err(e) = RdpLauncher::start(&tab, &launch_config, callbacks) {
         tracing::error!(%e, connection = %conn_name, "Failed to start RDP session");
         sidebar.update_connection_status(&connection_id.to_string(), "failed");
-        crate::toast::show_error_toast_on_active_window(&e.to_string());
+        // No FreeRDP 3 client: name the FreeRDP 2 that was refused, once, then
+        // say what to install (issue #351).
+        let message = match &e {
+            crate::embedded::EmbeddingError::NoSupportedFreeRdp(unsupported) => {
+                crate::embedded_rdp::connection::warn_unsupported_freerdp(*unsupported);
+                crate::embedded_rdp::connection::no_supported_freerdp_message()
+            }
+            other => other.to_string(),
+        };
+        crate::toast::show_error_toast_on_active_window(&message);
         if let Some(entry_id) = history_entry_id
             && let Ok(mut state_mut) = state.try_borrow_mut()
         {
-            state_mut.record_connection_failed(entry_id, &e.to_string());
+            state_mut.record_connection_failed(entry_id, &message);
         }
         return;
     }

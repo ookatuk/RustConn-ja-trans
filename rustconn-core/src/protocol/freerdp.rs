@@ -115,6 +115,14 @@ pub struct FreeRdpConfig {
     /// launcher when choosing which binary to spawn, not by the argument
     /// builder (issue #340).
     pub client_override: Option<String>,
+    /// The connection opted into Kerberos for NLA (`RdpConfig::kerberos_enabled`).
+    ///
+    /// Read for `RemoteApp` sessions only, which otherwise restrict NLA to NTLM
+    /// (`/auth-pkg-list:ntlm`). An AD "Protected Users" account has NTLM
+    /// disabled domain-wide and can never sign in through that list, so with
+    /// this set the restriction is left out and FreeRDP negotiates Kerberos
+    /// through the system krb5 configuration (issue #351).
+    pub kerberos_enabled: bool,
 }
 
 /// Written by hand so that it agrees with [`FreeRdpConfig::new`].
@@ -166,6 +174,7 @@ impl FreeRdpConfig {
             ignore_certificate: false,
             fido2_enabled: false,
             client_override: None,
+            kerberos_enabled: false,
         }
     }
 
@@ -693,8 +702,11 @@ fn push_remote_app_args(args: &mut Vec<String>, config: &FreeRdpConfig) {
     // With RemoteApp on xfreerdp3, force NTLM authentication. xfreerdp3 on the
     // host often lacks Kerberos realm configuration, causing NLA to fail even
     // with correct credentials. NTLM works reliably for standalone (non-domain)
-    // Windows servers.
-    if config.is_remote_app() {
+    // Windows servers. A connection that opted into Kerberos keeps FreeRDP's
+    // own negotiation instead: an AD "Protected Users" account has NTLM
+    // disabled domain-wide and could never sign in through the forced list
+    // (issue #351).
+    if config.is_remote_app() && !config.kerberos_enabled {
         args.push("/auth-pkg-list:ntlm".to_string());
     }
 }
@@ -869,6 +881,40 @@ mod tests {
 
         assert!(args.contains(&"/auth-pkg-list:ntlm".to_string()));
         assert!(args.iter().any(|arg| arg.starts_with("/app:")));
+    }
+
+    /// An AD "Protected Users" account has NTLM disabled, so a RemoteApp
+    /// session that opted into Kerberos must not be restricted to NTLM
+    /// (issue #351).
+    #[test]
+    fn remote_app_with_kerberos_leaves_the_auth_package_to_freerdp() {
+        let config = FreeRdpConfig {
+            remote_app_program: Some("notepad.exe".to_string()),
+            kerberos_enabled: true,
+            ..FreeRdpConfig::new("server.example.com")
+        };
+        let args = build_freerdp_args(&config);
+
+        assert!(!args.iter().any(|arg| arg.starts_with("/auth-pkg-list")));
+        assert!(args.iter().any(|arg| arg.starts_with("/app:")));
+    }
+
+    /// Kerberos only changes the RemoteApp restriction; a desktop session gets
+    /// the same command line either way.
+    #[test]
+    fn kerberos_without_remote_app_changes_no_argument() {
+        let plain = FreeRdpConfig::new("server.example.com");
+        let kerberos = FreeRdpConfig {
+            kerberos_enabled: true,
+            ..FreeRdpConfig::new("server.example.com")
+        };
+
+        assert_eq!(build_freerdp_args(&kerberos), build_freerdp_args(&plain));
+        assert!(
+            !build_freerdp_args(&plain)
+                .iter()
+                .any(|arg| arg.starts_with("/auth-pkg-list"))
+        );
     }
 
     /// Audio is always stated: FreeRDP's implicit default is no audio device in

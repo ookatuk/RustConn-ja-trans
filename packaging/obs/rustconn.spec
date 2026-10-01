@@ -115,6 +115,9 @@ Requires:       openssh-clients
 %endif
 
 # Optional runtime dependencies
+# RustConn needs FreeRDP 3, which is what `freerdp` is on every RPM target here
+# (Tumbleweed, Slowroll, Leap 16.0, Fedora 43/44); a FreeRDP 2 client is never
+# launched, because it rejects the /args-from: command line (issue #351).
 Recommends:     freerdp
 Recommends:     tigervnc
 Recommends:     virt-viewer
