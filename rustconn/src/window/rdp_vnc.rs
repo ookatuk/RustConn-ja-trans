@@ -621,10 +621,11 @@ fn start_embedded_rdp_session(
     // FIDO2/WebAuthn device redirection (FreeRDP 3.x only, external mode)
     embedded_config.fido2_enabled = rdp_config.fido2_enabled;
 
-    // Kerberos NLA opt-in (issue #351). Embedded IronRDP path only — negotiates
-    // Kerberos for CredSSP with NTLM fallback, which an AD "Protected Users"
-    // host requires. The optional KDC proxy URL routes the exchange over
-    // MS-KKDCP when the KDC is not directly reachable.
+    // Kerberos NLA opt-in (issue #351). Embedded IronRDP path only — what an
+    // account in AD "Protected Users" needs, since NTLM is refused for it. There
+    // is no NTLM fallback once Kerberos is on. The KDC Address (stored as
+    // `kdc_proxy_url`) names a domain controller or an MS-KKDCP proxy; when it
+    // is empty the KDC is looked up instead.
     embedded_config.kerberos_enabled = rdp_config.kerberos_enabled;
     embedded_config.kdc_proxy_url = rdp_config.kdc_proxy_url.clone();
 

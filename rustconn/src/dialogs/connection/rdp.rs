@@ -29,7 +29,7 @@ use crate::i18n::i18n;
 
 /// Creates the RDP options panel with all protocol-specific widgets.
 ///
-/// Returns a 37-element tuple matching the fields expected by `ConnectionDialog`.
+/// Returns a 41-element tuple matching the fields expected by `ConnectionDialog`.
 pub(super) fn create_rdp_options() -> (
     GtkBox,
     DropDown,
@@ -61,6 +61,7 @@ pub(super) fn create_rdp_options() -> (
     adw::SwitchRow,
     adw::SwitchRow,
     adw::SwitchRow,
+    adw::EntryRow,
     DropDown,
     Rc<RefCell<Vec<SharedFolder>>>,
     gtk4::ListBox,
@@ -472,17 +473,37 @@ pub(super) fn create_rdp_options() -> (
         .build();
     features_group.add(&rdp_fido2_check);
 
-    // Kerberos authentication for NLA (issue #351). Needed for AD "Protected
-    // Users" hosts, which disable NTLM domain-wide. Embedded client only;
-    // requires a working local krb5 setup (a TGT via `kinit`).
+    // Kerberos authentication for NLA (issue #351). Needed for accounts in AD
+    // "Protected Users", which may not use NTLM. Embedded client only. sspi
+    // signs in with the saved password — a `kinit` ticket is not used — and
+    // fails rather than falling back to NTLM when it cannot reach a KDC.
     let rdp_kerberos_check = adw::SwitchRow::builder()
         .title(i18n("Kerberos Authentication"))
         .subtitle(i18n(
-            "Use Kerberos for NLA instead of NTLM (Embedded client). Required for AD \"Protected Users\"; needs a valid Kerberos ticket (kinit)",
+            "Use Kerberos for NLA instead of NTLM (Embedded client). Required for AD \"Protected Users\". Signs in with the saved password; Host must be the server's DNS name",
         ))
         .active(false)
         .build();
     features_group.add(&rdp_kerberos_check);
+
+    // Where the Kerberos exchange goes (issue #351). Empty means looked up:
+    // SSPI_KDC_URL_<REALM>, SSPI_KDC_URL, krb5.conf [realms], then the realm's
+    // own DNS name. Stored normalized; an invalid value is flagged here and
+    // refused on save. Only meaningful while the Kerberos switch is on.
+    let rdp_kdc_address_entry = adw::EntryRow::builder().title(i18n("KDC Address")).build();
+    rdp_kdc_address_entry.set_tooltip_text(Some(&i18n(
+        "Optional. A domain controller name or IP address, a tcp:// or udp:// address, or an https:// KDC proxy URL. Leave empty to find it automatically.",
+    )));
+    rdp_kdc_address_entry.set_sensitive(false);
+    rdp_kdc_address_entry.connect_changed(|entry| {
+        let invalid = rustconn_core::rdp_client::normalize_kdc_url(&entry.text()).is_err();
+        crate::dialogs::widgets::set_invalid(entry, invalid);
+    });
+    let kdc_address_for_switch = rdp_kdc_address_entry.clone();
+    rdp_kerberos_check.connect_active_notify(move |switch| {
+        kdc_address_for_switch.set_sensitive(switch.is_active());
+    });
+    features_group.add(&rdp_kdc_address_entry);
 
     // Disable NLA
     let disable_nla_check = adw::SwitchRow::builder()
@@ -883,6 +904,7 @@ pub(super) fn create_rdp_options() -> (
         rdp_mptcp_check,
         rdp_fido2_check,
         rdp_kerberos_check,
+        rdp_kdc_address_entry,
         rdp_jump_host_dropdown,
         shared_folders,
         folders_list,

@@ -1202,6 +1202,45 @@ This adds the FreeRDP `/fido` flag to the session launch. The embedded IronRDP c
 **CLI:** not exposed. `.rdp` export does not carry it either: the flag is a FreeRDP
 option, not a field in the Microsoft `.rdp` format.
 
+#### Kerberos Authentication (Protected Users)
+
+Accounts in the Active Directory **Protected Users** group may not sign in with NTLM, so
+the embedded client's default NLA is refused for them with an account-restriction error.
+Turn on **Kerberos Authentication** (Connection Dialog → RDP → Features) to sign in with
+Kerberos instead. It applies to the embedded IronRDP client only.
+
+What it needs:
+
+- **The password saved for the connection.** The client requests its own Kerberos
+  tickets with it; a ticket obtained with `kinit` is not used, and none is needed.
+- **Host set to the server's DNS name** as the domain knows it, such as
+  `rdp1.example.com`. The service principal is `TERMSRV/<host>`, so an IP address,
+  `localhost` or the local end of an SSH jump-host tunnel cannot work; RustConn warns
+  about these before connecting.
+- **Domain set to the DNS domain**, such as `EXAMPLE.COM`, not the short NetBIOS name.
+  A user name of the form `user@example.com` works as well.
+- A clock within five minutes of the domain's.
+
+**Where the KDC comes from.** The optional **KDC Address** row under the switch takes a
+domain controller name or IP address (`dc1.example.com`, `dc1.example.com:88`,
+`[2001:db8::1]:88`), a `tcp://` or `udp://` address, or an `https://` KDC proxy URL
+(MS-KKDCP, such as `https://gateway.example.com/KdcProxy`) for networks where port 88 is
+not reachable. When the row is empty, the KDC is taken from, in this order:
+
+1. the `SSPI_KDC_URL_<REALM>` environment variable, then `SSPI_KDC_URL` — for example
+   `SSPI_KDC_URL=tcp://dc1.example.com:88`;
+2. the realm's `kdc` entry under `[realms]` in `/etc/krb5.conf`;
+3. the realm's own DNS name, `tcp://example.com:88`, which in Active Directory resolves
+   to the domain controllers.
+
+DNS SRV records are not looked up on Linux. A domain ending in `.local` often does not
+resolve through the system resolver, because `.local` is reserved for mDNS; enter a
+domain controller's address as the KDC Address for such a domain.
+
+There is no fallback to NTLM once Kerberos is on. A KDC that cannot be found or reached
+ends the sign-in with a message naming the problem — a Protected Users account would be
+refused over NTLM anyway.
+
 #### Dynamic Resolution on Resize
 
 When you resize the RustConn window, the embedded RDP session automatically adjusts its resolution to match the new window size. This works in two ways depending on server capabilities:

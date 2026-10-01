@@ -2338,18 +2338,25 @@ pub struct RdpConfig {
     #[serde(default)]
     pub fido2_enabled: bool,
 
-    /// Attempt Kerberos authentication for NLA (CredSSP) instead of NTLM.
+    /// Authenticate NLA (CredSSP) with Kerberos instead of NTLM.
     ///
-    /// Only affects the embedded IronRDP path. Required for AD "Protected
-    /// Users" hosts, which disable NTLM domain-wide so an NTLM-only client
-    /// fails with `STATUS_ACCOUNT_RESTRICTION` (0xc000006e) (issue #351).
-    /// Off by default: needs a working local krb5 setup (a TGT via `kinit`, or
-    /// a KDC proxy URL).
+    /// Only affects the embedded IronRDP path. Required for accounts in the AD
+    /// "Protected Users" group, which may not use NTLM, so an NTLM sign-in fails
+    /// with `STATUS_ACCOUNT_RESTRICTION` (0xc000006e) (issue #351). Signs in with
+    /// the password saved for the connection — a `kinit` ticket is not used —
+    /// and needs the server's DNS name as the host and the DNS domain as the
+    /// domain. There is no NTLM fallback when the KDC cannot be found or reached.
+    /// Off by default.
     #[serde(default)]
     pub kerberos_enabled: bool,
 
-    /// Optional KDC proxy (MS-KKDCP) URL for the Kerberos exchange, used only
-    /// when [`Self::kerberos_enabled`] is set. `None` = direct KDC via krb5.
+    /// The editor's "KDC Address", used only when [`Self::kerberos_enabled`] is
+    /// set; stored normalized (`tcp://dc.example.com:88`, or an MS-KKDCP proxy
+    /// URL such as `https://gateway.example.com/KdcProxy`).
+    ///
+    /// `None` means the KDC is looked up: `SSPI_KDC_URL_<REALM>`, `SSPI_KDC_URL`,
+    /// then the `krb5.conf` `[realms]` entry, then the realm's own DNS name. The
+    /// field name predates the editor field and is kept so stored profiles load.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub kdc_proxy_url: Option<String>,
 }

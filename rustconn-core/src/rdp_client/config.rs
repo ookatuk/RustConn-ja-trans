@@ -173,29 +173,31 @@ pub struct RdpClientConfig {
     #[serde(default)]
     pub mptcp: bool,
 
-    /// Attempt Kerberos authentication for NLA (CredSSP) instead of NTLM.
+    /// Authenticate NLA (CredSSP) with Kerberos instead of NTLM.
     ///
-    /// When enabled and NLA is on, the client hands IronRDP a `KerberosConfig`
-    /// so its SSPI layer negotiates Kerberos, falling back to NTLM only if the
-    /// server or the local Kerberos setup does not permit it. This is what a
-    /// host in the AD "Protected Users" group requires — that group disables
-    /// NTLM/CredSSP-with-NTLM domain-wide, so an NTLM-only client fails with
+    /// When enabled and NLA is on, the client hands IronRDP a `KerberosConfig`,
+    /// so sspi signs in with Kerberos — using [`Self::password`]; a ticket from
+    /// `kinit` is never read. This is what an account in the AD "Protected Users"
+    /// group requires: that group forbids NTLM, so an NTLM sign-in fails with
     /// `STATUS_ACCOUNT_RESTRICTION` (0xc000006e) (issue #351).
     ///
-    /// Off by default: Kerberos on Linux needs a working krb5 environment
-    /// (`/etc/krb5.conf`, DNS/SRV to the KDC, a valid TGT via `kinit`, or a KDC
-    /// proxy URL). Enabling it without that in place trades one auth failure for
-    /// another, so it is a deliberate per-connection opt-in rather than a
-    /// default.
+    /// There is no NTLM fallback once Kerberos is chosen: a KDC that cannot be
+    /// found or reached fails the sign-in. The KDC comes from
+    /// [`Self::kdc_proxy_url`], else sspi's own lookup, else the realm's DNS name
+    /// — see [`crate::rdp_client::kerberos`]. [`Self::host`] must be the server's
+    /// DNS name and [`Self::domain`] the DNS domain. Off by default, as a
+    /// deliberate per-connection opt-in.
     #[serde(default)]
     pub kerberos_enabled: bool,
 
-    /// Optional KDC proxy (MS-KKDCP) URL, e.g. `https://kdc.example.com/KdcProxy`.
+    /// KDC address for [`Self::kerberos_enabled`], put through
+    /// [`crate::rdp_client::kerberos::normalize_kdc_url`] before use.
     ///
-    /// Used only when [`Self::kerberos_enabled`] is set. Lets the client reach a
-    /// KDC that is not directly routable (no line of sight to port 88), which is
-    /// the common case behind an RD Gateway. `None` means talk to the KDC
-    /// directly via the system krb5 configuration.
+    /// `tcp://` or `udp://` for a domain controller, `http://` or `https://` for
+    /// an MS-KKDCP KDC proxy such as `https://gateway.example.com/KdcProxy`,
+    /// which reaches a KDC with no line of sight to port 88. `None` means sspi
+    /// looks the KDC up (`SSPI_KDC_URL_<REALM>`, `SSPI_KDC_URL`, `krb5.conf`
+    /// `[realms]`), and failing that the realm's own DNS name is tried.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub kdc_proxy_url: Option<String>,
 }
@@ -500,7 +502,8 @@ impl RdpClientConfig {
         self
     }
 
-    /// Sets the KDC proxy (MS-KKDCP) URL used when Kerberos is enabled.
+    /// Sets the KDC address used when Kerberos is enabled: a domain controller
+    /// (`tcp://`, `udp://`) or an MS-KKDCP KDC proxy URL. An empty string clears it.
     #[must_use]
     pub fn with_kdc_proxy_url(mut self, url: impl Into<String>) -> Self {
         let url = url.into();

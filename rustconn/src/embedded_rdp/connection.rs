@@ -1038,18 +1038,27 @@ impl super::EmbeddedRdpWidget {
             client_config.mptcp = true;
         }
 
-        // Carry the Kerberos-NLA opt-in through to the embedded client. When on,
-        // IronRDP negotiates Kerberos for CredSSP (falling back to NTLM), which
-        // is what an AD "Protected Users" host requires — that group disables
-        // NTLM domain-wide, so NTLM-only auth fails with
-        // STATUS_ACCOUNT_RESTRICTION (issue #351). Needs a working local krb5
-        // setup; an optional KDC proxy URL routes the exchange over MS-KKDCP.
+        // Carry the Kerberos-NLA opt-in through to the embedded client (issue
+        // #351). An account in AD "Protected Users" may not use NTLM, so an NTLM
+        // sign-in fails with STATUS_ACCOUNT_RESTRICTION. sspi signs in with the
+        // saved password, not a `kinit` ticket, and has no NTLM fallback once
+        // Kerberos is chosen. The KDC Address names a domain controller or an
+        // MS-KKDCP proxy; when it is empty the core looks the KDC up.
         if config.kerberos_enabled {
             client_config = client_config.with_kerberos(true);
             if let Some(ref url) = config.kdc_proxy_url
                 && !url.is_empty()
             {
                 client_config = client_config.with_kdc_proxy_url(url.clone());
+            }
+            // NLA is off when the credentials are incomplete (see above), and
+            // then there is no Kerberos exchange to warn about.
+            if client_config.nla_enabled {
+                Self::warn_about_kerberos_settings(
+                    &client_config.host,
+                    client_config.username.as_deref(),
+                    client_config.domain.as_deref(),
+                );
             }
         }
 
@@ -2155,7 +2164,10 @@ impl super::EmbeddedRdpWidget {
         );
 
         if !class.warrants_freerdp_fallback() {
-            Self::report_ironrdp_error(ctx, &Self::parse_ironrdp_error(msg));
+            // The config borrow ends with this statement, before the error
+            // callback runs: that callback may reconnect, which rewrites it.
+            let message = Self::parse_ironrdp_error(msg, ctx.fallback_config.borrow().as_ref());
+            Self::report_ironrdp_error(ctx, &message);
             return;
         }
 
@@ -2419,50 +2431,21 @@ impl super::EmbeddedRdpWidget {
 
     /// Parses IronRDP error messages into user-friendly descriptions.
     ///
-    /// Maps known NTSTATUS codes and error patterns to localized messages
-    /// that help users understand what went wrong.
+    /// The NLA sign-in part is classified in core, by
+    /// `rustconn_core::rdp_client::classify_auth_failure`; this only words the
+    /// result. `config` is the attempt that failed: whether it asked for
+    /// Kerberos changes the advice for a refused account, and its domain names
+    /// the realm when sspi's message does not.
     #[cfg(feature = "rdp-embedded")]
-    fn parse_ironrdp_error(msg: &str) -> String {
-        // CredSSP / NLA authentication failures
-        // STATUS_LOGON_FAILURE (0xc000006d) — wrong username or password
-        if msg.contains("0xc000006d") || msg.contains("STATUS_LOGON_FAILURE") {
-            return i18n("Authentication failed: invalid username or password.");
-        }
-        // STATUS_WRONG_PASSWORD (0xc000006a)
-        if msg.contains("0xc000006a") {
-            return i18n("Authentication failed: invalid username or password.");
-        }
-        // STATUS_ACCOUNT_RESTRICTION (0xc000006e) — logon restrictions apply
-        if msg.contains("0xc000006e") {
-            return i18n("Authentication failed: account restrictions prevent this login.");
-        }
-        // STATUS_PASSWORD_MUST_CHANGE (0xc0000070)
-        if msg.contains("0xc0000070") {
-            return i18n("Authentication failed: password must be changed before first login.");
-        }
-        // STATUS_ACCOUNT_DISABLED (0xc0000072)
-        if msg.contains("0xc0000072") {
-            return i18n("Authentication failed: account is disabled.");
-        }
-        // STATUS_ACCOUNT_LOCKED_OUT (0xc0000234)
-        if msg.contains("0xc0000234") {
-            return i18n("Authentication failed: account is locked out.");
-        }
-        // STATUS_PASSWORD_EXPIRED (0xc0000071)
-        if msg.contains("0xc0000071") {
-            return i18n("Authentication failed: password has expired.");
-        }
-        // STATUS_ACCOUNT_EXPIRED (0xc0000193)
-        if msg.contains("0xc0000193") {
-            return i18n("Authentication failed: account has expired.");
-        }
-        // STATUS_LOGON_TYPE_NOT_GRANTED (0xc000015b)
-        if msg.contains("0xc000015b") {
-            return i18n("Authentication failed: user is not allowed to log on to this computer.");
-        }
-        // Generic CredSSP error
-        if msg.contains("CredSSP") || msg.contains("Credssp") {
-            return i18n("NLA authentication failed. Check username and password.");
+    fn parse_ironrdp_error(msg: &str, config: Option<&RdpConfig>) -> String {
+        use rustconn_core::rdp_client::{classify_auth_failure, kerberos_realm};
+
+        if let Some(kind) = classify_auth_failure(msg) {
+            let kerberos = config.is_some_and(|config| config.kerberos_enabled);
+            let realm = config.and_then(|config| {
+                kerberos_realm(config.username.as_deref(), config.domain.as_deref())
+            });
+            return Self::auth_failure_message(&kind, kerberos, realm.as_deref());
         }
         // TLS errors
         if msg.contains("TLS") || msg.contains("tls") {
@@ -2477,6 +2460,96 @@ impl super::EmbeddedRdpWidget {
         }
         // Fallback: return original message (already formatted by EmbeddedClientError)
         msg.to_string()
+    }
+
+    /// Words a classified NLA sign-in failure for the user (issue #351).
+    ///
+    /// `kerberos` says whether the attempt asked for Kerberos, `realm` is the
+    /// realm derived from the connection, used when sspi's message names none.
+    #[cfg(feature = "rdp-embedded")]
+    fn auth_failure_message(
+        kind: &rustconn_core::rdp_client::AuthFailureKind,
+        kerberos: bool,
+        realm: Option<&str>,
+    ) -> String {
+        use rustconn_core::rdp_client::AuthFailureKind as Kind;
+
+        match kind {
+            Kind::InvalidCredentials => {
+                i18n("Authentication failed: invalid username or password.")
+            }
+            // STATUS_ACCOUNT_RESTRICTION over NTLM is what an account in AD
+            // "Protected Users" gets; Kerberos is the way in.
+            Kind::AccountRestriction if !kerberos => i18n(
+                "Account restrictions refused this sign-in. Protected Users members cannot use NTLM: turn on Kerberos Authentication in the connection's RDP settings.",
+            ),
+            Kind::AccountRestriction | Kind::LogonRestriction => {
+                i18n("Authentication failed: account restrictions prevent this login.")
+            }
+            Kind::PasswordMustChange => {
+                i18n("Authentication failed: password must be changed before first login.")
+            }
+            Kind::AccountDisabled => i18n("Authentication failed: account is disabled."),
+            Kind::AccountLockedOut => i18n("Authentication failed: account is locked out."),
+            Kind::PasswordExpired => i18n("Authentication failed: password has expired."),
+            Kind::AccountExpired => i18n("Authentication failed: account has expired."),
+            Kind::AccountRevoked => {
+                i18n("Authentication failed: account is disabled, locked out or expired.")
+            }
+            Kind::LogonTypeNotGranted => {
+                i18n("Authentication failed: user is not allowed to log on to this computer.")
+            }
+            Kind::NoKdc { realm: named } => match named.as_deref().or(realm) {
+                Some(realm) => i18n_f(
+                    "No Kerberos KDC was found for the {} realm. Enter a KDC Address in the connection's RDP settings or add the realm to /etc/krb5.conf.",
+                    &[realm],
+                ),
+                None => i18n(
+                    "Kerberos needs the DNS domain. Enter it in the Domain field, for example EXAMPLE.COM.",
+                ),
+            },
+            Kind::KdcUnreachable => i18n(
+                "Could not reach the Kerberos KDC. Enter a domain controller's name or IP address as the KDC Address in the connection's RDP settings.",
+            ),
+            Kind::ClockSkew => i18n(
+                "Kerberos sign-in failed: this computer's clock differs from the domain's by more than five minutes. Synchronize the clock and try again.",
+            ),
+            Kind::UnknownServerPrincipal => i18n(
+                "The domain does not know this server by the name in Host. Connect by the server's DNS name, as registered in the domain.",
+            ),
+            Kind::Generic => i18n("NLA authentication failed. Check username and password."),
+        }
+    }
+
+    /// Warns before connecting about settings Kerberos cannot work with.
+    ///
+    /// Advisory only, the connection goes ahead. These settings make Kerberos
+    /// fail with errors that do not point back at them — sspi even switches an
+    /// IP address to NTLM without saying so — so they are named up front.
+    #[cfg(feature = "rdp-embedded")]
+    fn warn_about_kerberos_settings(host: &str, username: Option<&str>, domain: Option<&str>) {
+        use rustconn_core::rdp_client::{KerberosHint, kerberos_preflight};
+
+        for hint in kerberos_preflight(host, username, domain) {
+            tracing::warn!(
+                protocol = "rdp",
+                host = %host,
+                ?hint,
+                "Kerberos is unlikely to work with this connection's settings"
+            );
+            let message = match hint {
+                KerberosHint::HostNotDnsName => i18n(
+                    "Kerberos needs the server's DNS name. Connecting by IP address or through an SSH tunnel fails.",
+                ),
+                KerberosHint::ShortDomainName => i18n(
+                    "Kerberos needs the DNS domain, for example EXAMPLE.COM, not the short domain name.",
+                ),
+                KerberosHint::MissingDomain => i18n(
+                    "Kerberos needs the DNS domain. Enter it in the Domain field, for example EXAMPLE.COM.",
+                ),
+            };
+            crate::toast::show_warning_toast_on_active_window(&message);
+        }
     }
 
     /// Handles cursor update events from IronRDP, with HiDPI downscaling

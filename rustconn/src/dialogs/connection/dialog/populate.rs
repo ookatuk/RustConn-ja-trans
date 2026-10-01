@@ -1335,6 +1335,12 @@ impl ConnectionDialog {
         self.rdp_mptcp_check.set_active(rdp.mptcp);
         self.rdp_fido2_check.set_active(rdp.fido2_enabled);
         self.rdp_kerberos_check.set_active(rdp.kerberos_enabled);
+        // `set_active` only notifies on a change, so the KDC Address row's
+        // sensitivity is set here too rather than left to the switch handler.
+        self.rdp_kdc_address_entry
+            .set_sensitive(rdp.kerberos_enabled);
+        self.rdp_kdc_address_entry
+            .set_text(rdp.kdc_proxy_url.as_deref().unwrap_or_default());
         self.rdp_disable_nla_check.set_active(rdp.disable_nla);
         self.rdp_security_layer_dropdown
             .set_selected(rdp.security_layer.index());

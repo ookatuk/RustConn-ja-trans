@@ -25,6 +25,7 @@ use super::super::audio::RustConnAudioBackend;
 use super::super::clipboard::RustConnClipboardBackend;
 #[cfg(feature = "gfx-h264")]
 use super::super::gfx_handler::{GfxFrameUpdate, RustConnGfxHandler, try_load_openh264};
+use super::super::kerberos::{KerberosSettings, kerberos_settings_for};
 use super::super::rdpdr::{RustConnRdpdrBackend, cups_default_printer, list_cups_printers};
 use super::super::{RdpClientConfig, RdpClientError, RdpClientEvent};
 
@@ -43,6 +44,60 @@ fn map_connector_error(context: &str, display: &str, kind_debug: &str) -> RdpCli
         RdpClientError::AuthenticationFailed(detail)
     } else {
         RdpClientError::ConnectionFailed(detail)
+    }
+}
+
+/// Whether sspi's own lookup finds a KDC for `realm`.
+///
+/// That lookup is `SSPI_KDC_URL_<REALM>`, then `SSPI_KDC_URL`, then the
+/// `[realms] <REALM> kdc` entry of `krb5.conf` (`KRB5_CONFIG`, or
+/// `/etc/krb5.conf` and `/usr/local/etc/krb5.conf`). Its DNS SRV step is compiled
+/// out on Linux, where IronRDP builds sspi without `dns_resolver`. The realm is
+/// first mapped through `krb5.conf` `[domain_realm]` the way sspi maps the client
+/// principal's realm, so the question is about the realm the AS-REQ will carry.
+///
+/// `detect_kdc_url` is the call sspi itself makes when no KDC is pinned, so an
+/// entry it cannot parse counts as not found here too. `sspi` is IronRDP's own
+/// re-export, so this always asks the sspi version that does the sign-in.
+fn sspi_finds_kdc(realm: &str) -> bool {
+    use ironrdp::connector::sspi;
+
+    let realm = sspi::kerberos::client::principal::get_client_principal_realm("", realm);
+    sspi::detect_kdc_url(&realm).is_some()
+}
+
+/// Builds IronRDP's `KerberosConfig` from what [`kerberos_settings_for`] chose.
+///
+/// `KerberosConfig::new` fails only when the KDC URL does not parse. The address
+/// was normalized on the way here, so that should not happen; if it does,
+/// Kerberos goes ahead without the address rather than refusing to connect.
+fn kerberos_connector_config(
+    config: &RdpClientConfig,
+    settings: KerberosSettings,
+) -> Option<ironrdp::connector::credssp::KerberosConfig> {
+    use ironrdp::connector::credssp::KerberosConfig;
+
+    let KerberosSettings {
+        kdc_url,
+        client_hostname,
+    } = settings;
+    tracing::info!(
+        protocol = "rdp",
+        host = %config.host,
+        kdc = ?kdc_url,
+        "Kerberos NLA enabled"
+    );
+    match KerberosConfig::new(kdc_url, client_hostname.clone()) {
+        Ok(kerberos) => Some(kerberos),
+        Err(error) => {
+            tracing::warn!(
+                protocol = "rdp",
+                host = %config.host,
+                %error,
+                "IronRDP rejected the KDC address; continuing without it"
+            );
+            KerberosConfig::new(None, client_hostname).ok()
+        }
     }
 }
 
@@ -680,57 +735,15 @@ pub(super) async fn establish_connection(
         // Create network client for Kerberos/AAD authentication
         let mut network_client = ReqwestNetworkClient::new();
 
-        // Kerberos NLA configuration (issue #351). Off unless the profile opts
-        // in AND NLA is on — with NLA disabled there is no CredSSP exchange to
-        // negotiate. When set, IronRDP's SSPI layer attempts Kerberos and falls
-        // back to NTLM if the server/local krb5 setup does not permit it, which
-        // is what an AD "Protected Users" host (NTLM disabled) needs.
-        //
-        // `hostname` is the local client computer name the KDC sees; an optional
-        // KDC proxy URL routes the ticket exchange over MS-KKDCP when port 88 is
-        // not directly reachable (typical behind an RD Gateway). A malformed URL
-        // is logged and dropped rather than aborting the connection — falling
-        // through to direct-KDC Kerberos is strictly better than refusing to
-        // connect over a typo.
-        let kerberos_config = if config.nla_enabled && config.kerberos_enabled {
-            let client_hostname = hostname::get().map_or_else(
-                |_| "RustConn".to_string(),
-                |h| h.to_string_lossy().into_owned(),
-            );
-            match ironrdp::connector::credssp::KerberosConfig::new(
-                config.kdc_proxy_url.clone(),
-                client_hostname,
-            ) {
-                Ok(krb) => {
-                    tracing::info!(
-                        protocol = "rdp",
-                        host = %config.host,
-                        kdc_proxy = ?config.kdc_proxy_url,
-                        "Kerberos NLA enabled — negotiating Kerberos (NTLM fallback)"
-                    );
-                    Some(krb)
-                }
-                Err(e) => {
-                    tracing::warn!(
-                        protocol = "rdp",
-                        host = %config.host,
-                        error = %e,
-                        "Invalid KDC proxy URL — continuing with direct-KDC Kerberos"
-                    );
-                    // Retry with no proxy URL; `new` only fails on URL parsing.
-                    ironrdp::connector::credssp::KerberosConfig::new(
-                        None,
-                        hostname::get().map_or_else(
-                            |_| "RustConn".to_string(),
-                            |h| h.to_string_lossy().into_owned(),
-                        ),
-                    )
-                    .ok()
-                }
-            }
-        } else {
-            None
-        };
+        // Kerberos for NLA (issue #351): off unless the profile opts in and NLA
+        // is on. sspi signs in with the stored password — a `kinit` ticket is
+        // never read — and needs a KDC: the profile's KDC Address, else what sspi
+        // finds in SSPI_KDC_URL_<REALM>, SSPI_KDC_URL or krb5.conf, else the
+        // realm's own DNS name (see `kerberos_settings_for`). A KDC that is
+        // missing or unreachable fails the sign-in; there is no NTLM fallback to
+        // catch it, and `failure::classify_auth_failure` names the cause.
+        let kerberos_config = kerberos_settings_for(config, sspi_finds_kdc)
+            .and_then(|settings| kerberos_connector_config(config, settings));
 
         // Log connection parameters for debugging
         tracing::debug!(
