@@ -32,6 +32,9 @@ pub struct GroupSyncState {
 /// Summary of a sync operation (export or import).
 #[derive(Debug, Clone)]
 pub struct SyncReport {
+    /// Id of the group that was synced. Find the group by this, never by
+    /// `group_name`: group names are not unique.
+    pub group_id: Uuid,
     /// Name of the group that was synced.
     pub group_name: String,
     /// Number of connections added during this sync.
@@ -57,11 +60,13 @@ impl SyncReport {
     /// an accurate summary of the import operation.
     #[must_use]
     pub fn from_merge_result(
+        group_id: Uuid,
         group_name: &str,
         result: &GroupMergeResult,
         timestamp: DateTime<Utc>,
     ) -> Self {
         Self {
+            group_id,
             group_name: group_name.to_owned(),
             connections_added: result.connections_to_create.len(),
             connections_updated: result.connections_to_update.len(),
@@ -272,6 +277,7 @@ impl SyncManager {
 
         // 11. Build and return SyncReport
         Ok(SyncReport {
+            group_id,
             group_name: root_group.name.clone(),
             connections_added: sync_connections.len(),
             connections_updated: 0,
@@ -489,8 +495,9 @@ impl SyncManager {
             .cloned()
             .collect();
 
-        // 6. Run merge
+        // 6. Run merge, matching inside this Import root whatever it is called
         let merge_result = GroupMergeEngine::merge(
+            group_id,
             &local_groups,
             &local_connections,
             &export,
@@ -499,7 +506,7 @@ impl SyncManager {
 
         // 7. Build SyncReport
         let now = Utc::now();
-        let report = SyncReport::from_merge_result(&group.name, &merge_result, now);
+        let report = SyncReport::from_merge_result(group_id, &group.name, &merge_result, now);
 
         // 8. Update sync state
         let state = self.state.entry(group_id).or_default();
@@ -539,7 +546,7 @@ impl SyncManager {
     ///
     /// A `Vec` of `(GroupMergeResult, SyncReport)` tuples for each group that
     /// was successfully imported. The caller should apply each `GroupMergeResult`
-    /// to the local data store.
+    /// to the local data store, under the group [`SyncReport::group_id`] names.
     ///
     /// # Panics
     ///
@@ -655,8 +662,9 @@ impl SyncManager {
                 .cloned()
                 .collect();
 
-            // Run merge
+            // Run merge, matching inside this Import root whatever it is called
             let merge_result = GroupMergeEngine::merge(
+                group.id,
                 &local_groups,
                 &local_connections,
                 &export,
@@ -664,7 +672,7 @@ impl SyncManager {
             );
 
             let now = Utc::now();
-            let report = SyncReport::from_merge_result(&group.name, &merge_result, now);
+            let report = SyncReport::from_merge_result(group.id, &group.name, &merge_result, now);
 
             // Update sync state
             let state = self.state.entry(group.id).or_default();
@@ -1385,6 +1393,39 @@ mod tests {
         assert_eq!(export.variable_templates[0].default_value, None);
     }
 
+    /// Since 0.22.13 the file names every group and connection by id, and it
+    /// does so without a format bump: `from_file` refuses any version but 1,
+    /// so a bump would lock every older reader out.
+    #[test]
+    fn export_group_writes_ids_and_keeps_version_1() {
+        let dir = TempDir::new().unwrap();
+        let mut mgr = SyncManager::new(test_settings(Some(dir.path().to_owned())));
+
+        let root = make_master_root_group("Production");
+        let root_id = root.id;
+        let web = ConnectionGroup::with_parent("Web".to_owned(), root_id);
+        let web_id = web.id;
+        let connections = vec![
+            make_connection("bastion", "10.0.0.1", root_id),
+            make_connection("nginx-1", "10.0.1.10", web_id),
+        ];
+
+        let report = mgr
+            .export_group(root_id, &[root, web], &connections, &[], "0.22.13")
+            .unwrap();
+        assert_eq!(report.group_id, root_id);
+
+        let file_path = dir.path().join("production.rcn");
+        let export = GroupSyncExport::from_file(&file_path).unwrap();
+        assert_eq!(export.sync_version, 1);
+        assert_eq!(export.root_group.id, Some(root_id));
+        assert_eq!(export.groups.len(), 1);
+        assert_eq!(export.groups[0].id, Some(web_id));
+        let exported: HashSet<Option<Uuid>> = export.connections.iter().map(|c| c.id).collect();
+        let expected: HashSet<Option<Uuid>> = connections.iter().map(|c| Some(c.id)).collect();
+        assert_eq!(exported, expected);
+    }
+
     // --- collect_subgroups tests ---
 
     #[test]
@@ -1585,7 +1626,9 @@ mod tests {
     #[test]
     fn sync_report_from_empty_merge_result() {
         let result = super::GroupMergeResult::default();
-        let report = SyncReport::from_merge_result("Test", &result, Utc::now());
+        let group_id = Uuid::new_v4();
+        let report = SyncReport::from_merge_result(group_id, "Test", &result, Utc::now());
+        assert_eq!(report.group_id, group_id);
         assert_eq!(report.group_name, "Test");
         assert_eq!(report.connections_added, 0);
         assert_eq!(report.connections_updated, 0);
@@ -1604,6 +1647,7 @@ mod tests {
         use crate::sync::variable_template::VariableTemplate;
 
         let make_sc = |name: &str| SyncConnection {
+            id: None,
             name: name.to_owned(),
             group_path: "Root".to_owned(),
             host: "h".to_owned(),
@@ -1629,6 +1673,7 @@ mod tests {
             connections_to_update: vec![(Uuid::new_v4(), make_sc("c"))],
             connections_to_delete: vec![Uuid::new_v4(), Uuid::new_v4(), Uuid::new_v4()],
             groups_to_create: vec![SyncGroup {
+                id: None,
                 name: "G".to_owned(),
                 path: "Root/G".to_owned(),
                 description: None,
@@ -1647,7 +1692,7 @@ mod tests {
             }],
         };
 
-        let report = SyncReport::from_merge_result("Prod", &result, Utc::now());
+        let report = SyncReport::from_merge_result(Uuid::new_v4(), "Prod", &result, Utc::now());
         assert_eq!(report.connections_added, 2);
         assert_eq!(report.connections_updated, 1);
         assert_eq!(report.connections_removed, 3);
@@ -1694,6 +1739,7 @@ mod tests {
             Uuid::new_v4(),
             "master-device".to_owned(),
             SyncGroup {
+                id: None,
                 name: "Imported".to_owned(),
                 path: "Imported".to_owned(),
                 description: None,
@@ -1705,6 +1751,7 @@ mod tests {
             },
             vec![],
             vec![SyncConnection {
+                id: None,
                 name: "server-1".to_owned(),
                 group_path: "Imported".to_owned(),
                 host: "10.0.0.1".to_owned(),
@@ -1779,6 +1826,66 @@ mod tests {
         assert!(matches!(err, SyncError::NotImportGroup(_)));
     }
 
+    /// The round trip the 0.22.13 audit found broken, through the real writer
+    /// and reader: the Settings "Import" button named the Import group after
+    /// the file ("production-servers", against the Master's "Production
+    /// Servers"), and the user then moved it under "Work". Before 0.22.13 this
+    /// import trashed and recreated both connections, recreated "Web", and put
+    /// the Import group itself on the delete list.
+    #[test]
+    fn import_group_matches_a_renamed_nested_import_root() {
+        let dir = TempDir::new().unwrap();
+
+        let mut master_root = ConnectionGroup::new("Production Servers".to_owned());
+        master_root.sync_mode = SyncMode::Master;
+        master_root.sync_file = Some("production-servers.rcn".to_owned());
+        let master_root_id = master_root.id;
+        let master_web = ConnectionGroup::with_parent("Web".to_owned(), master_root_id);
+        let master_connections = vec![
+            make_connection("bastion", "10.0.0.1", master_root_id),
+            make_connection("nginx-1", "10.0.1.10", master_web.id),
+        ];
+        let mut master = SyncManager::new(test_settings(Some(dir.path().to_owned())));
+        master
+            .export_group(
+                master_root_id,
+                &[master_root, master_web],
+                &master_connections,
+                &[],
+                "0.22.13",
+            )
+            .unwrap();
+
+        let work = ConnectionGroup::new("Work".to_owned());
+        let mut import_root =
+            ConnectionGroup::with_parent("production-servers".to_owned(), work.id);
+        import_root.sync_mode = SyncMode::Import;
+        import_root.sync_file = Some("production-servers.rcn".to_owned());
+        let import_root_id = import_root.id;
+        let import_web = ConnectionGroup::with_parent("Web".to_owned(), import_root_id);
+        let mut bastion = make_connection("bastion", "10.0.0.1", import_root_id);
+        bastion.updated_at = master_connections[0].updated_at;
+        let mut nginx = make_connection("nginx-1", "10.0.1.10", import_web.id);
+        nginx.updated_at = master_connections[1].updated_at;
+
+        let mut importer = SyncManager::new(test_settings(Some(dir.path().to_owned())));
+        let (merge_result, report) = importer
+            .import_group(
+                import_root_id,
+                &[work, import_root, import_web],
+                &[bastion, nginx],
+                &HashSet::new(),
+            )
+            .unwrap();
+
+        assert_eq!(merge_result, GroupMergeResult::default());
+        assert_eq!(report.group_id, import_root_id);
+        assert_eq!(report.connections_added, 0);
+        assert_eq!(report.connections_removed, 0);
+        assert_eq!(report.groups_added, 0);
+        assert_eq!(report.groups_removed, 0);
+    }
+
     // --- import_all_on_start tests ---
 
     #[test]
@@ -1809,6 +1916,23 @@ mod tests {
         assert_eq!(reports.len(), 1);
         assert_eq!(reports[0].1.group_name, "Imported");
         assert_eq!(reports[0].1.connections_added, 1);
+    }
+
+    /// Group names are not unique, so a report has to say which group it is
+    /// for. The GUI used to apply each startup result to the first group
+    /// carrying the report's name — here, the plain group listed first.
+    #[test]
+    fn import_all_on_start_reports_the_import_group_id() {
+        let dir = TempDir::new().unwrap();
+        let mut mgr = SyncManager::new(test_settings(Some(dir.path().to_owned())));
+        let (group, _) = setup_import_scenario(&dir);
+        let group_id = group.id;
+        let same_name = ConnectionGroup::new(group.name.clone());
+
+        let reports = mgr.import_all_on_start(&[same_name, group], &[], &HashSet::new());
+
+        assert_eq!(reports.len(), 1);
+        assert_eq!(reports[0].1.group_id, group_id);
     }
 
     #[test]

@@ -3614,6 +3614,10 @@ Group Sync is designed for teams. Each root group exports to a dedicated `.rcn` 
 
 Import groups are read-only for synced fields (name, host, port, protocol). Local-only fields (SSH key path, sort order, pinned status) remain editable. Changes from the Master are auto-imported when the file watcher detects updates (3s debounce).
 
+**How Import matches the Master's file:** a connection is matched by its name and its group path *inside* the synced group, and a subgroup by its path inside the synced group. The name of the synced group itself takes no part, so you can rename the local Import group (the "Import" button names it after the file, not after the Master's group) or move it under another group without changing what matches. A newer copy on the Master updates the matched connection and keeps your local-only fields; a connection the Master no longer has goes to Trash.
+
+> **Current limitations:** renaming a connection on the Master, or moving it to another group there, looks to an Import device like one connection removed and another added. The Import side moves the old copy to Trash and creates a new one, so its password has to be entered again there. A connection or subgroup that a sync adds *inside a subgroup* is still created directly in the synced group rather than at its path, so the next sync sees it as removed and added again. Matching by connection ID and placing by path are planned for a later release; files written since 0.22.13 already carry the IDs it will use, and older RustConn versions read those files unchanged.
+
 Credentials are never synced — only variable names are included. Each team member configures their own secret backend values locally.
 
 ### Simple Sync

@@ -6,6 +6,10 @@
 //!   connection. No remote connection is silently dropped.
 //! - P3: Group Merge Determinism — same inputs always produce the same
 //!   `GroupMergeResult`.
+//!
+//! And, since 0.22.13, that matching happens inside the synced group: an
+//! export merged into a local tree that already mirrors it changes nothing,
+//! whatever either root is called and wherever the Import root sits.
 
 use std::collections::HashSet;
 
@@ -16,9 +20,15 @@ use rustconn_core::models::{
     SshConfig,
 };
 use rustconn_core::sync::group_export::{GroupSyncExport, SyncConnection, SyncGroup};
-use rustconn_core::sync::group_merge::GroupMergeEngine;
+use rustconn_core::sync::group_merge::{GroupMergeEngine, GroupMergeResult};
+use rustconn_core::sync::manager::SyncManager;
+use rustconn_core::sync::settings::{SyncMode, SyncSettings};
 use rustconn_core::sync::variable_template::VariableTemplate;
+use tempfile::TempDir;
 use uuid::Uuid;
+
+/// The local Import root of every generated P1/P3 scenario.
+const ROOT_ID: Uuid = Uuid::from_u128(1);
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -31,6 +41,7 @@ fn make_sync_conn(
     updated_at: chrono::DateTime<chrono::Utc>,
 ) -> SyncConnection {
     SyncConnection {
+        id: None,
         name: name.to_owned(),
         group_path: group_path.to_owned(),
         host: "10.0.0.1".to_owned(),
@@ -55,6 +66,7 @@ fn make_sync_conn(
 /// Creates a minimal `SyncGroup`.
 fn make_sync_group(name: &str, path: &str) -> SyncGroup {
     SyncGroup {
+        id: None,
         name: name.to_owned(),
         path: path.to_owned(),
         description: None,
@@ -133,7 +145,7 @@ struct MergeScenario {
 /// - 0–10 remote connections (some overlapping, some new)
 /// - 0–3 variable templates
 fn arb_merge_scenario() -> impl Strategy<Value = MergeScenario> {
-    let root_id = Uuid::from_u128(1);
+    let root_id = ROOT_ID;
 
     (
         1usize..=5,  // num local subgroups
@@ -274,7 +286,7 @@ fn build_merge_inputs(
     GroupSyncExport,
     HashSet<String>,
 ) {
-    let root_id = Uuid::from_u128(1);
+    let root_id = ROOT_ID;
 
     // Build local groups
     let mut local_groups = vec![make_local_group("Root", None, root_id)];
@@ -333,6 +345,7 @@ proptest! {
             build_merge_inputs(&scenario);
 
         let result = GroupMergeEngine::merge(
+            ROOT_ID,
             &local_groups,
             &local_connections,
             &export,
@@ -405,6 +418,7 @@ proptest! {
             build_merge_inputs(&scenario);
 
         let result1 = GroupMergeEngine::merge(
+            ROOT_ID,
             &local_groups,
             &local_connections,
             &export,
@@ -412,6 +426,7 @@ proptest! {
         );
 
         let result2 = GroupMergeEngine::merge(
+            ROOT_ID,
             &local_groups,
             &local_connections,
             &export,
@@ -493,6 +508,7 @@ proptest! {
             build_merge_inputs(&scenario);
 
         let result = GroupMergeEngine::merge(
+            ROOT_ID,
             &local_groups,
             &local_connections,
             &export,
@@ -521,5 +537,177 @@ proptest! {
                 );
             }
         }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Matching inside the synced group (0.22.13)
+// ---------------------------------------------------------------------------
+
+/// File name both sides use for the export in the root-name property.
+const SYNC_FILE: &str = "master.rcn";
+
+/// Root group names, drawn independently for the Master and the Import side.
+/// A `/` is allowed on purpose: a root's path is removed as a whole string, so
+/// a slash inside a root's name must not shift the split.
+const ROOT_NAME: &str = "[A-Za-z0-9][A-Za-z0-9 ._/-]{0,15}";
+
+/// The shape of one generated tree, built once per side so the two sides are
+/// equivalent. `subgroups[i]` is `(parent, name)`, where `parent` is `None`
+/// for the root or the index of an earlier subgroup; each connection is
+/// `(group, name, age_hours)`, where `group` is `None` for the root.
+#[derive(Debug, Clone)]
+struct TreeShape {
+    subgroups: Vec<(Option<usize>, String)>,
+    connections: Vec<(Option<usize>, String, i64)>,
+}
+
+/// Generates up to six subgroups nested to any depth, and up to ten
+/// connections over the root and those subgroups, unique by name per group.
+fn arb_tree_shape() -> impl Strategy<Value = TreeShape> {
+    (
+        prop::collection::vec((any::<bool>(), 0usize..64), 0..=6),
+        prop::collection::vec((0usize..64, 0usize..8, 0i64..100), 0..=10),
+    )
+        .prop_map(|(group_specs, conn_specs)| {
+            let subgroups: Vec<(Option<usize>, String)> = group_specs
+                .iter()
+                .enumerate()
+                .map(|(i, &(under_root, pick))| {
+                    let parent = if under_root || i == 0 {
+                        None
+                    } else {
+                        Some(pick % i)
+                    };
+                    (parent, format!("sub-{i}"))
+                })
+                .collect();
+
+            // Slot 0 is the root, slot `k + 1` is subgroup `k`.
+            let mut seen = HashSet::new();
+            let connections: Vec<(Option<usize>, String, i64)> = conn_specs
+                .iter()
+                .filter_map(|&(slot, name_index, age)| {
+                    let group = (slot % (subgroups.len() + 1)).checked_sub(1);
+                    let name = format!("conn-{name_index}");
+                    let fresh = seen.insert((group, name.clone()));
+                    fresh.then_some((group, name, age))
+                })
+                .collect();
+
+            TreeShape {
+                subgroups,
+                connections,
+            }
+        })
+}
+
+/// Builds `shape` under `root` with fresh ids, returning the groups (root
+/// first) and the connections. Both sides are built from the same `base`, so
+/// they carry the same timestamps and no update is due.
+fn build_tree(
+    root: ConnectionGroup,
+    shape: &TreeShape,
+    base: chrono::DateTime<chrono::Utc>,
+) -> (Vec<ConnectionGroup>, Vec<Connection>) {
+    let root_id = root.id;
+    let mut groups = vec![root];
+    let mut subgroup_ids: Vec<Uuid> = Vec::with_capacity(shape.subgroups.len());
+    for (parent, name) in &shape.subgroups {
+        let parent_id = parent.map_or(root_id, |p| subgroup_ids[p]);
+        let group = ConnectionGroup::with_parent(name.clone(), parent_id);
+        subgroup_ids.push(group.id);
+        groups.push(group);
+    }
+
+    let connections: Vec<Connection> = shape
+        .connections
+        .iter()
+        .map(|(group, name, age)| {
+            let group_id = group.map_or(root_id, |g| subgroup_ids[g]);
+            let mut conn = Connection::new_ssh(name.clone(), "10.0.0.1".to_owned(), 22);
+            conn.group_id = Some(group_id);
+            conn.updated_at = base + Duration::hours(*age);
+            conn
+        })
+        .collect();
+
+    (groups, connections)
+}
+
+proptest! {
+    #![proptest_config(ProptestConfig::with_cases(64))]
+
+    /// Re-importing what is already there changes nothing, whatever either
+    /// root is called and wherever the Import root sits.
+    ///
+    /// Paths are compared inside the synced group, so neither the Master's
+    /// root name nor the Import root's own path takes part. Up to 0.22.12 the
+    /// keys carried both, and any difference between them — the Settings
+    /// "Import" button names the Import group after the file — turned every
+    /// sync into deleting and recreating the whole tree. The export goes
+    /// through the real writer and reader.
+    #[test]
+    fn equivalent_tree_merges_to_nothing_for_any_root_names(
+        shape in arb_tree_shape(),
+        master_name in ROOT_NAME,
+        import_name in ROOT_NAME,
+        nested in any::<bool>(),
+    ) {
+        let dir = TempDir::new().map_err(|e| TestCaseError::fail(e.to_string()))?;
+        let settings = SyncSettings {
+            sync_dir: Some(dir.path().to_owned()),
+            ..SyncSettings::default()
+        };
+        let base = Utc::now() - Duration::hours(200);
+
+        // Master: the tree under `master_name`, written by the real exporter.
+        let mut master_root = ConnectionGroup::new(master_name);
+        master_root.sync_mode = SyncMode::Master;
+        master_root.sync_file = Some(SYNC_FILE.to_owned());
+        let master_root_id = master_root.id;
+        let (master_groups, master_connections) = build_tree(master_root, &shape, base);
+        let mut master = SyncManager::new(settings.clone());
+        master
+            .export_group(master_root_id, &master_groups, &master_connections, &[], "0.22.13")
+            .map_err(|e| TestCaseError::fail(e.to_string()))?;
+        let export = GroupSyncExport::from_file(&dir.path().join(SYNC_FILE))
+            .map_err(|e| TestCaseError::fail(e.to_string()))?;
+        prop_assert_eq!(export.sync_version, 1);
+        prop_assert!(export.connections.iter().all(|c| c.id.is_some()));
+
+        // Import: the same tree under `import_name`, optionally inside "Work".
+        let work = ConnectionGroup::new("Work".to_owned());
+        let mut import_root = if nested {
+            ConnectionGroup::with_parent(import_name, work.id)
+        } else {
+            ConnectionGroup::new(import_name)
+        };
+        import_root.sync_mode = SyncMode::Import;
+        import_root.sync_file = Some(SYNC_FILE.to_owned());
+        let import_root_id = import_root.id;
+        let (mut local_groups, local_connections) = build_tree(import_root, &shape, base);
+        if nested {
+            local_groups.push(work);
+        }
+        let no_variables = HashSet::new();
+
+        // With every local group in the slice, the root's parent included...
+        let direct = GroupMergeEngine::merge(
+            import_root_id,
+            &local_groups,
+            &local_connections,
+            &export,
+            &no_variables,
+        );
+        prop_assert_eq!(&direct, &GroupMergeResult::default());
+
+        // ...and through `SyncManager`, which hands the engine the subtree only.
+        let mut importer = SyncManager::new(settings);
+        let (via_manager, report) = importer
+            .import_group(import_root_id, &local_groups, &local_connections, &no_variables)
+            .map_err(|e| TestCaseError::fail(e.to_string()))?;
+        prop_assert_eq!(&via_manager, &GroupMergeResult::default());
+        prop_assert_eq!(report.group_id, import_root_id);
     }
 }

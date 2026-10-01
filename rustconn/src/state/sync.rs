@@ -271,8 +271,9 @@ impl AppState {
 
         let mut reports = Vec::new();
         for (merge_result, report) in &results {
-            // Find the group_id from the report name
-            if let Some(group) = groups.iter().find(|g| g.name == report.group_name) {
+            // By id: group names are not unique, and matching by name applied
+            // the result to whichever same-named group was listed first.
+            if let Some(group) = groups.iter().find(|g| g.id == report.group_id) {
                 self.apply_group_merge_result(group.id, merge_result);
 
                 // Update last_synced_at
