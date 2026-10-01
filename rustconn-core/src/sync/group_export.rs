@@ -265,6 +265,15 @@ pub struct SyncConnection {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub highlight_rules: Vec<HighlightRule>,
 
+    /// Per-connection activity-monitor override.
+    ///
+    /// `None` (the common case) is omitted from the file; a `0.22.12` or
+    /// earlier reader simply skips the field, and a newer reader treats an
+    /// absent field as "no override". An interval-only override whose
+    /// `enabled` is `None` round-trips intact.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub monitoring_config: Option<crate::monitoring::MonitoringConfig>,
+
     /// Last modification timestamp (used for conflict resolution).
     pub updated_at: DateTime<Utc>,
 }
@@ -299,6 +308,7 @@ impl SyncConnection {
             wol_config: conn.wol_config.clone(),
             icon: conn.icon.clone(),
             highlight_rules: conn.highlight_rules.clone(),
+            monitoring_config: conn.monitoring_config.clone(),
             updated_at: conn.updated_at,
         }
     }
@@ -672,6 +682,8 @@ pub fn sync_connection_to_connection(sync_conn: &SyncConnection, group_id: Uuid)
     conn.wol_config.clone_from(&sync_conn.wol_config);
     conn.icon.clone_from(&sync_conn.icon);
     conn.highlight_rules.clone_from(&sync_conn.highlight_rules);
+    conn.monitoring_config
+        .clone_from(&sync_conn.monitoring_config);
     conn.updated_at = sync_conn.updated_at;
     conn.group_id = Some(group_id);
     conn
@@ -702,6 +714,8 @@ pub fn apply_sync_connection_update(conn: &mut Connection, sync_conn: &SyncConne
     conn.wol_config.clone_from(&sync_conn.wol_config);
     conn.icon.clone_from(&sync_conn.icon);
     conn.highlight_rules.clone_from(&sync_conn.highlight_rules);
+    conn.monitoring_config
+        .clone_from(&sync_conn.monitoring_config);
     conn.updated_at = sync_conn.updated_at;
 }
 
@@ -744,6 +758,7 @@ mod tests {
             wol_config: None,
             icon: None,
             highlight_rules: Vec::new(),
+            monitoring_config: None,
             updated_at: Utc::now(),
         }
     }
@@ -909,6 +924,7 @@ mod tests {
             wol_config: None,
             icon: None,
             highlight_rules: Vec::new(),
+            monitoring_config: None,
             updated_at: Utc::now(),
         };
         let json = serde_json::to_string(&conn).unwrap();
@@ -1017,6 +1033,55 @@ mod tests {
         assert_eq!(local.id, local_id);
         // The synced fields are still applied.
         assert_eq!(local.host, "10.0.1.10");
+    }
+
+    /// A per-connection monitoring override must survive the full Group Sync
+    /// path — `from_connection`, the `.rcn` serde round trip, and the import
+    /// builder — including the interval-only override whose `enabled` is
+    /// `None` (issue #352). Before 0.22.13 `SyncConnection` had no such field,
+    /// so every override was silently dropped on a Master/Import sync.
+    #[test]
+    fn monitoring_override_survives_the_group_sync_round_trip() {
+        use crate::monitoring::MonitoringConfig;
+
+        // Interval-only override: follows the global switch (enabled = None)
+        // but pins its own polling interval — the subtle case.
+        let override_config = MonitoringConfig {
+            enabled: None,
+            interval_secs: Some(30),
+        };
+        let mut conn = Connection::new_ssh("nginx-1".to_owned(), "10.0.1.10".to_owned(), 22);
+        conn.monitoring_config = Some(override_config.clone());
+
+        // from_connection carries it.
+        let sync_conn = SyncConnection::from_connection(&conn, "Production/Web");
+        assert_eq!(sync_conn.monitoring_config, Some(override_config.clone()));
+
+        // The .rcn JSON serde round trip preserves it.
+        let json = serde_json::to_string(&sync_conn).unwrap();
+        let reparsed: SyncConnection = serde_json::from_str(&json).unwrap();
+        assert_eq!(reparsed.monitoring_config, Some(override_config.clone()));
+
+        // The import builder re-applies it on both create and update.
+        let created = sync_connection_to_connection(&reparsed, Uuid::new_v4());
+        assert_eq!(created.monitoring_config, Some(override_config.clone()));
+
+        let mut existing = Connection::new_ssh("nginx-1".to_owned(), "10.0.1.10".to_owned(), 22);
+        apply_sync_connection_update(&mut existing, &reparsed);
+        assert_eq!(existing.monitoring_config, Some(override_config));
+
+        // No override (the common case) is omitted from the file and reloads
+        // as None, so a 0.22.12 reader is unaffected.
+        let plain = SyncConnection::from_connection(
+            &Connection::new_ssh("plain".to_owned(), "h".to_owned(), 22),
+            "Root",
+        );
+        assert_eq!(plain.monitoring_config, None);
+        assert!(
+            !serde_json::to_string(&plain)
+                .unwrap()
+                .contains("monitoring")
+        );
     }
 
     #[test]

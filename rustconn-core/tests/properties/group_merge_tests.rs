@@ -59,6 +59,7 @@ fn make_sync_conn(
         wol_config: None,
         icon: None,
         highlight_rules: Vec::new(),
+        monitoring_config: None,
         updated_at,
     }
 }
