@@ -11,6 +11,7 @@ use gtk4::{
 };
 use libadwaita as adw;
 use rustconn_core::activity_monitor::MonitorMode;
+use rustconn_core::monitoring::MonitoringOverride;
 use rustconn_core::wol::{DEFAULT_BROADCAST_ADDRESS, DEFAULT_WOL_PORT, DEFAULT_WOL_WAIT_SECONDS};
 
 use crate::dialogs::widgets::highlight_fields;
@@ -38,7 +39,7 @@ pub(super) fn create_advanced_tab() -> (
     ColorDialogButton,
     Button,
     DrawingArea,
-    adw::SwitchRow,
+    adw::ComboRow,
     adw::SwitchRow,
     ListBox,
     Button,
@@ -300,12 +301,22 @@ pub(super) fn create_advanced_tab() -> (
         ))
         .build();
 
-    let monitoring_toggle = adw::SwitchRow::builder()
+    // Three-way rather than a switch (issue #352): a switch has no "not set",
+    // so every saved connection pinned itself on and stopped following the
+    // global switch. "Use global setting" stores no override at all.
+    let monitoring_labels: Vec<String> = MONITORING_CHOICES
+        .into_iter()
+        .map(monitoring_choice_label)
+        .collect();
+    let monitoring_label_refs: Vec<&str> = monitoring_labels.iter().map(String::as_str).collect();
+    let monitoring_items = StringList::new(&monitoring_label_refs);
+    let monitoring_combo = adw::ComboRow::builder()
         .title(i18n("Enable Monitoring"))
         .subtitle(i18n("Collect CPU, RAM, disk and network metrics via SSH"))
-        .active(true)
+        .model(&monitoring_items)
+        .selected(monitoring_choice_index(MonitoringOverride::Inherit))
         .build();
-    monitoring_group.add(&monitoring_toggle);
+    monitoring_group.add(&monitoring_combo);
 
     content.append(&monitoring_group);
 
@@ -770,7 +781,7 @@ pub(super) fn create_advanced_tab() -> (
         theme_cursor_button,
         theme_reset_button,
         theme_preview,
-        monitoring_toggle,
+        monitoring_combo,
         recording_toggle,
         highlight_rules_list,
         add_highlight_rule_button,
@@ -791,6 +802,46 @@ pub(super) fn create_advanced_tab() -> (
         spa_port_spin,
         spa_allow_ip_combo,
     )
+}
+
+/// The rows of the Enable Monitoring picker, top to bottom.
+///
+/// The labels come from this list and so do the indices the editor writes and
+/// reads back, so the three cannot drift apart. `Inherit` is first: a picker
+/// built with nothing loaded yet must mean "follow the global switch".
+const MONITORING_CHOICES: [MonitoringOverride; 3] = [
+    MonitoringOverride::Inherit,
+    MonitoringOverride::Enabled,
+    MonitoringOverride::Disabled,
+];
+
+/// Translated label for one row of the Enable Monitoring picker.
+fn monitoring_choice_label(choice: MonitoringOverride) -> String {
+    match choice {
+        MonitoringOverride::Inherit => i18n("Use global setting"),
+        MonitoringOverride::Enabled => i18n("Enabled"),
+        MonitoringOverride::Disabled => i18n("Disabled"),
+    }
+}
+
+/// The Enable Monitoring picker index showing `choice`.
+///
+/// Falls back to 0 (`Inherit`) for a choice somehow absent from the list —
+/// showing "Use global setting" is safer than showing a pinned value.
+#[must_use]
+pub(super) fn monitoring_choice_index(choice: MonitoringOverride) -> u32 {
+    let position = MONITORING_CHOICES.iter().position(|c| *c == choice);
+    u32::try_from(position.unwrap_or(0)).unwrap_or(0)
+}
+
+/// The choice at Enable Monitoring picker index `index`, or `Inherit` when the
+/// index is out of range (including `INVALID_LIST_POSITION`, nothing selected).
+#[must_use]
+pub(super) fn monitoring_choice_from_index(index: u32) -> MonitoringOverride {
+    usize::try_from(index)
+        .ok()
+        .and_then(|i| MONITORING_CHOICES.get(i).copied())
+        .unwrap_or_default()
 }
 
 /// Converts a hex color string (`#RRGGBB` or `#RRGGBBAA`) to a GDK RGBA value.
@@ -952,5 +1003,49 @@ pub(super) fn create_highlight_rule_row(
         background_entry,
         enabled_check,
         delete_button,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use rustconn_core::monitoring::MonitoringOverride;
+
+    use super::{MONITORING_CHOICES, monitoring_choice_from_index, monitoring_choice_index};
+
+    #[test]
+    fn every_monitoring_choice_round_trips_through_its_index() {
+        for choice in MONITORING_CHOICES {
+            assert_eq!(
+                monitoring_choice_from_index(monitoring_choice_index(choice)),
+                choice,
+                "{choice:?} does not survive the picker"
+            );
+        }
+    }
+
+    #[test]
+    fn the_monitoring_picker_starts_with_use_global_setting() {
+        // The row is built with nothing loaded, and a new connection is saved
+        // from it as it stands, so index 0 has to be "no override" (issue #352).
+        for (index, choice) in [
+            (0, MonitoringOverride::Inherit),
+            (1, MonitoringOverride::Enabled),
+            (2, MonitoringOverride::Disabled),
+        ] {
+            assert_eq!(monitoring_choice_index(choice), index);
+            assert_eq!(monitoring_choice_from_index(index), choice);
+        }
+    }
+
+    #[test]
+    fn an_out_of_range_monitoring_index_falls_back_to_use_global_setting() {
+        // `u32::MAX` is GTK's `INVALID_LIST_POSITION`: nothing selected.
+        for index in [3, u32::MAX] {
+            assert_eq!(
+                monitoring_choice_from_index(index),
+                MonitoringOverride::Inherit,
+                "index {index} must fall back to the global setting"
+            );
+        }
     }
 }

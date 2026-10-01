@@ -3480,6 +3480,7 @@ impl MainWindow {
         // dialog owned one for as long as it was open.
         dialog.connect_credential_transfer(&state);
         dialog.connect_portable_passphrase_change(&state);
+        dialog.connect_monitoring_override_reset(&state);
         tracing::debug!(
             elapsed_ms = opened_at.elapsed().as_millis() as u64,
             "settings dialog constructed and populated"

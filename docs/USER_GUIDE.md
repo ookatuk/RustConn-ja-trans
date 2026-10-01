@@ -3040,7 +3040,7 @@ Tracks: total connections, success rate, connection duration (average/total), mo
 
 ### Remote Monitoring
 
-MobaXterm-style monitoring bar below SSH terminals showing real-time system metrics from remote Linux hosts. Completely agentless — no software needs to be installed on the remote host. RustConn collects data by parsing `/proc/*` and `df` output over a separate SSH connection. For Telnet and Kubernetes sessions, monitoring is available if the host is also reachable via SSH.
+MobaXterm-style monitoring bar below SSH terminals showing real-time system metrics from remote Linux hosts. Completely agentless — no software needs to be installed on the remote host. RustConn collects data by parsing `/proc/*` and `df` output over a separate SSH connection. Monitoring runs for SSH connections only; Telnet, Kubernetes and other session types have no monitoring bar. It displays metrics only, with no thresholds, alerts or actions.
 
 **Monitoring Bar:**
 ```
@@ -3064,9 +3064,15 @@ MobaXterm-style monitoring bar below SSH terminals showing real-time system metr
 3. Configure polling interval (1–60 seconds, default: 3)
 4. Select which metrics to display in the **Visible Metrics** group
 
-**Per-Connection Override:** Edit connection → **Advanced** tab → **Remote Monitoring** section → toggle **Enable Monitoring** ON or OFF. This overrides the global setting for this specific connection — if global monitoring is disabled but the toggle is ON, monitoring will still run for this connection (and vice versa).
+**Per-Connection Override:** Edit connection → **Advanced** tab → **Remote Monitoring** section → **Enable Monitoring**:
 
-**Requirements:** Remote host must be Linux. No agent installation needed. Works with SSH, Telnet, and Kubernetes connections.
+- **Use global setting** (the default) — the connection follows the global switch above.
+- **Enabled** — monitoring runs for this connection even when the global switch is off.
+- **Disabled** — monitoring never runs for this connection, and no monitoring SSH session is opened.
+
+Before 0.22.13 this was an on/off switch, and saving a connection in the editor stored **Enabled** whenever it was on, so such connections keep monitoring after the global switch is turned off. To make them follow the global switch again, use **Settings → Monitoring → Reset Per-Connection Overrides**, which shows how many connections set their own value before anything changes, or run `rustconn-cli monitor reset --all`. A polling interval set for one connection with `rustconn-cli monitor enable --interval` is kept by both the editor and the reset.
+
+**Requirements:** Remote host must be Linux. No agent installation needed. Works with SSH connections.
 
 ### Flatpak Components
 
@@ -3262,7 +3268,7 @@ The settings dialog uses `adw::PreferencesDialog` with built-in search. Settings
 
 **Clients group:** Auto-detected CLI tools with versions — Protocol Clients (SSH, RDP, VNC, SPICE, Telnet, Serial, Kubernetes) and Zero Trust (AWS, GCP, Azure, OCI, Cloudflare, Teleport, Tailscale, Boundary, Hoop.dev). Searches PATH and user directories.
 
-**Monitoring group:** Enable monitoring (global toggle), Polling interval (1–60 seconds, default: 3), Visible Metrics (CPU, Memory, Disk, Network, Load Average, System Info).
+**Monitoring group:** Enable monitoring (global toggle), Polling interval (1–60 seconds, default: 3), Reset Per-Connection Overrides (makes every connection follow the global toggle; per-connection polling intervals are kept), Visible Metrics (CPU, Memory, Disk, Network, Load Average, System Info).
 
 ### Custom Keybindings
 

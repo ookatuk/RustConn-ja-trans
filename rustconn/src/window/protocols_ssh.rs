@@ -1739,20 +1739,13 @@ fn start_ssh_connection_internal(
 
     // --- Deferred monitoring start: wait for SSH to connect before opening monitor ---
     if let Ok(state_ref) = state.try_borrow() {
-        let settings = state_ref.settings().monitoring.clone();
-        let mon_enabled = conn
-            .monitoring_config
-            .as_ref()
-            .map_or(settings.enabled, |mc| mc.is_enabled(&settings));
-        if mon_enabled {
-            let effective = rustconn_core::MonitoringSettings {
-                enabled: true,
-                interval_secs: conn.monitoring_config.as_ref().map_or_else(
-                    || settings.effective_interval_secs(),
-                    |mc| mc.effective_interval(&settings),
-                ),
-                ..settings
-            };
+        // The connection's own on/off value first, then the global switch — the
+        // same resolver the in-place reconnect below uses.
+        let session_settings = rustconn_core::monitoring::effective_monitoring(
+            conn.monitoring_config.as_ref(),
+            &state_ref.settings().monitoring,
+        );
+        if let Some(effective) = session_settings {
             let identity_file_mon = ssh_inheritance::resolve_ssh_key_path(conn, &groups)
                 .and_then(|p| rustconn_core::resolve_key_path(&p))
                 .map(|p| p.to_string_lossy().to_string());
@@ -2064,22 +2057,13 @@ pub fn reconnect_ssh_in_place(
         });
     }
 
-    // Deferred monitoring start
+    // Deferred monitoring start — resolved exactly as on the initial connect.
     if let Ok(state_ref) = state.try_borrow() {
-        let settings = state_ref.settings().monitoring.clone();
-        let mon_enabled = conn
-            .monitoring_config
-            .as_ref()
-            .map_or(settings.enabled, |mc| mc.is_enabled(&settings));
-        if mon_enabled {
-            let effective = rustconn_core::MonitoringSettings {
-                enabled: true,
-                interval_secs: conn.monitoring_config.as_ref().map_or_else(
-                    || settings.effective_interval_secs(),
-                    |mc| mc.effective_interval(&settings),
-                ),
-                ..settings
-            };
+        let session_settings = rustconn_core::monitoring::effective_monitoring(
+            conn.monitoring_config.as_ref(),
+            &state_ref.settings().monitoring,
+        );
+        if let Some(effective) = session_settings {
             let identity_file_mon = ssh_inheritance::resolve_ssh_key_path(&conn, &groups)
                 .and_then(|p| rustconn_core::resolve_key_path(&p))
                 .map(|p| p.to_string_lossy().to_string());

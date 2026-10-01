@@ -277,8 +277,12 @@ pub(super) struct ConnectionDialogData<'a> {
     pub connections_data: &'a Rc<RefCell<Vec<(Option<Uuid>, String)>>>,
     // Script credential fields
     pub script_command_entry: &'a Entry,
-    // Remote monitoring override field
-    pub monitoring_toggle: &'a adw::SwitchRow,
+    // Remote monitoring override field: Use global setting / Enabled / Disabled
+    pub monitoring_combo: &'a adw::ComboRow,
+    /// `MonitoringConfig` the dialog was populated from — carries the interval
+    /// the editor has no widget for. See `ConnectionDialog::monitoring_config_seed`.
+    pub monitoring_config_seed:
+        &'a Rc<RefCell<Option<rustconn_core::monitoring::MonitoringConfig>>>,
     // Session recording field
     pub recording_toggle: &'a adw::SwitchRow,
     // Highlight rules
@@ -682,21 +686,15 @@ impl ConnectionDialogData<'_> {
             }
         }
 
-        // Set remote monitoring override
-        // When toggle is ON, store explicit enabled override so it works
-        // even when global monitoring is disabled.
-        // When toggle is OFF, store explicit disabled override.
-        conn.monitoring_config = if self.monitoring_toggle.is_active() {
-            Some(rustconn_core::monitoring::MonitoringConfig {
-                enabled: Some(true),
-                interval_secs: None,
-            })
-        } else {
-            Some(rustconn_core::monitoring::MonitoringConfig {
-                enabled: Some(false),
-                interval_secs: None,
-            })
-        };
+        // Remote monitoring override (issue #352). "Use global setting" stores
+        // no on/off value, so the connection follows the global switch; Enabled
+        // still runs with the global switch off (#125), Disabled never runs
+        // (#106). Applied to the config the dialog was populated from, so an
+        // interval set with `rustconn-cli monitor enable --interval` survives.
+        let monitoring_choice =
+            super::advanced_tab::monitoring_choice_from_index(self.monitoring_combo.selected());
+        conn.monitoring_config =
+            monitoring_choice.apply(self.monitoring_config_seed.borrow().as_ref());
 
         // Set session recording
         conn.session_recording_enabled = self.recording_toggle.is_active();

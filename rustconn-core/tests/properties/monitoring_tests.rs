@@ -1,11 +1,13 @@
 //! Property-based tests for the monitoring module
 //!
 //! Tests cover `MetricsParser`, `MetricsComputer`, `MonitoringConfig`,
-//! and `MonitoringSettings` from `rustconn_core::monitoring`.
+//! `MonitoringOverride`, `effective_monitoring` and `MonitoringSettings` from
+//! `rustconn_core::monitoring`.
 
 use proptest::prelude::*;
 use rustconn_core::monitoring::{
-    MetricsComputer, MetricsParser, MonitoringConfig, MonitoringSettings,
+    MetricsComputer, MetricsParser, MonitoringConfig, MonitoringOverride, MonitoringSettings,
+    effective_monitoring,
 };
 
 // ---------------------------------------------------------------------------
@@ -93,6 +95,73 @@ proptest! {
             interval_secs: None,
         };
         prop_assert_eq!(config.is_enabled(&global), override_enabled);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// MonitoringOverride and effective_monitoring (issue #352)
+// ---------------------------------------------------------------------------
+
+fn override_strategy() -> impl Strategy<Value = MonitoringOverride> {
+    prop_oneof![
+        Just(MonitoringOverride::Inherit),
+        Just(MonitoringOverride::Enabled),
+        Just(MonitoringOverride::Disabled),
+    ]
+}
+
+proptest! {
+    /// Saving a choice over any stored config reads back as that choice, never
+    /// touches the interval, and never stores an empty config.
+    #[test]
+    fn override_survives_any_stored_config(
+        choice in override_strategy(),
+        stored_enabled in proptest::option::of(proptest::bool::ANY),
+        stored_interval in proptest::option::of(0u8..=255),
+    ) {
+        let existing = MonitoringConfig {
+            enabled: stored_enabled,
+            interval_secs: stored_interval,
+        };
+        let saved = choice.apply(Some(&existing));
+        prop_assert_eq!(MonitoringOverride::from_config(saved.as_ref()), choice);
+        prop_assert_eq!(saved.as_ref().and_then(|c| c.interval_secs), stored_interval);
+        prop_assert!(
+            saved
+                .as_ref()
+                .is_none_or(|c| c.enabled.is_some() || c.interval_secs.is_some())
+        );
+    }
+
+    /// The connection's own on/off value decides first (#125, #106); without
+    /// one the global switch does, and a running session's interval is 1–60 s.
+    #[test]
+    fn resolution_follows_the_override_then_the_global_switch(
+        choice in override_strategy(),
+        global_enabled in proptest::bool::ANY,
+        global_interval in 0u8..=255,
+        stored_interval in proptest::option::of(0u8..=255),
+    ) {
+        let global = MonitoringSettings {
+            enabled: global_enabled,
+            interval_secs: global_interval,
+            ..Default::default()
+        };
+        let config = choice.apply(Some(&MonitoringConfig {
+            enabled: None,
+            interval_secs: stored_interval,
+        }));
+        let resolved = effective_monitoring(config.as_ref(), &global);
+        let should_run = match choice {
+            MonitoringOverride::Inherit => global_enabled,
+            MonitoringOverride::Enabled => true,
+            MonitoringOverride::Disabled => false,
+        };
+        prop_assert_eq!(resolved.is_some(), should_run);
+        if let Some(settings) = resolved {
+            prop_assert!(settings.enabled);
+            prop_assert!((1..=60).contains(&settings.interval_secs));
+        }
     }
 }
 

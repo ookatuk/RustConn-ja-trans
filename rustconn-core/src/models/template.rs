@@ -391,6 +391,9 @@ mod tests {
         assert_eq!(connection.username, Some("user".to_string()));
         assert_eq!(connection.tags, vec!["dev".to_string()]);
         assert_eq!(connection.protocol, ProtocolType::Ssh);
+        // Issue #352: templates carry no monitoring override, so a connection
+        // created from one follows the global monitoring switch.
+        assert!(connection.monitoring_config.is_none());
     }
 
     #[test]

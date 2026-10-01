@@ -1,11 +1,16 @@
-//! Remote host monitoring for SSH/Telnet/Kubernetes sessions
+//! Remote host monitoring for SSH sessions
 //!
 //! Provides agentless system metrics collection by parsing `/proc/*` and `df`
 //! output from remote Linux hosts. The monitoring bar displays CPU, memory,
-//! disk, and network usage below the terminal.
+//! disk, and network usage below the terminal. It shows metrics only: there are
+//! no thresholds, alerts or actions.
+//!
+//! Only SSH sessions start a collector — the GUI calls it from the SSH connect
+//! and reconnect paths alone, so Telnet, Kubernetes and the other protocols
+//! never show the bar.
 //!
 //! This module is GUI-free — it handles only data models, parsing, and the
-//! shell command generation. The GTK widget lives in `rustconn/src/monitoring/`.
+//! shell command generation. The GTK widget lives in `rustconn/src/monitoring.rs`.
 
 pub mod collector;
 mod metrics;
@@ -21,7 +26,10 @@ pub use metrics::{
 pub use parser::{
     METRICS_COMMAND, MetricsParser, MonitoringError, MonitoringResult, SYSTEM_INFO_COMMAND,
 };
-pub use settings::{MonitoringConfig, MonitoringSettings};
+pub use settings::{
+    MonitoringConfig, MonitoringOverride, MonitoringSettings, effective_monitoring,
+    effective_monitoring_interval,
+};
 pub use ssh_exec::{
     close_all_control_sockets, close_control_socket, close_dead_control_sockets, ssh_control_path,
     ssh_exec_factory,

@@ -18,6 +18,12 @@ pub struct MonitoringPageWidgets {
     pub enabled_row: adw::SwitchRow,
     /// Polling interval spin row
     pub interval_row: adw::SpinRow,
+    /// Opens the "Reset Per-Connection Overrides" confirmation (issue #352).
+    ///
+    /// Left unwired here: the count and the reset need the connection list,
+    /// which this page never sees. `SettingsDialog::connect_monitoring_override_reset`
+    /// attaches the handler.
+    pub reset_overrides_button: gtk4::Button,
     /// Show CPU usage
     pub show_cpu: adw::SwitchRow,
     /// Show memory usage
@@ -68,6 +74,24 @@ impl MonitoringPageWidgets {
             .sensitive(false)
             .build();
         general_group.add(&interval_row);
+
+        // A connection saved by the editor before 0.22.13 stored an explicit
+        // "on" and stopped following the switch above (issue #352). Nothing can
+        // tell those apart from a deliberate choice, so the way back is this
+        // explicit bulk action rather than a migration.
+        let reset_overrides_row = adw::ActionRow::builder()
+            .title(i18n("Reset Per-Connection Overrides"))
+            .subtitle(i18n(
+                "Make every connection follow the global switch. Polling intervals set per connection are kept.",
+            ))
+            .build();
+        let reset_overrides_button = gtk4::Button::builder()
+            .label(i18n("Reset…"))
+            .valign(gtk4::Align::Center)
+            .build();
+        reset_overrides_row.add_suffix(&reset_overrides_button);
+        reset_overrides_row.set_activatable_widget(Some(&reset_overrides_button));
+        general_group.add(&reset_overrides_row);
 
         page.add(&general_group);
 
@@ -182,6 +206,7 @@ impl MonitoringPageWidgets {
             page,
             enabled_row,
             interval_row,
+            reset_overrides_button,
             show_cpu,
             show_memory,
             show_disk,

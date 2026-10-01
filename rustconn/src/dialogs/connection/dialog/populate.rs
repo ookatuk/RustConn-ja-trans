@@ -310,15 +310,14 @@ impl ConnectionDialog {
             self.theme_preview.queue_draw();
         }
 
-        // Set remote monitoring toggle
-        // If monitoring_config has enabled=Some(false), toggle is OFF.
-        // Otherwise (None or enabled=Some(true)), toggle is ON.
-        let mon_enabled = conn
-            .monitoring_config
-            .as_ref()
-            .and_then(|mc| mc.enabled)
-            .unwrap_or(true);
-        self.monitoring_toggle.set_active(mon_enabled);
+        // Remote monitoring override (issue #352): no on/off value shows as
+        // "Use global setting" instead of as on. The whole config is kept so a
+        // save keeps an interval the editor has no widget for.
+        self.monitoring_combo
+            .set_selected(super::super::advanced_tab::monitoring_choice_index(
+                conn.monitoring_override(),
+            ));
+        *self.monitoring_config_seed.borrow_mut() = conn.monitoring_config.clone();
 
         // Set session recording toggle
         self.recording_toggle

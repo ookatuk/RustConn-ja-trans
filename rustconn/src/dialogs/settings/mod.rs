@@ -876,6 +876,81 @@ impl SettingsDialog {
             });
     }
 
+    /// Wires the Monitoring page's "Reset Per-Connection Overrides" button (issue #352).
+    ///
+    /// Separate from `MonitoringPageWidgets::new` for the reason
+    /// [`Self::connect_credential_transfer`] is: the count and the reset need the
+    /// connection list, which the page never sees. The count is taken when the
+    /// button is pressed. Like the transfer, the reset rewrites the connections
+    /// at once instead of waiting for the settings this dialog saves on close.
+    pub fn connect_monitoring_override_reset(&self, state: &crate::state::SharedAppState) {
+        let state = state.clone();
+        let preferences = self.dialog.clone();
+        self.monitoring_widgets
+            .reset_overrides_button
+            .connect_clicked(move |button| {
+                let Ok(mut state_mut) = state.try_borrow_mut() else {
+                    tracing::warn!("Application state is busy; not counting monitoring overrides");
+                    return;
+                };
+                let count = state_mut.connection_manager().monitoring_override_count();
+                drop(state_mut);
+                if count == 0 {
+                    crate::alert::show_alert(
+                        button,
+                        &i18n("No Overrides to Reset"),
+                        &i18n("Every connection already follows the global monitoring switch."),
+                    );
+                    return;
+                }
+
+                // A count rather than a plural form, as on the Secrets page.
+                let dialog = adw::AlertDialog::new(
+                    Some(&i18n("Reset Per-Connection Overrides?")),
+                    Some(&i18n_f(
+                        "Connections that switch monitoring on or off themselves: {}. After the reset they follow the global switch. Polling intervals set per connection are kept.",
+                        &[&count.to_string()],
+                    )),
+                );
+                dialog.add_response("cancel", &i18n("Cancel"));
+                dialog.add_response("reset", &i18n("Reset"));
+                dialog.set_response_appearance("reset", adw::ResponseAppearance::Destructive);
+                dialog.set_default_response(Some("cancel"));
+                dialog.set_close_response("cancel");
+
+                let state = state.clone();
+                let preferences = preferences.clone();
+                dialog.connect_response(Some("reset"), move |_, _| {
+                    let Ok(mut state_mut) = state.try_borrow_mut() else {
+                        tracing::warn!("Application state is busy; monitoring overrides not reset");
+                        return;
+                    };
+                    let result = state_mut.connection_manager().clear_monitoring_overrides();
+                    drop(state_mut);
+                    match result {
+                        Ok(cleared) => {
+                            tracing::info!(cleared, "Reset per-connection monitoring overrides");
+                            preferences.add_toast(adw::Toast::new(&i18n_f(
+                                "Connections reset to the global monitoring setting: {}",
+                                &[&cleared.to_string()],
+                            )));
+                        }
+                        Err(e) => {
+                            tracing::error!(error = %e, "Failed to save reset monitoring overrides");
+                            crate::alert::show_error(
+                                &preferences,
+                                &i18n("Could Not Reset Overrides"),
+                                &i18n(
+                                    "The connections could not be saved. Check that the configuration folder is writable.",
+                                ),
+                            );
+                        }
+                    }
+                });
+                dialog.present(Some(button));
+            });
+    }
+
     /// Wires the Secrets page's "Change Passphrase…" button.
     ///
     /// Separate from `create_secrets_page` for the reason the button's own comment

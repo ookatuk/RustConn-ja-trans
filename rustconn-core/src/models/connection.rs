@@ -14,7 +14,7 @@ use super::protocol::{
 use crate::activity_monitor::ActivityMonitorConfig;
 use crate::automation::{ConnectionTask, ExpectRule, KeySequence};
 use crate::error::ConfigError;
-use crate::monitoring::MonitoringConfig;
+use crate::monitoring::{MonitoringConfig, MonitoringOverride};
 use crate::session::LogConfig;
 use crate::variables::Variable;
 use crate::wol::WolConfig;
@@ -742,6 +742,30 @@ impl Connection {
         self.updated_at = Utc::now();
     }
 
+    /// Reads whether this connection follows the global monitoring switch.
+    ///
+    /// The three-way view of `monitoring_config.enabled`; see
+    /// [`MonitoringOverride::from_config`].
+    #[must_use]
+    pub fn monitoring_override(&self) -> MonitoringOverride {
+        MonitoringOverride::from_config(self.monitoring_config.as_ref())
+    }
+
+    /// Makes this connection follow the global monitoring switch.
+    ///
+    /// Clears the connection's own on/off value and keeps an interval override;
+    /// a connection left with nothing to override stores no monitoring config at
+    /// all. Returns whether anything changed, and touches `updated_at` only then.
+    pub fn reset_monitoring_override(&mut self) -> bool {
+        if self.monitoring_override() == MonitoringOverride::Inherit {
+            return false;
+        }
+        let kept = MonitoringOverride::Inherit.apply(self.monitoring_config.as_ref());
+        self.monitoring_config = kept;
+        self.touch();
+        true
+    }
+
     /// Returns the default port for this connection's protocol
     #[must_use]
     pub const fn default_port(&self) -> u16 {
@@ -1354,6 +1378,43 @@ mod tests {
         cfg.key_path = Some(std::path::PathBuf::from("/home/u/.ssh/id_ed25519"));
         conn.protocol_config = ProtocolConfig::Sftp(cfg);
         assert!(!conn.expects_password_prompt());
+    }
+
+    #[test]
+    fn resetting_the_monitoring_override_clears_only_the_switch() {
+        let mut conn = create_test_connection();
+        conn.monitoring_config = Some(MonitoringConfig {
+            enabled: Some(false),
+            interval_secs: Some(15),
+        });
+        assert_eq!(conn.monitoring_override(), MonitoringOverride::Disabled);
+
+        assert!(conn.reset_monitoring_override());
+        assert_eq!(conn.monitoring_override(), MonitoringOverride::Inherit);
+        assert_eq!(
+            conn.monitoring_config,
+            Some(MonitoringConfig {
+                enabled: None,
+                interval_secs: Some(15),
+            }),
+            "the interval override survives the reset"
+        );
+
+        // Nothing left to clear: reported as no change, and not touched.
+        let touched_at = conn.updated_at;
+        assert!(!conn.reset_monitoring_override());
+        assert_eq!(conn.updated_at, touched_at);
+    }
+
+    #[test]
+    fn resetting_a_switch_only_override_drops_the_config() {
+        let mut conn = create_test_connection();
+        conn.monitoring_config = Some(MonitoringConfig {
+            enabled: Some(true),
+            interval_secs: None,
+        });
+        assert!(conn.reset_monitoring_override());
+        assert!(conn.monitoring_config.is_none());
     }
 
     #[test]

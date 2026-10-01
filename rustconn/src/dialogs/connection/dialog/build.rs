@@ -15,6 +15,7 @@ use gtk4::ScrolledWindow;
 use gtk4::prelude::*;
 use rustconn_core::automation::ExpectRule;
 use rustconn_core::models::{CustomProperty, HighlightRule};
+use rustconn_core::monitoring::MonitoringConfig;
 use rustconn_core::variables::Variable;
 use uuid::Uuid;
 
@@ -400,7 +401,7 @@ impl ConnectionDialog {
             theme_cursor_button,
             theme_reset_button,
             theme_preview,
-            monitoring_toggle,
+            monitoring_combo,
             recording_toggle,
             highlight_rules_list,
             add_highlight_rule_button,
@@ -523,6 +524,8 @@ impl ConnectionDialog {
         let editing_id: Rc<RefCell<Option<Uuid>>> = Rc::new(RefCell::new(None));
         let web_config_seed: Rc<RefCell<Option<rustconn_core::models::WebConfig>>> =
             Rc::new(RefCell::new(None));
+        let monitoring_config_seed: Rc<RefCell<Option<MonitoringConfig>>> =
+            Rc::new(RefCell::new(None));
         let groups_data: Rc<RefCell<Vec<(Option<Uuid>, String)>>> =
             Rc::new(RefCell::new(vec![(None, "(Root)".to_string())]));
         let connections_data: Rc<RefCell<Vec<(Option<Uuid>, String)>>> =
@@ -550,6 +553,7 @@ impl ConnectionDialog {
             &state,
             &editing_id,
             &web_config_seed,
+            &monitoring_config_seed,
             &name_entry,
             &icon_entry,
             &description_view,
@@ -754,7 +758,7 @@ impl ConnectionDialog {
             &theme_cursor_button,
             &connections_data,
             &script_command_entry,
-            &monitoring_toggle,
+            &monitoring_combo,
             &recording_toggle,
             &highlight_rules,
             &activity_mode_combo,
@@ -1019,7 +1023,7 @@ impl ConnectionDialog {
             theme_cursor_button,
             theme_reset_button,
             theme_preview,
-            monitoring_toggle,
+            monitoring_combo,
             recording_toggle,
             highlight_rules_list,
             highlight_rules,
@@ -1041,6 +1045,7 @@ impl ConnectionDialog {
             spa_allow_ip_combo,
             editing_id,
             web_config_seed,
+            monitoring_config_seed,
             on_save,
             connections_data,
         };
