@@ -3593,6 +3593,45 @@ mod vte_contract_tests {
         );
     }
 
+    /// A scroll position between two rows stays where it was put.
+    ///
+    /// Touchpad scrolling and a drag on the scrollbar leave the view part-way
+    /// through a row, and the highlight overlay draws its rows at the same
+    /// sub-row offset VTE does (issue #343). That offset exists only because
+    /// VTE keeps the fraction instead of snapping the adjustment to a whole row,
+    /// so it is pinned here: should a future VTE start rounding, this fails and
+    /// the overlay's offset is always zero.
+    #[test]
+    #[ignore = "initialises GTK: needs a display and its own process"]
+    fn fractional_scroll_position_is_kept() {
+        use gtk4::prelude::{AdjustmentExt, ScrollableExt};
+
+        if gtk4::init().is_err() {
+            return;
+        }
+        let terminal = super::Terminal::new();
+        terminal.set_size(80, 10);
+        for line in 0..40 {
+            terminal.feed(format!("line {line}\r\n").as_bytes());
+        }
+        let adjustment = terminal
+            .vadjustment()
+            .expect("VTE creates its own vertical adjustment");
+        assert!(
+            pump_until(|| adjustment.upper() - adjustment.page_size() >= 20.0),
+            "forty lines in ten rows leave scrollback to scroll through ({OPT_IN})"
+        );
+
+        adjustment.set_value(12.5);
+        // Give VTE every chance to snap it before concluding that it does not.
+        pump_until(|| (adjustment.value() - 12.5).abs() > f64::EPSILON);
+        assert!(
+            (adjustment.value() - 12.5).abs() <= f64::EPSILON,
+            "VTE moved the scroll position from 12.5 to {}",
+            adjustment.value()
+        );
+    }
+
     /// `cursor_position` and `text_range_format` address the same rows.
     ///
     /// Kept from the row-anchored transcript that the relay replaced: prompt

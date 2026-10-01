@@ -5,6 +5,11 @@ All notable changes to RustConn will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+- **Terminal highlight rules now stay on their text after scrolling, resizing or moving the window (issue [#343](https://github.com/totoshko88/RustConn/issues/343))** — the highlight layer took the top visible row as the whole-number part of the terminal's scroll position and drew every row from there. Touchpad scrolling and scrollbar drags leave that position between two rows, so every highlight sat part of a row too low, and the partly visible row at the top was never drawn. The layer also repainted only when the terminal's text, cursor or font changed, so after a resize, a maximise change or a move to a display with a different scale the highlights stayed where they had been. A new pure `viewport_rows()` in `rustconn_core::highlight` now returns the first visible buffer row together with its sub-row pixel offset, the layer draws at that offset with one extra row and clips to the terminal grid, and it repaints on the scroll adjustment's `value-changed` and `changed` signals and on a scale-factor change, disconnecting those handlers when the layer is dropped. Covered by unit and property tests for `viewport_rows()` and an opt-in VTE contract test. Colouring the matched text itself, rather than drawing over it, is planned for 0.23.
+
 ## [0.22.12] - 2026-10-01
 
 ### Added
