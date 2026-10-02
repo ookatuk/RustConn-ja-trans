@@ -140,6 +140,22 @@
     <control>touch</control>
   </supports>
   <releases>
+    <release version="0.22.15" date="2026-10-03">
+      <description>
+        <p>Version 0.22.15 - Copy menu, tab Edit Connection, cloud re-login and fuller keyboard passthrough:</p>
+        <ul>
+          <li>Added: a Copy submenu for connections that lists only what a connection has: host, port, address, username, password (cleared after 30 s), SSH command and custom properties (issue #357)</li>
+          <li>Added: Edit Connection and Copy in a session tab's context menu (issue #357)</li>
+          <li>Added: a Zero Trust session whose cloud sign-in expired offers Log In to AWS, Google Cloud, Azure, OCI, Cloudflare, Teleport, Boundary or Hoop.dev and reconnects after a successful login</li>
+          <li>Added: keyboard passthrough hands Alt+Tab, Super and similar desktop shortcuts to an embedded RDP or VNC session; Super+Esc gives them back (issue #356)</li>
+          <li>Changed: fullscreen hides the tab bar together with the header bar; both slide in at the top edge (issue #354)</li>
+          <li>Fixed: smart-folder Edit, Wake On LAN, Check if Online and Delete act on the right-clicked connection instead of the previous selection</li>
+          <li>Fixed: keyboard passthrough no longer lets the tab bar take Ctrl+Tab, Ctrl+Page Up/Down and Alt+digit (issue #356)</li>
+          <li>Fixed: the terminal scrollbar can be dragged again in a split pane (issue #358)</li>
+          <li>Fixed: a duplicate of a favorite is not a favorite, and a duplicate of a dynamic-folder entry survives the folder's refresh</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.22.14" date="2026-10-02">
       <description>
         <p>Version 0.22.14 - Fullscreen header bar and split-view pane dragging:</p>
