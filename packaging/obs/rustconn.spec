@@ -6,7 +6,7 @@
 #
 
 Name:           rustconn
-Version:        0.22.12
+Version:        0.22.13
 Release:        0
 # rpmlint caps Summary at 79 characters (summary-too-long, badness 200); the
 # protocol list belongs in %description, which has room for all of it. Kept in
@@ -392,6 +392,21 @@ done
 %{_datadir}/icons/hicolor/*/apps/io.github.totoshko88.RustConn.*
 
 %changelog
+* Fri Oct 02 2026 Anton Isaiev <totoshko88@gmail.com> - 0.22.13-0
+- Version bump to 0.22.13
+- Added: the RDP connection editor gains a KDC Address row for Kerberos sign-in; an empty row falls back to the realm's DNS name (issue #351)
+- Fixed: Group Sync no longer loses a connection's per-connection monitoring override on a Master/Import sync (issue #352)
+- Fixed: a connection's monitoring setting can follow the global switch again (Use global setting / Enabled / Disabled); Settings and CLI gain a reset for connections pinned on by older versions (issue #352)
+- Fixed: RDP sign-in failures now say what went wrong (no KDC, KDC unreachable, clock skew, unknown server, disabled/locked account) instead of "Check username and password" (issue #351)
+- Fixed: a corrected vault entry is used on the next attempt after a refused sign-in, instead of only after a restart (issue #351)
+- Fixed: FreeRDP 2 is no longer launched, and an embedded FreeRDP session that ends at once is no longer shown as connected (issue #351)
+- Fixed: terminal highlight rules stay on their text after scrolling, resizing or moving the window (issue #343)
+- Fixed: a config file RustConn cannot read is backed up before defaults are used; a file written by a newer RustConn is backed up before an older one changes it
+- Fixed: Group Sync no longer trashes and recreates every connection when the Import group's name differs from the Master's
+- Fixed: saving a KeePass credential with a hardware key asks for far fewer touches, serializes concurrent writes, and shows what the key waits for (issue #350)
+- Changed: Debian and OBS packages no longer recommend FreeRDP 2 (issue #351)
+- Dependencies: refreshed the picky ASN.1 crates and three other transitive deps to their latest patch/minor releases (picky-krb held at 0.12.4; 0.12.5 breaks pinned sspi)
+
 * Thu Oct 01 2026 Anton Isaiev <totoshko88@gmail.com> - 0.22.12-0
 - Version bump to 0.22.12
 - Added: RDP can now authenticate NLA with Kerberos instead of NTLM, an opt-in per-connection switch for the embedded client; required for AD "Protected Users" hosts that disable NTLM domain-wide (issue #351)

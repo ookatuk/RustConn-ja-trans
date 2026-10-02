@@ -140,6 +140,24 @@
     <control>touch</control>
   </supports>
   <releases>
+    <release version="0.22.13" date="2026-10-02">
+      <description>
+        <p>Version 0.22.13 - Kerberos KDC Address, clearer RDP sign-in errors, per-connection monitoring fixes and fewer hardware-key touches:</p>
+        <ul>
+          <li>Added: the RDP connection editor gains a KDC Address row for Kerberos sign-in, and an empty row falls back to the realm's own DNS name (issue #351)</li>
+          <li>Fixed: Group Sync no longer loses a connection's per-connection monitoring override on a Master/Import sync (issue #352)</li>
+          <li>Fixed: a connection's monitoring setting can follow the global switch again, with a Settings and CLI reset for connections pinned on by older versions (issue #352)</li>
+          <li>Fixed: RDP sign-in failures now say what went wrong — no KDC, KDC unreachable, clock skew, unknown server, disabled or locked account — instead of "Check username and password" (issue #351)</li>
+          <li>Fixed: a corrected vault entry is used on the next attempt after a refused sign-in, instead of only after a restart (issue #351)</li>
+          <li>Fixed: FreeRDP 2 is no longer launched, and an embedded FreeRDP session that ends at once is no longer shown as connected (issue #351)</li>
+          <li>Fixed: terminal highlight rules stay on their text after scrolling, resizing or moving the window (issue #343)</li>
+          <li>Fixed: a config file RustConn cannot read is backed up before defaults are used, and a file written by a newer RustConn is backed up before an older one changes it</li>
+          <li>Fixed: Group Sync no longer trashes and recreates every connection when the Import group's name differs from the Master's</li>
+          <li>Fixed: saving a KeePass credential with a hardware key asks for far fewer touches, serializes concurrent writes, and shows what the key is waiting for (issue #350)</li>
+          <li>Changed: Debian and OBS packages no longer recommend FreeRDP 2 (issue #351)</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.22.12" date="2026-10-01">
       <description>
         <p>Version 0.22.12 - Kerberos RDP authentication, SPICE launch fixes and download-integrity hardening:</p>
