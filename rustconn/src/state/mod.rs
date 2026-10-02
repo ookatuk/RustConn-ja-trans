@@ -153,6 +153,46 @@ impl CachedCredentials {
     }
 }
 
+/// The session's [`CachedCredentials`], one entry per connection.
+///
+/// A type of its own so that forgetting an entry is a tested operation and not
+/// a bare map call buried in [`AppState`], which a unit test cannot build.
+#[derive(Default)]
+struct CredentialCache(HashMap<Uuid, CachedCredentials>);
+
+impl CredentialCache {
+    /// Stores `credentials` for `connection_id`, replacing any earlier entry.
+    fn insert(&mut self, connection_id: Uuid, credentials: CachedCredentials) {
+        self.0.insert(connection_id, credentials);
+    }
+
+    /// The entry for `connection_id`, unless it has expired.
+    fn get(&self, connection_id: Uuid) -> Option<&CachedCredentials> {
+        self.0
+            .get(&connection_id)
+            .filter(|creds| !creds.is_expired())
+    }
+
+    /// Drops the entry for `connection_id`. Returns whether there was one.
+    fn forget(&mut self, connection_id: Uuid) -> bool {
+        self.0.remove(&connection_id).is_some()
+    }
+}
+
+/// What startup found wrong with the config files, reported once by the main window.
+///
+/// Only the most pressing finding is kept: an unreadable file means defaults
+/// are in use right now, which matters more than a note that a newer RustConn
+/// wrote something this version can still read.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ConfigFileNotice {
+    /// A file could not be parsed, so defaults are in use; its bytes were kept here.
+    KeptUnreadable(std::path::PathBuf),
+    /// A file was written by this newer RustConn version; it is backed up before
+    /// this version first changes it.
+    WrittenByNewer(String),
+}
+
 /// Application state holding all managers
 ///
 /// This struct provides centralized access to all core functionality
@@ -178,7 +218,7 @@ pub struct AppState {
     ///
     /// The negative counterpart — which connections the vault had *nothing* for —
     /// deliberately does not live here; see [`crate::vault_miss_cache`] for why.
-    password_cache: HashMap<Uuid, CachedCredentials>,
+    password_cache: CredentialCache,
     /// Transient answers to interactive `@ask:` variables, per connection.
     ///
     /// Populated at connect time from the ASK prompt dialog and consumed by the
@@ -225,6 +265,9 @@ pub struct AppState {
     /// Whether the KeePass keyring load at startup failed or timed out.
     /// Checked once after the main window is shown to display a toast.
     kdbx_keyring_failed: bool,
+    /// What startup found wrong with the config files, if anything. Taken once
+    /// by the main window for its banner, like `kdbx_keyring_failed`.
+    config_file_notice: Option<ConfigFileNotice>,
     /// Local record of where each connection last connected, to warn when a
     /// shared connection has been re-pointed (see `rustconn_core::connection::
     /// routing_memory`). `RefCell` so the check/remember path can update it
@@ -270,10 +313,25 @@ impl AppState {
         let config_manager = ConfigManager::new()
             .map_err(|e| format!("Failed to initialize config manager: {e}"))?;
 
+        // Files that do not parse are copied aside before the fallbacks below
+        // let a routine save replace them; the window reports the first one.
+        let mut kept_unreadable: Vec<std::path::PathBuf> = Vec::new();
+
         // Load settings
-        let mut settings = config_manager
-            .load_settings()
-            .unwrap_or_else(|_| AppSettings::default());
+        let mut settings = config_manager.load_settings().unwrap_or_else(|e| {
+            kept_unreadable.extend(keep_unreadable_file(
+                &config_manager,
+                ConfigManager::SETTINGS_FILE_NAME,
+                &e,
+            ));
+            AppSettings::default()
+        });
+        // The marker as loaded. A save stamps only the copy it writes, so this
+        // still names the newer version after the KDBX check below has saved.
+        let mut newer_version = settings
+            .written_by
+            .clone()
+            .filter(|version| rustconn_core::config::is_newer_than_running(version));
 
         // Validate KDBX integration at startup
         let mut kdbx_keyring_failed = false;
@@ -541,6 +599,16 @@ impl AppState {
         // Initialize connection manager
         let connection_manager = ConnectionManager::new(config_manager.clone())
             .map_err(|e| format!("Failed to initialize connection manager: {e}"))?;
+        // Its loads flag a connections.toml or groups.toml a newer RustConn wrote.
+        // Their saves are debounced, so nothing has backed them up and cleared
+        // the flags yet.
+        if newer_version.is_none() {
+            newer_version = config_manager
+                .newer_version_files()
+                .into_iter()
+                .next()
+                .map(|(_, version)| version);
+        }
 
         // Initialize session manager with logging if enabled
         let session_manager = if settings.logging.enabled {
@@ -569,18 +637,49 @@ impl AppState {
 
         // Initialize cluster manager and load clusters
         let mut cluster_manager = ClusterManager::new();
-        if let Ok(clusters) = config_manager.load_clusters() {
-            cluster_manager.load_clusters(clusters);
-        }
+        let clusters = config_manager.load_clusters().unwrap_or_else(|e| {
+            kept_unreadable.extend(keep_unreadable_file(
+                &config_manager,
+                ConfigManager::CLUSTERS_FILE_NAME,
+                &e,
+            ));
+            Vec::new()
+        });
+        cluster_manager.load_clusters(clusters);
 
         // Load connection history
-        let history_entries = config_manager.load_history().unwrap_or_default();
+        let history_entries = config_manager.load_history().unwrap_or_else(|e| {
+            kept_unreadable.extend(keep_unreadable_file(
+                &config_manager,
+                ConfigManager::HISTORY_FILE_NAME,
+                &e,
+            ));
+            Vec::new()
+        });
 
         // Initialize Cloud Sync manager
         let sync_manager = SyncManager::new(settings.sync.clone());
 
         // Load Simple Sync tombstones
-        let tombstones = config_manager.load_tombstones().unwrap_or_default();
+        let tombstones = config_manager.load_tombstones().unwrap_or_else(|e| {
+            kept_unreadable.extend(keep_unreadable_file(
+                &config_manager,
+                ConfigManager::TOMBSTONES_FILE_NAME,
+                &e,
+            ));
+            Vec::new()
+        });
+
+        // Custom terminal themes are JSON outside ConfigManager with the same
+        // failure mode. Loaded now instead of on first use, so an unreadable
+        // file is kept aside and reported together with the files above.
+        let kept_themes = rustconn_core::terminal_themes::TerminalTheme::preload_custom_themes();
+        kept_unreadable.extend(kept_themes);
+        let config_file_notice = kept_unreadable
+            .into_iter()
+            .next()
+            .map(ConfigFileNotice::KeptUnreadable)
+            .or_else(|| newer_version.map(ConfigFileNotice::WrittenByNewer));
 
         // Initialize Workspace Profile manager
         let workspace_manager = WorkspaceProfileManager::new(config_manager.clone())
@@ -598,7 +697,7 @@ impl AppState {
             config_manager,
             cluster_manager,
             settings,
-            password_cache: HashMap::new(),
+            password_cache: CredentialCache::default(),
             ask_answers: HashMap::new(),
             clipboard: ConnectionClipboard::new(),
             history_entries,
@@ -613,6 +712,7 @@ impl AppState {
             workspace_manager,
             folder_tracker: Arc::new(std::sync::Mutex::new(FolderConnectionTracker::new())),
             kdbx_keyring_failed,
+            config_file_notice,
             routing_memory: std::cell::RefCell::new(
                 rustconn_core::connection::RoutingMemory::load_default(),
             ),
@@ -624,8 +724,8 @@ impl AppState {
 
     /// Caches credentials for a connection (session-only)
     ///
-    /// Credentials are cached with a default TTL and will automatically expire.
-    /// Use `cache_credentials_with_ttl` for custom expiration times.
+    /// Credentials are cached with [`DEFAULT_CREDENTIAL_TTL_SECONDS`] and will
+    /// automatically expire.
     pub fn cache_credentials(
         &mut self,
         connection_id: Uuid,
@@ -645,14 +745,44 @@ impl AppState {
 
     /// Gets cached credentials for a connection if not expired
     ///
-    /// Returns `None` if credentials are not cached or have expired.
-    /// Note: This method does not remove expired credentials. Use
-    /// `get_cached_credentials_mut` or `cleanup_expired_credentials` for cleanup.
+    /// Returns `None` if credentials are not cached or have expired. An expired
+    /// entry stays in the map until the connection is cached again or
+    /// [`Self::forget_cached_credentials`] drops it.
     #[must_use]
     pub fn get_cached_credentials(&self, connection_id: Uuid) -> Option<&CachedCredentials> {
-        self.password_cache
-            .get(&connection_id)
-            .filter(|creds| !creds.is_expired())
+        self.password_cache.get(connection_id)
+    }
+
+    /// Drops every cached copy of how to sign in to a connection (issue #351).
+    ///
+    /// For a connection attempt that was refused or never reached a session, so
+    /// the next attempt reads the vault again instead of retrying the same
+    /// answer until [`DEFAULT_CREDENTIAL_TTL_SECONDS`] runs out. After the user
+    /// corrects a vault entry, three copies can still hold the old one:
+    ///
+    /// - this session cache, keyed by connection;
+    /// - the core `SecretManager` cache, keyed by vault entry. It has no removal
+    ///   by entry that leaves the vault alone, so it is cleared whole, which
+    ///   costs other connections one extra lookup at most;
+    /// - Bitwarden's local copy of the vault, which `bw` refreshes only on sync.
+    ///
+    /// Nothing is lost: every copy is read from the vault again on next use.
+    pub fn forget_cached_credentials(&mut self, connection_id: Uuid) {
+        let had_entry = self.password_cache.forget(connection_id);
+        crate::vault_miss_cache::forget(connection_id);
+        rustconn_core::secret::sync_on_next_unlock();
+        // The cache's lock is async, so the clear is spawned, as in
+        // `lock_portable_store`. The `Arc` inside makes the clone clear the
+        // same map.
+        let manager = self.secret_manager.clone();
+        gtk4::glib::spawn_future_local(async move {
+            manager.clear_cache().await;
+        });
+        tracing::debug!(
+            %connection_id,
+            had_entry,
+            "Dropped cached credentials after a failed connection attempt"
+        );
     }
 
     // ========== Interactive (ASK) answers ==========
@@ -1768,6 +1898,14 @@ impl AppState {
         std::mem::take(&mut self.kdbx_keyring_failed)
     }
 
+    /// Takes what startup found wrong with the config files, once.
+    ///
+    /// The main window shows it in a banner; a second call returns `None`, as
+    /// with [`Self::take_kdbx_keyring_failed`].
+    pub fn take_config_file_notice(&mut self) -> Option<ConfigFileNotice> {
+        self.config_file_notice.take()
+    }
+
     /// Gets mutable reference to settings for in-place modifications
     ///
     /// Note: After modifying, call `save_settings()` to persist changes.
@@ -1984,8 +2122,74 @@ fn password_source_needs_resolution(source: &PasswordSource) -> bool {
     !matches!(source, PasswordSource::None | PasswordSource::Prompt)
 }
 
+/// Copies a config file startup could not parse aside before falling back to defaults.
+///
+/// Only a [`rustconn_core::ConfigError::Deserialize`] is copied: the file was
+/// read but not understood — a newer RustConn's value or a bad hand edit — and
+/// the default that replaces it in memory is what the next routine save writes
+/// back. Any other failure is logged and left alone. Returns where the copy is.
+fn keep_unreadable_file(
+    config_manager: &ConfigManager,
+    file_name: &str,
+    error: &rustconn_core::ConfigError,
+) -> Option<std::path::PathBuf> {
+    if !matches!(error, rustconn_core::ConfigError::Deserialize(_)) {
+        tracing::warn!(
+            file = file_name,
+            error = %error,
+            "Config file could not be loaded; using defaults"
+        );
+        return None;
+    }
+    // The parse message quotes the offending line, which can be a host name or
+    // an encrypted credential, so it stays below the default log level.
+    tracing::debug!(file = file_name, error = %error, "Config file parse error");
+    match config_manager.quarantine_unreadable(file_name) {
+        Ok(kept) => {
+            tracing::warn!(
+                file = file_name,
+                kept_as = %kept.display(),
+                "Config file could not be parsed; kept a copy and using defaults"
+            );
+            Some(kept)
+        }
+        Err(e) => {
+            tracing::warn!(
+                file = file_name,
+                error = %e,
+                "Config file could not be parsed or copied aside; using defaults"
+            );
+            None
+        }
+    }
+}
+
 /// Shared application state type
 pub type SharedAppState = Rc<RefCell<AppState>>;
+
+/// Runs [`AppState::forget_cached_credentials`] from a session callback.
+///
+/// A failure is reported from inside widget callbacks, which can run while
+/// the code that started the connection still holds the state. Then the
+/// forgetting waits for the next idle, which is still long before the user can
+/// try again, instead of being skipped.
+pub fn forget_cached_credentials(state: &SharedAppState, connection_id: Uuid) {
+    if let Ok(mut state_mut) = state.try_borrow_mut() {
+        state_mut.forget_cached_credentials(connection_id);
+        return;
+    }
+    let state = state.clone();
+    gtk4::glib::idle_add_local_once(move || {
+        if let Ok(mut state_mut) = state.try_borrow_mut() {
+            state_mut.forget_cached_credentials(connection_id);
+        } else {
+            tracing::warn!(
+                %connection_id,
+                "Application state busy; cached credentials are kept until they expire"
+            );
+        }
+    });
+}
 
 /// Safe read access to `SharedAppState`, preventing borrow panics from
 /// leaking across callback boundaries.
@@ -2019,6 +2223,62 @@ pub fn create_shared_state() -> Result<SharedAppState, String> {
 // Vault credential operations — extracted to reduce module complexity.
 // Re-exported here so all `crate::state::` paths continue to work.
 pub use crate::vault_ops::*;
+
+#[cfg(test)]
+mod credential_cache_tests {
+    use secrecy::{ExposeSecret, SecretString};
+    use uuid::Uuid;
+
+    use super::{CachedCredentials, CredentialCache, DEFAULT_CREDENTIAL_TTL_SECONDS};
+
+    fn creds(password: &str) -> CachedCredentials {
+        CachedCredentials::new(
+            "user".to_string(),
+            SecretString::from(password.to_string()),
+            String::new(),
+        )
+    }
+
+    /// Issue #351: after a refused sign-in the next attempt must miss the cache
+    /// and read the vault, so the entry has to go, and only that one.
+    #[test]
+    fn a_forgotten_connection_misses_the_cache_and_others_keep_theirs() {
+        let mut cache = CredentialCache::default();
+        let refused = Uuid::new_v4();
+        let other = Uuid::new_v4();
+        cache.insert(refused, creds("wrong"));
+        cache.insert(other, creds("right"));
+
+        assert!(cache.forget(refused));
+
+        assert!(cache.get(refused).is_none());
+        let kept = cache.get(other).expect("an unrelated entry survives");
+        assert_eq!(kept.password.expose_secret(), "right");
+    }
+
+    #[test]
+    fn forgetting_a_connection_with_no_entry_reports_nothing_removed() {
+        let mut cache = CredentialCache::default();
+        assert!(!cache.forget(Uuid::new_v4()));
+    }
+
+    /// WHEN an entry is fresh THEN the cache SHALL CONTINUE TO serve it, and
+    /// WHEN it is past its TTL THEN it SHALL CONTINUE TO be treated as absent.
+    #[test]
+    fn a_fresh_entry_is_served_and_an_expired_one_is_not() {
+        let mut cache = CredentialCache::default();
+        let fresh = Uuid::new_v4();
+        let stale = Uuid::new_v4();
+        cache.insert(fresh, creds("fresh"));
+        let mut old = creds("stale");
+        let age = i64::try_from(DEFAULT_CREDENTIAL_TTL_SECONDS).expect("the TTL fits in i64") + 1;
+        old.cached_at = chrono::Utc::now() - chrono::Duration::seconds(age);
+        cache.insert(stale, old);
+
+        assert!(cache.get(fresh).is_some());
+        assert!(cache.get(stale).is_none());
+    }
+}
 
 #[cfg(test)]
 mod tests {

@@ -1,6 +1,6 @@
 # RustConn CLI Reference
 
-**Version 0.22.12** | Command-line interface for RustConn connection management
+**Version 0.22.13** | Command-line interface for RustConn connection management
 
 The `rustconn-cli` binary provides headless connection management from the terminal. It shares the same configuration files as the GUI (`~/.config/rustconn/`), so changes made in either tool are immediately visible to the other. The default build is the minimal headless path; desktop/client-launch and secret-management commands are enabled with optional features.
 
@@ -1072,18 +1072,34 @@ rustconn-cli move "New VM" --group "Cloud"           # Creates "Cloud" if missin
 ```bash
 rustconn-cli monitor enable <name> [--interval <secs>]
 rustconn-cli monitor disable <name>
+rustconn-cli monitor reset <name> | --all
 rustconn-cli monitor metrics <name> [-f table|json|csv]
 ```
 
 | Subcommand | Description |
 |------------|-------------|
-| `enable` | Enable monitoring for a connection (optional interval override) |
+| `enable` | Enable monitoring for a connection even when the global switch is off (optional interval override) |
 | `disable` | Disable monitoring for a connection |
-| `metrics` | Show monitoring configuration for a connection |
+| `reset` | Remove a connection's own on/off value, or every connection's with `--all`, so it follows the global switch again; an interval override is kept |
+| `metrics` | Show whether monitoring runs for a connection and with which interval, resolved against the global settings |
+
+Monitoring runs for SSH connections only. A connection without its own on/off value follows the global switch in the GUI's **Settings → Monitoring** page.
+
+`metrics` reports `monitoring_enabled` as an SSH session would resolve it, so a connection without its own value shows the global switch. Before 0.22.13 it reported `false` for such a connection whatever the global switch said. Its JSON and CSV output carry these fields; the last two were added in 0.22.13, at the end of the CSV row:
+
+| Field | Meaning |
+|-------|---------|
+| `monitoring_enabled` | Whether monitoring runs for this connection |
+| `interval_secs` | The connection's own interval override, or empty/`null` |
+| `config_source` | `per-connection` when the connection sets its own on/off value, `global` when it follows the global switch |
+| `override` | `inherit`, `enabled` or `disabled` |
+| `effective_interval_secs` | The interval a session uses: the override, or the global interval |
 
 ```bash
 rustconn-cli monitor enable "Server" --interval 30   # Enable with 30s interval
 rustconn-cli monitor disable "Server"                # Disable monitoring
+rustconn-cli monitor reset "Server"                  # Follow the global switch again
+rustconn-cli monitor reset --all                     # Same, for every connection
 rustconn-cli monitor metrics "Server"                # Show current config
 rustconn-cli monitor metrics "Server" --format json  # JSON output
 ```

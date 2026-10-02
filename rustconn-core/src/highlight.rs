@@ -4,6 +4,10 @@
 //! [`HighlightRule`](crate::models::HighlightRule) sets, compiles their regex
 //! patterns once, and exposes [`find_matches`](CompiledHighlightRules::find_matches)
 //! to locate all matching regions in a line of terminal output.
+//!
+//! [`byte_offset_to_column`] and [`viewport_rows`] are the grid geometry the
+//! terminal overlay places those regions with: the cell a match starts in, and
+//! the rows on screen together with the pixel offset VTE draws them at.
 
 use regex::{Regex, RegexSet};
 use tracing::warn;
@@ -321,6 +325,88 @@ pub fn byte_offset_to_column(line: &str, byte_offset: usize) -> usize {
 }
 
 // ---------------------------------------------------------------------------
+// Terminal row geometry
+// ---------------------------------------------------------------------------
+
+/// The furthest scroll position [`viewport_rows`] takes: the last row an `i64`,
+/// VTE's own row type, can number. Capping there keeps the pixel offset finite
+/// for any real cell height.
+const MAX_SCROLL_POSITION: f64 = i64::MAX as f64;
+
+/// The buffer rows a VTE terminal shows, and how far the first one is scrolled
+/// past the top of its character grid.
+///
+/// Returned by [`viewport_rows`]. Visible row `k`, counting from 0, is buffer row
+/// `first_row + k`, and its top edge lies `k * cell_height - y_offset` pixels
+/// below the top of the grid.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct ViewportRows {
+    /// The buffer row at the top of the grid, partly above it while `y_offset`
+    /// is not zero.
+    pub first_row: i64,
+    /// How many pixels of `first_row` are scrolled past the top of the grid, in
+    /// `0.0..cell_height`.
+    pub y_offset: f64,
+    /// How many rows to draw from `first_row`: the grid's row count, plus the
+    /// partly visible row at the bottom while `y_offset` is not zero.
+    pub rows: i64,
+}
+
+/// Works out which buffer rows a VTE terminal shows at a scroll position.
+///
+/// `scroll_value` is the value of the terminal's vertical adjustment: a row
+/// count from the start of the scrollback, fractional while the view rests
+/// between two rows, which is where touchpad scrolling and a drag on the
+/// scrollbar leave it. `cell_height` is VTE's cell height in pixels, a whole
+/// number, and `row_count` the number of rows in its grid.
+///
+/// This is VTE's own arithmetic (`row_to_pixel()` in `vte.cc`, the same in
+/// 0.80.5 and 0.84): VTE scrolls by whole pixels, rounding
+/// `scroll_value * cell_height`, and draws buffer row `r` that many pixels above
+/// `r * cell_height`. So `y_offset` is what the rounded offset leaves over after
+/// whole rows, and `first_row` is those whole rows: the integer part of
+/// `scroll_value`, or one more once the view is within half a pixel of the next
+/// row, which VTE then draws flush with the top. Truncating the value to whole
+/// rows instead drew every highlight in a scrolled-back view up to a row below
+/// its text (issue #343).
+///
+/// A negative, NaN or infinite `scroll_value` counts as 0, the top of the
+/// buffer. With no grid to draw — `row_count` not positive, or `cell_height` not
+/// a positive finite number — `rows` is 0. The result is exact while
+/// `scroll_value * cell_height` stays below `2^53`, some 5 * 10^14 rows of 17 px.
+#[must_use]
+pub fn viewport_rows(scroll_value: f64, cell_height: f64, row_count: i64) -> ViewportRows {
+    let value = if scroll_value.is_finite() && scroll_value > 0.0 {
+        scroll_value.min(MAX_SCROLL_POSITION)
+    } else {
+        0.0
+    };
+    // VTE's `scroll_delta_pixel()`: `round(scroll_delta * cell_height)`.
+    let pixel_offset = (value * cell_height).round();
+    if row_count <= 0 || cell_height <= 0.0 || !pixel_offset.is_finite() {
+        return ViewportRows {
+            first_row: value.floor() as i64,
+            y_offset: 0.0,
+            rows: 0,
+        };
+    }
+    // Float `%` is exact, so the remainder is in `0.0..cell_height` and the
+    // division below lands on a whole number of rows.
+    let y_offset = pixel_offset % cell_height;
+    let first_row = ((pixel_offset - y_offset) / cell_height).round() as i64;
+    let rows = if y_offset > 0.0 {
+        row_count.saturating_add(1)
+    } else {
+        row_count
+    };
+    ViewportRows {
+        first_row,
+        y_offset,
+        rows,
+    }
+}
+
+// ---------------------------------------------------------------------------
 // HighlightMatch
 // ---------------------------------------------------------------------------
 
@@ -587,8 +673,8 @@ pub fn builtin_defaults() -> Vec<HighlightRule> {
 #[cfg(test)]
 mod tests {
     use super::{
-        WIDE_RANGES, byte_offset_to_column, char_cell_width, is_valid_color_input,
-        normalize_color_input, parse_hex_color, validate_pattern,
+        ViewportRows, WIDE_RANGES, byte_offset_to_column, char_cell_width, is_valid_color_input,
+        normalize_color_input, parse_hex_color, validate_pattern, viewport_rows,
     };
 
     #[test]
@@ -784,6 +870,81 @@ mod tests {
         }
         for pair in WIDE_RANGES.windows(2) {
             assert!(pair[0].1 < pair[1].0, "{pair:X?}");
+        }
+    }
+
+    /// The [`ViewportRows`] the `viewport_rows` tests below expect.
+    fn viewport(first_row: i64, y_offset: f64, rows: i64) -> ViewportRows {
+        ViewportRows {
+            first_row,
+            y_offset,
+            rows,
+        }
+    }
+
+    /// At a whole-row position — the view at the bottom, or scrolled back by
+    /// whole rows — the grid is drawn as it always was: unshifted, no extra row.
+    #[test]
+    fn viewport_rows_whole_row_position_is_unshifted() {
+        assert_eq!(viewport_rows(120.0, 17.0, 24), viewport(120, 0.0, 24));
+        assert_eq!(viewport_rows(0.0, 17.0, 24), viewport(0, 0.0, 24));
+    }
+
+    /// Between two rows VTE rounds the offset to whole pixels: 10.5 rows of
+    /// 17 px is 178.5 px, drawn as 179, so row 10 sits 9 px above the grid and a
+    /// 25th row shows at the bottom (issue #343).
+    #[test]
+    fn viewport_rows_between_rows_shifts_up_and_adds_the_bottom_row() {
+        assert_eq!(viewport_rows(10.5, 17.0, 24), viewport(10, 9.0, 25));
+    }
+
+    /// Within half a pixel of the next row the rounding lands on it, and VTE
+    /// draws that row flush with the top: 10.99 rows of 17 px is 186.83 px,
+    /// drawn as 187, which is 11 whole rows.
+    #[test]
+    fn viewport_rows_within_half_a_pixel_of_the_next_row_snaps_onto_it() {
+        assert_eq!(viewport_rows(10.99, 17.0, 24), viewport(11, 0.0, 24));
+    }
+
+    /// A deep scrollback stays exact, and a position past the last row an `i64`
+    /// can number saturates instead of overflowing.
+    #[test]
+    fn viewport_rows_huge_scroll_values_stay_exact_or_saturate() {
+        for (value, expected) in [
+            (1_000_000_000.5, viewport(1_000_000_000, 9.0, 25)),
+            (1e300, viewport(i64::MAX, 0.0, 24)),
+            (f64::MAX, viewport(i64::MAX, 0.0, 24)),
+        ] {
+            assert_eq!(viewport_rows(value, 17.0, 24), expected, "{value}");
+        }
+    }
+
+    #[test]
+    fn viewport_rows_treats_an_invalid_scroll_value_as_the_top() {
+        for value in [-3.5, -0.0, f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
+            assert_eq!(
+                viewport_rows(value, 17.0, 24),
+                viewport(0, 0.0, 24),
+                "{value}"
+            );
+        }
+    }
+
+    #[test]
+    fn viewport_rows_draws_nothing_without_a_grid() {
+        for (cell_height, row_count) in [
+            (17.0, 0),
+            (17.0, -1),
+            (0.0, 24),
+            (-17.0, 24),
+            (f64::NAN, 24),
+            (f64::INFINITY, 24),
+        ] {
+            let shown = viewport_rows(10.5, cell_height, row_count);
+            assert_eq!(shown.rows, 0, "{cell_height} px, {row_count} rows");
+            // A literal zero on the right is exact, and clippy's `float_cmp`
+            // accepts it in this form where `assert_eq!` would hide it.
+            assert!(shown.y_offset == 0.0, "{cell_height} px, {row_count} rows");
         }
     }
 }

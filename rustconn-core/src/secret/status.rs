@@ -177,6 +177,840 @@ fn wait_for_cli_with(child: Child, what: &'static str, budget: Duration) -> Secr
     }
 }
 
+/// Which timeout budget an [`Invocation`] runs under, and whether it may wait
+/// on a hardware-key touch.
+///
+/// The budget mirrors the three constants above: a read gets
+/// [`KEEPASSXC_TIMEOUT`], a write gets [`KEEPASSXC_WRITE_TIMEOUT`], and either
+/// one bumps to [`KEEPASSXC_YUBIKEY_TIMEOUT`] when a `-y` slot means the run
+/// blocks on a physical touch. The old code chose this inline at every call
+/// site with a `if yubikey_slot.is_some()` ladder; the seam makes it one
+/// decision per invocation.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum InvocationKind {
+    /// Opens the database to read (e.g. `show`, `ls`). Tight budget.
+    Read,
+    /// Modifies the database (e.g. `add`, `edit`, `mkdir`, `mv`, `rm`). Write budget.
+    Write,
+}
+
+/// One `keepassxc-cli` run, as data: the verb for logs/errors, the full argv
+/// (minus the binary), and whether it reads or writes.
+///
+/// The database password is **never** stored here — it is a separate argument
+/// to [`KeePassCli::run`], so it cannot leak into a log of the argv or outlive
+/// the call. The entry password likewise travels on stdin at the call site via
+/// an `add`/`edit -p` and is not part of this struct.
+pub(crate) struct Invocation {
+    /// Short name for the run, used in the timeout log and error (`&'static`
+    /// so an entry name — or a credential — can never be interpolated in).
+    what: &'static str,
+    /// The argv after the binary, including the `-y <slot>` unlock args.
+    args: Vec<String>,
+    /// Read or write, picking the timeout budget.
+    kind: InvocationKind,
+    /// Whether this run carries `-y`, so it may block on a touch (bumps the
+    /// budget and brackets the run with a touch cue).
+    waits_on_touch: bool,
+}
+
+impl Invocation {
+    /// Builds an invocation from its verb, pre-composed args and kind.
+    ///
+    /// `waits_on_touch` is derived by the caller from whether a YubiKey slot
+    /// was pushed into `args`, because only the caller knows that.
+    pub(crate) fn new(
+        what: &'static str,
+        args: Vec<String>,
+        kind: InvocationKind,
+        waits_on_touch: bool,
+    ) -> Self {
+        Self {
+            what,
+            args,
+            kind,
+            waits_on_touch,
+        }
+    }
+}
+
+/// Runs one `keepassxc-cli` [`Invocation`] and returns its captured output.
+///
+/// A trait, not a free function, so tests can script replies without a real
+/// binary or database (see `FakeCli` in the tests). Every database-opening
+/// call in this module goes through one implementation of this, so the unlock
+/// composition, the `LC_MESSAGES=C` / `flatpak-spawn --host` wrapping, the
+/// stdin password feed, the timeout budgets and the touch cue cannot drift
+/// apart between call sites again.
+pub(crate) trait KeePassCli {
+    /// Runs the invocation, feeding `db_password` on stdin when `Some`.
+    ///
+    /// The entry password, when a verb needs one (`add`/`edit -p`), is written
+    /// after the database password; the caller passes it via `entry_secret`.
+    fn run(
+        &self,
+        invocation: &Invocation,
+        db_password: Option<&SecretString>,
+        entry_secret: Option<&SecretString>,
+    ) -> SecretResult<Output>;
+}
+
+/// The real runner: spawns `keepassxc-cli` the way the whole module always has.
+pub(crate) struct RealKeePassCli<'a> {
+    /// The resolved `keepassxc-cli` path (or the flatpak host binary).
+    cli_path: &'a Path,
+}
+
+impl<'a> RealKeePassCli<'a> {
+    pub(crate) const fn new(cli_path: &'a Path) -> Self {
+        Self { cli_path }
+    }
+}
+
+impl KeePassCli for RealKeePassCli<'_> {
+    fn run(
+        &self,
+        invocation: &Invocation,
+        db_password: Option<&SecretString>,
+        entry_secret: Option<&SecretString>,
+    ) -> SecretResult<Output> {
+        use std::io::Write as IoWrite;
+        use std::process::Stdio;
+
+        // Bracket the run with a touch cue when it may block on the key. Dropped
+        // on every path out, so the GUI's in-flight count never sticks.
+        let _touch = if invocation.waits_on_touch {
+            Some(crate::secret::touch::TouchGuard::begin())
+        } else {
+            None
+        };
+
+        let mut child = KeePassStatus::keepassxc_command(self.cli_path)
+            .args(&invocation.args)
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .map_err(|e| SecretError::KeePassXC(format!("Failed to run keepassxc-cli: {e}")))?;
+
+        if let Some(mut stdin) = child.stdin.take() {
+            if let Some(db_pwd) = db_password {
+                stdin
+                    .write_all(db_pwd.expose_secret().as_bytes())
+                    .map_err(|e| SecretError::KeePassXC(format!("Failed to send password: {e}")))?;
+                stdin
+                    .write_all(b"\n")
+                    .map_err(|e| SecretError::KeePassXC(format!("Failed to send password: {e}")))?;
+            }
+            if let Some(entry_pwd) = entry_secret {
+                stdin
+                    .write_all(entry_pwd.expose_secret().as_bytes())
+                    .map_err(|e| {
+                        SecretError::KeePassXC(format!("Failed to send entry password: {e}"))
+                    })?;
+                stdin
+                    .write_all(b"\n")
+                    .map_err(|e| SecretError::KeePassXC(format!("Failed to send newline: {e}")))?;
+            }
+            drop(stdin);
+        }
+
+        let budget = match (invocation.kind, invocation.waits_on_touch) {
+            (_, true) => KEEPASSXC_YUBIKEY_TIMEOUT,
+            (InvocationKind::Read, false) => KEEPASSXC_TIMEOUT,
+            (InvocationKind::Write, false) => KEEPASSXC_WRITE_TIMEOUT,
+        };
+        wait_for_cli_with(child, invocation.what, budget)
+    }
+}
+
+/// Serializes every multi-step `keepassxc-cli` operation process-wide.
+///
+/// `keepassxc-cli` rewrites the whole KDBX on each write, so two operations
+/// interleaving (the edit dialog's save racing its own stale-key delete, issue
+/// #350) can lose one update. Each public multi-step operation holds this for
+/// its whole duration, so writes are strictly ordered. A read-only lookup does
+/// not take it — it cannot corrupt anything — so a connect is never serialized
+/// behind a save.
+static KEEPASS_WRITE_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+/// Runs `op` while holding the process-wide KeePass write lock.
+///
+/// A poisoned lock (a previous holder panicked) is recovered: the guarded
+/// value is `()`, so there is no half-written state to protect against.
+fn with_keepass_write_lock<T>(op: impl FnOnce() -> T) -> T {
+    let _guard = KEEPASS_WRITE_LOCK
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    op()
+}
+
+/// The minimum `keepassxc-cli` version whose `edit`/`mv` the fast save path
+/// relies on. `edit -u -p --url` (update an entry in place) and `mv` (move an
+/// entry between groups) have been stable since 2.5.0 (decision D3). An older
+/// or unreadable version keeps the previous ls/rm/add algorithm unchanged.
+const KEEPASS_EDIT_MIN_VERSION: (u32, u32) = (2, 5);
+
+/// Parses the leading `major.minor` out of a `keepassxc-cli` version string
+/// such as `"2.7.12"`. Returns `None` for anything it cannot read as two
+/// numbers, so an unparseable version fails safe to the legacy algorithm.
+fn parse_version_major_minor(version: &str) -> Option<(u32, u32)> {
+    let mut parts = version.trim().split('.');
+    let major = parts.next()?.parse().ok()?;
+    let minor = parts.next()?.parse().ok()?;
+    Some((major, minor))
+}
+
+/// Whether a parsed `major.minor` is at least [`KEEPASS_EDIT_MIN_VERSION`].
+fn version_supports_edit(version: &str) -> bool {
+    match parse_version_major_minor(version) {
+        Some((major, minor)) => (major, minor) >= KEEPASS_EDIT_MIN_VERSION,
+        None => false,
+    }
+}
+
+/// What one `ls -R -f RustConn` run tells us about the tree: which group paths
+/// exist (so `mkdir` runs only for the missing levels) and the set of entry
+/// paths (so a save can choose `edit` over `add` without reading anything back).
+struct KeePassTree {
+    /// Existing group paths, re-rooted at `RustConn/...` (and `RustConn` itself).
+    groups: std::collections::HashSet<String>,
+    /// Existing entry paths, re-rooted at `RustConn/...`.
+    entries: std::collections::HashSet<String>,
+}
+
+/// Reads the `RustConn` subtree with one `ls -R -f RustConn` run.
+///
+/// `keepassxc-cli ls -R -f <group>` prints one path per line, group paths
+/// ending in `/`. A run whose database did not open returns `None`, and the
+/// caller then falls back (mkdirs defensively, adds rather than edits) rather
+/// than guessing the tree is empty.
+fn probe_tree(
+    cli: &dyn KeePassCli,
+    db_password: Option<&SecretString>,
+    key_file: Option<&Path>,
+    yubikey_slot: Option<&str>,
+    kdbx_path: &Path,
+) -> Option<KeePassTree> {
+    let mut args = vec![
+        "ls".to_string(),
+        "-q".to_string(),
+        "-R".to_string(),
+        "-f".to_string(),
+    ];
+    push_unlock_args(&mut args, db_password.is_some(), key_file, yubikey_slot);
+    args.push(kdbx_path.display().to_string());
+    args.push("RustConn".to_string());
+
+    let invocation = Invocation::new(
+        "ls -R (tree probe)",
+        args,
+        InvocationKind::Read,
+        yubikey_slot.is_some(),
+    );
+    let output = cli.run(&invocation, db_password, None).ok()?;
+    if !output.status.success() {
+        // The database did not open (or RustConn is absent). Either way we
+        // cannot enumerate the tree.
+        return None;
+    }
+
+    let listing = String::from_utf8_lossy(&output.stdout);
+    let mut groups = std::collections::HashSet::new();
+    let mut entries = std::collections::HashSet::new();
+    // The probe lists under RustConn, so a flattened path is relative to it
+    // (e.g. "Groups/Production/" or "Groups/Production/web (ssh)"); re-root each
+    // at "RustConn/...". "RustConn" itself exists by virtue of a successful ls.
+    groups.insert("RustConn".to_string());
+    for line in listing.lines() {
+        let line = line.trim();
+        if line.is_empty() {
+            continue;
+        }
+        if let Some(group_rel) = line.strip_suffix('/') {
+            if !group_rel.is_empty() {
+                groups.insert(format!("RustConn/{group_rel}"));
+            }
+        } else {
+            entries.insert(format!("RustConn/{line}"));
+        }
+    }
+    Some(KeePassTree { groups, entries })
+}
+
+/// The cumulative `RustConn/...` group levels an entry path needs, in order
+/// from the shallowest. For `entry_name = "Groups/Production/web (ssh)"` this is
+/// `["RustConn", "RustConn/Groups", "RustConn/Groups/Production"]` — the entry
+/// name itself is not a group.
+fn required_group_levels(entry_name: &str) -> Vec<String> {
+    let parts: Vec<&str> = entry_name.split('/').collect();
+    let mut levels = vec!["RustConn".to_string()];
+    let mut current = String::from("RustConn");
+    // All but the last component (the entry name) are groups.
+    for part in &parts[..parts.len().saturating_sub(1)] {
+        current = format!("{current}/{part}");
+        levels.push(current.clone());
+    }
+    levels
+}
+
+/// Argv for an `add` or `edit` of an entry, sharing one builder so the two
+/// cannot drift on unlock composition. The entry password is not here — it is
+/// fed on stdin after `-p`. `verb` is `"add"` or `"edit"`.
+#[expect(
+    clippy::too_many_arguments,
+    reason = "mirrors build_add_args: the entry write needs every unlock factor plus the entry fields"
+)]
+fn build_write_entry_args(
+    verb: &'static str,
+    has_password: bool,
+    key_file: Option<&Path>,
+    yubikey_slot: Option<&str>,
+    username: &str,
+    url: Option<&str>,
+    kdbx_path: &Path,
+    entry_path: &str,
+) -> Vec<String> {
+    let mut args = vec![verb.to_string(), "-q".to_string()];
+    push_unlock_args(&mut args, has_password, key_file, yubikey_slot);
+    if !username.is_empty() {
+        args.push("-u".to_string());
+        args.push(username.to_string());
+    }
+    if let Some(u) = url
+        && !u.is_empty()
+    {
+        args.push("--url".to_string());
+        args.push(u.to_string());
+    }
+    args.push("-p".to_string());
+    args.push(kdbx_path.display().to_string());
+    args.push(entry_path.to_string());
+    args
+}
+
+/// Saves an entry with the fewest `keepassxc-cli` runs: one tree probe, a
+/// `mkdir` only for each missing group level, then one `edit` (entry exists)
+/// or one `add` (it does not). No `rm`, no password read back — the save that
+/// used to cost about five YubiKey touches now costs two or three (issue #350).
+///
+/// `entry_name` is the path under `RustConn` (e.g. `"web (ssh)"` or
+/// `"Groups/Prod/web (ssh)"`); the function prepends `RustConn/`.
+///
+/// Stops at the first timeout or credential refusal rather than pressing on —
+/// a swallowed probe timeout or an ignored failure used to cost extra touches
+/// and leave the save in an unknown state.
+#[expect(
+    clippy::too_many_arguments,
+    reason = "the KDBX write needs every unlock factor plus the entry fields; mirrors save_password_to_kdbx"
+)]
+fn save_in_place(
+    cli: &dyn KeePassCli,
+    db_password: Option<&SecretString>,
+    key_file: Option<&Path>,
+    yubikey_slot: Option<&str>,
+    kdbx_path: &Path,
+    entry_name: &str,
+    username: &str,
+    password: &SecretString,
+    url: Option<&str>,
+) -> SecretResult<()> {
+    let entry_path = format!("RustConn/{entry_name}");
+    let waits = yubikey_slot.is_some();
+
+    // One probe. If the database would not open, the error surfaces on the
+    // write below; we proceed assuming nothing exists (mkdir every level, add).
+    let tree = probe_tree(cli, db_password, key_file, yubikey_slot, kdbx_path);
+
+    // mkdir only the levels the probe did not find. With no probe (database did
+    // not open on the read, or RustConn absent), create every level — a stale
+    // mkdir of an existing group is a harmless "already exists".
+    for level in required_group_levels(entry_name) {
+        let exists = tree.as_ref().is_some_and(|t| t.groups.contains(&level));
+        if exists {
+            continue;
+        }
+        let mut args = vec!["mkdir".to_string(), "-q".to_string()];
+        push_unlock_args(&mut args, db_password.is_some(), key_file, yubikey_slot);
+        args.push(kdbx_path.display().to_string());
+        args.push(level.clone());
+        let invocation = Invocation::new("mkdir (group level)", args, InvocationKind::Write, waits);
+        let output = cli.run(&invocation, db_password, None)?;
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            if !stderr.contains("already exists") {
+                return Err(SecretError::KeePassXC(format!(
+                    "Failed to create group '{level}': {}",
+                    stderr.trim()
+                )));
+            }
+        }
+    }
+
+    // edit in place when the entry exists, add when it does not. Without a
+    // probe we cannot tell, so add; a pre-existing entry then reports "already
+    // exists", which we treat as the signal to edit instead.
+    let entry_exists = tree
+        .as_ref()
+        .is_some_and(|t| t.entries.contains(&entry_path));
+    let verb = if entry_exists { "edit" } else { "add" };
+    let args = build_write_entry_args(
+        verb,
+        db_password.is_some(),
+        key_file,
+        yubikey_slot,
+        username,
+        url,
+        kdbx_path,
+        &entry_path,
+    );
+    let invocation = Invocation::new(verb, args, InvocationKind::Write, waits);
+    let output = cli.run(&invocation, db_password, Some(password))?;
+
+    if output.status.success() {
+        return Ok(());
+    }
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    // We guessed "add" with no probe and the entry was already there: edit it.
+    if !entry_exists && stderr.contains("already exists") {
+        let args = build_write_entry_args(
+            "edit",
+            db_password.is_some(),
+            key_file,
+            yubikey_slot,
+            username,
+            url,
+            kdbx_path,
+            &entry_path,
+        );
+        let invocation = Invocation::new("edit", args, InvocationKind::Write, waits);
+        let retry = cli.run(&invocation, db_password, Some(password))?;
+        if retry.status.success() {
+            return Ok(());
+        }
+        let retry_stderr = String::from_utf8_lossy(&retry.stderr);
+        return Err(classify_write_failure(&retry_stderr));
+    }
+    Err(classify_write_failure(&stderr))
+}
+
+/// Renames or moves an entry with `mv` and/or `edit -t`, reading nothing back.
+///
+/// `mv <entry> <group>` moves the entry between groups; `edit -t <title>`
+/// renames it in place. The password is never shown — the entry keeps it. Only
+/// the missing destination group levels are created first.
+fn rename_or_move_in_place(
+    cli: &dyn KeePassCli,
+    db_password: Option<&SecretString>,
+    key_file: Option<&Path>,
+    yubikey_slot: Option<&str>,
+    kdbx_path: &Path,
+    old_entry_path: &str,
+    new_entry_path: &str,
+) -> SecretResult<()> {
+    if old_entry_path == new_entry_path {
+        return Ok(());
+    }
+    let waits = yubikey_slot.is_some();
+
+    // The new entry name is everything after the last '/'; the destination
+    // group is everything before it (or RustConn's root).
+    let (new_group, new_title) = match new_entry_path.rsplit_once('/') {
+        Some((group, title)) => (group.to_string(), title.to_string()),
+        None => (String::new(), new_entry_path.to_string()),
+    };
+    let (old_group, old_title) = match old_entry_path.rsplit_once('/') {
+        Some((group, title)) => (group.to_string(), title.to_string()),
+        None => (String::new(), old_entry_path.to_string()),
+    };
+
+    // Create any missing destination group levels (new_group is e.g.
+    // "RustConn/Groups/Prod"; required_group_levels wants the path under
+    // RustConn, so strip the prefix and re-use it with a dummy entry name).
+    if let Some(under_rustconn) = new_group.strip_prefix("RustConn/") {
+        let tree = probe_tree(cli, db_password, key_file, yubikey_slot, kdbx_path);
+        for level in required_group_levels(&format!("{under_rustconn}/x")) {
+            if tree.as_ref().is_some_and(|t| t.groups.contains(&level)) {
+                continue;
+            }
+            let mut args = vec!["mkdir".to_string(), "-q".to_string()];
+            push_unlock_args(&mut args, db_password.is_some(), key_file, yubikey_slot);
+            args.push(kdbx_path.display().to_string());
+            args.push(level.clone());
+            let invocation =
+                Invocation::new("mkdir (move target)", args, InvocationKind::Write, waits);
+            let output = cli.run(&invocation, db_password, None)?;
+            if !output.status.success() {
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                if !stderr.contains("already exists") {
+                    return Err(SecretError::KeePassXC(format!(
+                        "Failed to create group '{level}': {}",
+                        stderr.trim()
+                    )));
+                }
+            }
+        }
+    }
+
+    // Current path of the entry as mv/edit must address it: after a move the
+    // title stays, so track where it lives.
+    let mut current_path = old_entry_path.to_string();
+
+    // Move between groups when the group changed.
+    if new_group != old_group && !new_group.is_empty() {
+        let mut args = vec!["mv".to_string(), "-q".to_string()];
+        push_unlock_args(&mut args, db_password.is_some(), key_file, yubikey_slot);
+        args.push(kdbx_path.display().to_string());
+        args.push(current_path.clone());
+        args.push(new_group.clone());
+        let invocation = Invocation::new("mv (entry)", args, InvocationKind::Write, waits);
+        let output = cli.run(&invocation, db_password, None)?;
+        if !output.status.success() {
+            return Err(classify_write_failure(&String::from_utf8_lossy(
+                &output.stderr,
+            )));
+        }
+        current_path = format!("{new_group}/{old_title}");
+    }
+
+    // Rename the title in place when it changed.
+    if new_title != old_title {
+        let mut args = vec!["edit".to_string(), "-q".to_string()];
+        push_unlock_args(&mut args, db_password.is_some(), key_file, yubikey_slot);
+        args.push("-t".to_string());
+        args.push(new_title);
+        args.push(kdbx_path.display().to_string());
+        args.push(current_path);
+        let invocation = Invocation::new("edit -t (rename)", args, InvocationKind::Write, waits);
+        let output = cli.run(&invocation, db_password, None)?;
+        if !output.status.success() {
+            return Err(classify_write_failure(&String::from_utf8_lossy(
+                &output.stderr,
+            )));
+        }
+    }
+    Ok(())
+}
+
+/// Maps a failed write's stderr to a user-facing error, keeping the historical
+/// "Invalid database password or key file" wording a credential refusal gives.
+fn classify_write_failure(stderr: &str) -> SecretError {
+    if stderr.contains("Invalid credentials")
+        || stderr.contains("wrong password")
+        || stderr.contains("Error while reading the database")
+    {
+        SecretError::KeePassXC("Invalid database password or key file".to_string())
+    } else {
+        SecretError::KeePassXC(format!("KeePass error: {}", stderr.trim()))
+    }
+}
+
+#[cfg(test)]
+mod algorithm_tests {
+    use super::{parse_version_major_minor, required_group_levels, version_supports_edit};
+
+    #[test]
+    fn version_gate_accepts_2_5_and_newer() {
+        assert!(version_supports_edit("2.5.0"));
+        assert!(version_supports_edit("2.7.12"));
+        assert!(version_supports_edit("3.0.0"));
+    }
+
+    #[test]
+    fn version_gate_rejects_older_or_unparseable() {
+        assert!(!version_supports_edit("2.4.3"));
+        assert!(!version_supports_edit("2.4"));
+        assert!(!version_supports_edit(""));
+        assert!(!version_supports_edit("not-a-version"));
+    }
+
+    #[test]
+    fn version_major_minor_parses_leading_two_numbers() {
+        assert_eq!(parse_version_major_minor("2.7.12"), Some((2, 7)));
+        assert_eq!(parse_version_major_minor("2.5"), Some((2, 5)));
+        assert_eq!(parse_version_major_minor("bogus"), None);
+    }
+
+    #[test]
+    fn required_levels_lists_each_parent_group_once() {
+        assert_eq!(required_group_levels("web (ssh)"), vec!["RustConn"]);
+        assert_eq!(
+            required_group_levels("Groups/Production/web (ssh)"),
+            vec!["RustConn", "RustConn/Groups", "RustConn/Groups/Production"]
+        );
+    }
+
+    // --- Behaviour of save_in_place / rename_or_move_in_place via a fake CLI ---
+
+    use std::cell::RefCell;
+    use std::collections::VecDeque;
+    use std::os::unix::process::ExitStatusExt;
+    use std::process::{ExitStatus, Output};
+
+    use secrecy::SecretString;
+
+    use super::{
+        Invocation, KeePassCli, SecretError, SecretResult, rename_or_move_in_place, save_in_place,
+    };
+
+    /// A scripted reply for one `run` call.
+    struct Reply {
+        stdout: String,
+        success: bool,
+        /// A `None` here makes `run` return `Err` (a timeout/spawn failure),
+        /// so a test can assert the operation stops at the first one.
+        errors: bool,
+    }
+
+    impl Reply {
+        fn ok() -> Self {
+            Self {
+                stdout: String::new(),
+                success: true,
+                errors: false,
+            }
+        }
+        fn stdout(s: &str) -> Self {
+            Self {
+                stdout: s.to_string(),
+                success: true,
+                errors: false,
+            }
+        }
+        fn fail(_stderr: &str) -> Self {
+            Self {
+                stdout: String::new(),
+                success: false,
+                errors: false,
+            }
+        }
+        fn timeout() -> Self {
+            Self {
+                stdout: String::new(),
+                success: false,
+                errors: true,
+            }
+        }
+    }
+
+    /// Records every invocation's argv; replies are scripted in order.
+    #[derive(Default)]
+    struct FakeCli {
+        calls: RefCell<Vec<Vec<String>>>,
+        replies: RefCell<VecDeque<Reply>>,
+    }
+
+    impl FakeCli {
+        fn with_replies(replies: impl IntoIterator<Item = Reply>) -> Self {
+            Self {
+                calls: RefCell::new(Vec::new()),
+                replies: RefCell::new(replies.into_iter().collect()),
+            }
+        }
+        /// The leading verb of each recorded call, in order.
+        fn verbs(&self) -> Vec<String> {
+            self.calls
+                .borrow()
+                .iter()
+                .map(|args| args.first().cloned().unwrap_or_default())
+                .collect()
+        }
+        /// Whether any recorded argv contained `needle`.
+        fn any_arg_contains(&self, needle: &str) -> bool {
+            self.calls
+                .borrow()
+                .iter()
+                .flatten()
+                .any(|arg| arg.contains(needle))
+        }
+    }
+
+    impl KeePassCli for FakeCli {
+        fn run(
+            &self,
+            invocation: &Invocation,
+            _db_password: Option<&SecretString>,
+            _entry_secret: Option<&SecretString>,
+        ) -> SecretResult<Output> {
+            self.calls.borrow_mut().push(invocation.args.clone());
+            let reply = self
+                .replies
+                .borrow_mut()
+                .pop_front()
+                .unwrap_or_else(Reply::ok);
+            if reply.errors {
+                return Err(SecretError::KeePassXC("timed out".to_string()));
+            }
+            Ok(Output {
+                status: ExitStatus::from_raw(if reply.success { 0 } else { 1 << 8 }),
+                stdout: reply.stdout.into_bytes(),
+                stderr: Vec::new(),
+            })
+        }
+    }
+
+    fn secret(s: &str) -> SecretString {
+        SecretString::from(s)
+    }
+    fn db() -> SecretString {
+        SecretString::from("master")
+    }
+    fn kdbx() -> std::path::PathBuf {
+        std::path::PathBuf::from("/tmp/test.kdbx")
+    }
+
+    #[test]
+    fn updating_an_existing_entry_runs_one_probe_and_one_edit() {
+        // Probe lists RustConn/Prod/ and the existing entry; no mkdir, one edit.
+        let cli = FakeCli::with_replies([Reply::stdout("Prod/\nProd/web (ssh)\n"), Reply::ok()]);
+        save_in_place(
+            &cli,
+            Some(&db()),
+            None,
+            None,
+            &kdbx(),
+            "Prod/web (ssh)",
+            "deploy",
+            &secret("hunter2"),
+            None,
+        )
+        .unwrap();
+        assert_eq!(cli.verbs(), ["ls", "edit"]);
+        assert!(
+            !cli.any_arg_contains("hunter2"),
+            "the entry password must never reach the argv"
+        );
+        assert!(
+            !cli.any_arg_contains("rm"),
+            "the new path never deletes to save"
+        );
+    }
+
+    #[test]
+    fn a_new_entry_runs_add_not_edit() {
+        // Probe shows the group but not the entry → add.
+        let cli = FakeCli::with_replies([Reply::stdout("Prod/\n"), Reply::ok()]);
+        save_in_place(
+            &cli,
+            Some(&db()),
+            None,
+            None,
+            &kdbx(),
+            "Prod/web (ssh)",
+            "deploy",
+            &secret("hunter2"),
+            None,
+        )
+        .unwrap();
+        assert_eq!(cli.verbs(), ["ls", "add"]);
+    }
+
+    #[test]
+    fn mkdir_runs_only_for_the_missing_levels() {
+        // Probe shows RustConn and RustConn/Groups exist, but not Prod.
+        let cli = FakeCli::with_replies([
+            Reply::stdout("Groups/\n"),
+            Reply::ok(), // mkdir RustConn/Groups/Prod
+            Reply::ok(), // add
+        ]);
+        save_in_place(
+            &cli,
+            Some(&db()),
+            None,
+            None,
+            &kdbx(),
+            "Groups/Prod/web (ssh)",
+            "deploy",
+            &secret("x"),
+            None,
+        )
+        .unwrap();
+        // One ls, exactly one mkdir (for Prod), one add — RustConn and
+        // RustConn/Groups already existed so they are not re-created.
+        assert_eq!(cli.verbs(), ["ls", "mkdir", "add"]);
+    }
+
+    #[test]
+    fn a_save_stops_at_the_first_timeout() {
+        // The probe times out → we proceed defensively; the first mkdir times
+        // out and the save stops there, never reaching add.
+        let cli = FakeCli::with_replies([Reply::timeout(), Reply::timeout()]);
+        let err = save_in_place(
+            &cli,
+            Some(&db()),
+            None,
+            None,
+            &kdbx(),
+            "Prod/web (ssh)",
+            "deploy",
+            &secret("x"),
+            None,
+        );
+        assert!(err.is_err());
+        // ls (timed out) then mkdir (timed out) — nothing after.
+        assert_eq!(cli.verbs(), ["ls", "mkdir"]);
+    }
+
+    #[test]
+    fn a_rename_reads_no_password_and_uses_mv_then_edit_t() {
+        // Same group, different title → just edit -t, no mv, no show.
+        let cli = FakeCli::with_replies([Reply::ok()]);
+        rename_or_move_in_place(
+            &cli,
+            Some(&db()),
+            None,
+            None,
+            &kdbx(),
+            "RustConn/old (ssh)",
+            "RustConn/new (ssh)",
+        )
+        .unwrap();
+        assert_eq!(cli.verbs(), ["edit"]);
+        assert!(
+            !cli.any_arg_contains("Password"),
+            "a rename must not read the password back with show -a Password"
+        );
+    }
+
+    #[test]
+    fn a_move_to_another_group_uses_mv() {
+        // Different group, same title → mv (no probe mkdir needed since the
+        // target group has no RustConn/ prefix levels beyond itself here).
+        let cli = FakeCli::with_replies([
+            Reply::stdout("Archive/\n"), // probe for the destination levels
+            Reply::ok(),                 // mv
+        ]);
+        rename_or_move_in_place(
+            &cli,
+            Some(&db()),
+            None,
+            None,
+            &kdbx(),
+            "RustConn/web (ssh)",
+            "RustConn/Archive/web (ssh)",
+        )
+        .unwrap();
+        assert!(cli.verbs().contains(&"mv".to_string()));
+        assert!(!cli.any_arg_contains("Password"));
+    }
+
+    #[test]
+    fn a_failed_rename_surfaces_an_error_and_does_not_read_the_password() {
+        let cli = FakeCli::with_replies([Reply::fail("Could not find entry")]);
+        let err = rename_or_move_in_place(
+            &cli,
+            Some(&db()),
+            None,
+            None,
+            &kdbx(),
+            "RustConn/old (ssh)",
+            "RustConn/new (ssh)",
+        );
+        assert!(err.is_err());
+        assert!(!cli.any_arg_contains("Password"));
+    }
+}
+
 /// Why a `keepassxc-cli show` exited non-zero.
 ///
 /// The three readers in this file each classified this inline, and all three drew
@@ -722,6 +1556,28 @@ impl KeePassStatus {
             SecretError::KeePassXC("keepassxc-cli not found. Please install KeePassXC.".to_string())
         })?;
 
+        // keepassxc-cli 2.5.0+ (decision D3): edit the entry in place, create
+        // only missing groups, no rm — far fewer YubiKey touches (#350). All of
+        // it under the process-wide write lock so a concurrent save/delete
+        // cannot interleave and lose an update. Older or unreadable versions
+        // keep the legacy ls/rm/add algorithm below unchanged.
+        if Self::get_keepassxc_version(&cli_path).is_some_and(|v| version_supports_edit(&v)) {
+            return with_keepass_write_lock(|| {
+                let cli = RealKeePassCli::new(&cli_path);
+                save_in_place(
+                    &cli,
+                    db_password,
+                    key_file,
+                    yubikey_slot,
+                    kdbx_path,
+                    entry_name,
+                    username,
+                    password,
+                    url,
+                )
+            });
+        }
+
         // Ensure RustConn group exists
         Self::ensure_rustconn_group(kdbx_path, db_password, key_file, &cli_path, yubikey_slot)?;
 
@@ -1159,7 +2015,13 @@ impl KeePassStatus {
             SecretError::KeePassXC("keepassxc-cli not found. Please install KeePassXC.".to_string())
         })?;
 
-        Self::delete_kdbx_entry(kdbx_path, db_password, key_file, entry_path, yubikey_slot)
+        // Under the process-wide write lock: a delete rewrites the KDBX, so it
+        // must not interleave with a concurrent save (the edit-dialog race in
+        // #350, where a save and a stale-key delete ran at once and one update
+        // was lost).
+        with_keepass_write_lock(|| {
+            Self::delete_kdbx_entry(kdbx_path, db_password, key_file, entry_path, yubikey_slot)
+        })
     }
 
     /// Retrieves a password from KDBX database using `keepassxc-cli` with key file support
@@ -1497,6 +2359,27 @@ impl KeePassStatus {
         let cli_path = Self::find_keepassxc_cli().ok_or_else(|| {
             SecretError::KeePassXC("keepassxc-cli not found. Please install KeePassXC.".to_string())
         })?;
+
+        // keepassxc-cli 2.5.0+ (decision D3): mv/edit -t in place, reading no
+        // password back — a rename that cost about eleven YubiKey touches now
+        // costs about three (#350). Under the write lock. Older or unreadable
+        // versions keep the legacy read-add-delete algorithm below.
+        if Self::get_keepassxc_version(&cli_path).is_some_and(|v| version_supports_edit(&v)) {
+            // The in-place path addresses entries by their full "RustConn/..."
+            // path; the callers pass exactly that.
+            return with_keepass_write_lock(|| {
+                let cli = RealKeePassCli::new(&cli_path);
+                rename_or_move_in_place(
+                    &cli,
+                    db_password,
+                    key_file,
+                    yubikey_slot,
+                    kdbx_path,
+                    old_entry_path,
+                    new_entry_path,
+                )
+            });
+        }
 
         // get_password_from_kdbx_with_key adds "RustConn/" prefix, so we need to strip it
         // from old_entry_path if present to avoid double prefix

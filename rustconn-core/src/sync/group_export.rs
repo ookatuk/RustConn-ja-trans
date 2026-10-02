@@ -136,11 +136,24 @@ pub struct GroupSyncExport {
 /// `sort_order`) are excluded.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SyncGroup {
+    /// The group's id on the Master that wrote the file.
+    ///
+    /// Written since 0.22.13 and not read yet: Import still matches groups by
+    /// their path inside the synced group. Reserved for id-based matching in
+    /// 0.23, so that renaming or moving a group on the Master stops recreating
+    /// it on the Import side. Files from 0.22.12 and earlier have no `id`, and
+    /// those versions skip it when reading newer files, because no type in
+    /// this format rejects fields it does not know.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub id: Option<Uuid>,
+
     /// Group display name.
     pub name: String,
 
-    /// Hierarchical path, e.g. `"Production/Web"`.
-    /// Empty string for the root group.
+    /// Hierarchical path from the top of the Master's tree, the root group's
+    /// name included, e.g. `"Production/Web"`; the root group's own path is
+    /// its name. Import compares paths with the root's name removed (see
+    /// [`GroupMergeEngine::merge`](super::group_merge::GroupMergeEngine::merge)).
     #[serde(default)]
     pub path: String,
 
@@ -176,10 +189,24 @@ pub struct SyncGroup {
 /// `remember_window_position`, `skip_port_check`, `ssh_key_path`) are excluded.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SyncConnection {
+    /// The connection's id on the Master that wrote the file.
+    ///
+    /// Written since 0.22.13 and not read yet: Import still matches a
+    /// connection by its name and its group path inside the synced group, and
+    /// a connection it creates gets an id of its own. Reserved for id-based
+    /// matching in 0.23, so that renaming or moving a connection on the Master
+    /// stops recreating it on the Import side. Files from 0.22.12 and earlier
+    /// have no `id`, and those versions skip it when reading newer files.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub id: Option<Uuid>,
+
     /// Connection name — primary key for merge within a group.
     pub name: String,
 
-    /// Hierarchical group path, e.g. `"Production Servers/Web"`.
+    /// Hierarchical group path from the top of the Master's tree, the root
+    /// group's name included, e.g. `"Production Servers/Web"`; a connection
+    /// directly in the root has the root's name. Import compares it with the
+    /// root's name removed.
     pub group_path: String,
 
     /// Remote host address.
@@ -238,6 +265,15 @@ pub struct SyncConnection {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub highlight_rules: Vec<HighlightRule>,
 
+    /// Per-connection activity-monitor override.
+    ///
+    /// `None` (the common case) is omitted from the file; a `0.22.12` or
+    /// earlier reader simply skips the field, and a newer reader treats an
+    /// absent field as "no override". An interval-only override whose
+    /// `enabled` is `None` round-trips intact.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub monitoring_config: Option<crate::monitoring::MonitoringConfig>,
+
     /// Last modification timestamp (used for conflict resolution).
     pub updated_at: DateTime<Utc>,
 }
@@ -249,10 +285,12 @@ impl SyncConnection {
     /// Excluded fields: `last_connected`, `sort_order`, `is_pinned`,
     /// `pin_order`, `window_geometry`, `window_mode`,
     /// `remember_window_position`, `skip_port_check`, and `ssh_key_path`
-    /// (stripped from SSH-based protocol configs).
+    /// (stripped from SSH-based protocol configs). The connection's `id` is
+    /// written as [`SyncConnection::id`].
     #[must_use]
     pub fn from_connection(conn: &Connection, group_path: &str) -> Self {
         Self {
+            id: Some(conn.id),
             name: conn.name.clone(),
             group_path: group_path.to_owned(),
             host: conn.host.clone(),
@@ -270,6 +308,7 @@ impl SyncConnection {
             wol_config: conn.wol_config.clone(),
             icon: conn.icon.clone(),
             highlight_rules: conn.highlight_rules.clone(),
+            monitoring_config: conn.monitoring_config.clone(),
             updated_at: conn.updated_at,
         }
     }
@@ -283,9 +322,11 @@ impl SyncGroup {
     ///
     /// Local-only fields are excluded: `ssh_key_path`, `ssh_agent_socket`,
     /// `expanded`, `sort_order`, `sync_mode`, `sync_file`, `last_synced_at`.
+    /// The group's `id` is written as [`SyncGroup::id`].
     #[must_use]
     pub fn from_group(group: &ConnectionGroup, path: &str) -> Self {
         Self {
+            id: Some(group.id),
             name: group.name.clone(),
             path: path.to_owned(),
             description: group.description.clone(),
@@ -614,7 +655,8 @@ pub fn validate_sync_filename(filename: &str) -> Result<(), SyncError> {
 /// given `root_group_id`.
 ///
 /// Local-only fields are set to defaults (e.g. `sort_order = 0`,
-/// `is_pinned = false`, `last_connected = None`).
+/// `is_pinned = false`, `last_connected = None`). The connection gets an id of
+/// its own; the Master's [`SyncConnection::id`] is not adopted.
 #[must_use]
 pub fn sync_connection_to_connection(sync_conn: &SyncConnection, group_id: Uuid) -> Connection {
     let mut conn = Connection::new(
@@ -640,6 +682,8 @@ pub fn sync_connection_to_connection(sync_conn: &SyncConnection, group_id: Uuid)
     conn.wol_config.clone_from(&sync_conn.wol_config);
     conn.icon.clone_from(&sync_conn.icon);
     conn.highlight_rules.clone_from(&sync_conn.highlight_rules);
+    conn.monitoring_config
+        .clone_from(&sync_conn.monitoring_config);
     conn.updated_at = sync_conn.updated_at;
     conn.group_id = Some(group_id);
     conn
@@ -647,9 +691,9 @@ pub fn sync_connection_to_connection(sync_conn: &SyncConnection, group_id: Uuid)
 
 /// Updates synced fields on an existing [`Connection`] from a [`SyncConnection`].
 ///
-/// Preserves local-only fields (`sort_order`, `is_pinned`, `pin_order`,
-/// `window_geometry`, `window_mode`, `last_connected`, `ssh_key_path`,
-/// `skip_port_check`).
+/// Preserves the local `id` and the local-only fields (`sort_order`,
+/// `is_pinned`, `pin_order`, `window_geometry`, `window_mode`,
+/// `last_connected`, `ssh_key_path`, `skip_port_check`).
 pub fn apply_sync_connection_update(conn: &mut Connection, sync_conn: &SyncConnection) {
     conn.name.clone_from(&sync_conn.name);
     conn.host.clone_from(&sync_conn.host);
@@ -670,6 +714,8 @@ pub fn apply_sync_connection_update(conn: &mut Connection, sync_conn: &SyncConne
     conn.wol_config.clone_from(&sync_conn.wol_config);
     conn.icon.clone_from(&sync_conn.icon);
     conn.highlight_rules.clone_from(&sync_conn.highlight_rules);
+    conn.monitoring_config
+        .clone_from(&sync_conn.monitoring_config);
     conn.updated_at = sync_conn.updated_at;
 }
 
@@ -680,6 +726,7 @@ mod tests {
 
     fn sample_root_group() -> SyncGroup {
         SyncGroup {
+            id: Some(Uuid::new_v4()),
             name: "Production Servers".to_owned(),
             path: String::new(),
             description: Some("Production infrastructure".to_owned()),
@@ -693,6 +740,7 @@ mod tests {
 
     fn sample_connection() -> SyncConnection {
         SyncConnection {
+            id: Some(Uuid::new_v4()),
             name: "nginx-1".to_owned(),
             group_path: "Production Servers/Web".to_owned(),
             host: "10.0.1.10".to_owned(),
@@ -710,6 +758,7 @@ mod tests {
             wol_config: None,
             icon: None,
             highlight_rules: Vec::new(),
+            monitoring_config: None,
             updated_at: Utc::now(),
         }
     }
@@ -721,6 +770,7 @@ mod tests {
             "admin-laptop".to_owned(),
             sample_root_group(),
             vec![SyncGroup {
+                id: Some(Uuid::new_v4()),
                 name: "Web".to_owned(),
                 path: "Production Servers/Web".to_owned(),
                 description: None,
@@ -832,6 +882,7 @@ mod tests {
     #[test]
     fn sync_group_optional_fields_skipped_when_none() {
         let group = SyncGroup {
+            id: None,
             name: "Minimal".to_owned(),
             path: "Root/Minimal".to_owned(),
             description: None,
@@ -848,11 +899,14 @@ mod tests {
         assert!(!json.contains("domain"));
         assert!(!json.contains("ssh_auth_method"));
         assert!(!json.contains("ssh_proxy_jump"));
+        let value = serde_json::to_value(&group).unwrap();
+        assert!(value.get("id").is_none(), "an absent id was written");
     }
 
     #[test]
     fn sync_connection_optional_fields_skipped_when_empty() {
         let conn = SyncConnection {
+            id: None,
             name: "test".to_owned(),
             group_path: "Root".to_owned(),
             host: "localhost".to_owned(),
@@ -870,6 +924,7 @@ mod tests {
             wol_config: None,
             icon: None,
             highlight_rules: Vec::new(),
+            monitoring_config: None,
             updated_at: Utc::now(),
         };
         let json = serde_json::to_string(&conn).unwrap();
@@ -878,6 +933,8 @@ mod tests {
         assert!(!json.contains("\"highlight_rules\""));
         assert!(!json.contains("\"wol_config\""));
         assert!(!json.contains("\"icon\""));
+        let value = serde_json::to_value(&conn).unwrap();
+        assert!(value.get("id").is_none(), "an absent id was written");
     }
 
     #[test]
@@ -891,6 +948,140 @@ mod tests {
 
         assert!(path.exists());
         assert!(!temp_path.exists());
+    }
+
+    // --- Format compatibility: the writer-only ids added in 0.22.13 ---
+
+    #[test]
+    fn from_connection_and_from_group_carry_the_local_id() {
+        let group = ConnectionGroup::new("Production".to_owned());
+        let conn = Connection::new_ssh("nginx-1".to_owned(), "10.0.1.10".to_owned(), 22);
+
+        assert_eq!(
+            SyncGroup::from_group(&group, "Production").id,
+            Some(group.id)
+        );
+        assert_eq!(
+            SyncConnection::from_connection(&conn, "Production").id,
+            Some(conn.id)
+        );
+    }
+
+    /// A file as 0.22.12 and earlier wrote it, with no `id` anywhere. It has
+    /// to keep parsing, still as version 1: the ids did not need a bump.
+    #[test]
+    fn v1_file_without_ids_still_parses() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let path = dir.path().join("written-by-0.22.12.rcn");
+
+        let mut value = serde_json::to_value(sample_export()).unwrap();
+        for pointer in ["/root_group", "/groups/0", "/connections/0"] {
+            let entity = value.pointer_mut(pointer).unwrap();
+            entity.as_object_mut().unwrap().remove("id");
+        }
+        let json = serde_json::to_string_pretty(&value).unwrap();
+        assert!(
+            !json.contains("\"id\""),
+            "the fixture must look like a 0.22.12 file"
+        );
+        std::fs::write(&path, json).unwrap();
+
+        let loaded = GroupSyncExport::from_file(&path).unwrap();
+        assert_eq!(loaded.sync_version, 1);
+        assert_eq!(loaded.root_group.id, None);
+        assert_eq!(loaded.groups[0].id, None);
+        assert_eq!(loaded.connections[0].id, None);
+        assert_eq!(loaded.connections[0].name, "nginx-1");
+    }
+
+    /// No type in this format rejects a field it does not know, and that is
+    /// what lets an older reader open a newer file — 0.22.12 reading the ids
+    /// written since 0.22.13. Pinned at every level a writer can add to, so a
+    /// `deny_unknown_fields` cannot slip in unnoticed.
+    #[test]
+    fn reader_ignores_fields_it_does_not_know() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let path = dir.path().join("written-by-a-newer-version.rcn");
+
+        let mut value = serde_json::to_value(sample_export()).unwrap();
+        value["added_by_a_newer_writer"] = serde_json::json!({ "nested": [1, 2, 3] });
+        value["root_group"]["added_by_a_newer_writer"] = serde_json::json!(true);
+        value["groups"][0]["added_by_a_newer_writer"] = serde_json::json!("x");
+        value["connections"][0]["added_by_a_newer_writer"] = serde_json::json!(42);
+        std::fs::write(&path, serde_json::to_string(&value).unwrap()).unwrap();
+
+        let loaded = GroupSyncExport::from_file(&path).unwrap();
+        assert_eq!(loaded.sync_version, 1);
+        assert_eq!(loaded.groups[0].name, "Web");
+        assert_eq!(loaded.connections[0].name, "nginx-1");
+    }
+
+    /// Import ignores the Master's ids in 0.22.13: a created connection gets an
+    /// id of its own, and an update keeps the local one.
+    #[test]
+    fn importing_never_adopts_the_masters_id() {
+        let mut sync_conn = sample_connection();
+        let master_id = Uuid::new_v4();
+        sync_conn.id = Some(master_id);
+
+        let created = sync_connection_to_connection(&sync_conn, Uuid::new_v4());
+        assert_ne!(created.id, master_id);
+
+        let mut local = Connection::new_ssh("nginx-1".to_owned(), "10.0.0.5".to_owned(), 22);
+        let local_id = local.id;
+        apply_sync_connection_update(&mut local, &sync_conn);
+        assert_eq!(local.id, local_id);
+        // The synced fields are still applied.
+        assert_eq!(local.host, "10.0.1.10");
+    }
+
+    /// A per-connection monitoring override must survive the full Group Sync
+    /// path — `from_connection`, the `.rcn` serde round trip, and the import
+    /// builder — including the interval-only override whose `enabled` is
+    /// `None` (issue #352). Before 0.22.13 `SyncConnection` had no such field,
+    /// so every override was silently dropped on a Master/Import sync.
+    #[test]
+    fn monitoring_override_survives_the_group_sync_round_trip() {
+        use crate::monitoring::MonitoringConfig;
+
+        // Interval-only override: follows the global switch (enabled = None)
+        // but pins its own polling interval — the subtle case.
+        let override_config = MonitoringConfig {
+            enabled: None,
+            interval_secs: Some(30),
+        };
+        let mut conn = Connection::new_ssh("nginx-1".to_owned(), "10.0.1.10".to_owned(), 22);
+        conn.monitoring_config = Some(override_config.clone());
+
+        // from_connection carries it.
+        let sync_conn = SyncConnection::from_connection(&conn, "Production/Web");
+        assert_eq!(sync_conn.monitoring_config, Some(override_config.clone()));
+
+        // The .rcn JSON serde round trip preserves it.
+        let json = serde_json::to_string(&sync_conn).unwrap();
+        let reparsed: SyncConnection = serde_json::from_str(&json).unwrap();
+        assert_eq!(reparsed.monitoring_config, Some(override_config.clone()));
+
+        // The import builder re-applies it on both create and update.
+        let created = sync_connection_to_connection(&reparsed, Uuid::new_v4());
+        assert_eq!(created.monitoring_config, Some(override_config.clone()));
+
+        let mut existing = Connection::new_ssh("nginx-1".to_owned(), "10.0.1.10".to_owned(), 22);
+        apply_sync_connection_update(&mut existing, &reparsed);
+        assert_eq!(existing.monitoring_config, Some(override_config));
+
+        // No override (the common case) is omitted from the file and reloads
+        // as None, so a 0.22.12 reader is unaffected.
+        let plain = SyncConnection::from_connection(
+            &Connection::new_ssh("plain".to_owned(), "h".to_owned(), 22),
+            "Root",
+        );
+        assert_eq!(plain.monitoring_config, None);
+        assert!(
+            !serde_json::to_string(&plain)
+                .unwrap()
+                .contains("monitoring")
+        );
     }
 
     #[test]

@@ -621,10 +621,11 @@ fn start_embedded_rdp_session(
     // FIDO2/WebAuthn device redirection (FreeRDP 3.x only, external mode)
     embedded_config.fido2_enabled = rdp_config.fido2_enabled;
 
-    // Kerberos NLA opt-in (issue #351). Embedded IronRDP path only — negotiates
-    // Kerberos for CredSSP with NTLM fallback, which an AD "Protected Users"
-    // host requires. The optional KDC proxy URL routes the exchange over
-    // MS-KKDCP when the KDC is not directly reachable.
+    // Kerberos NLA opt-in (issue #351). Embedded IronRDP path only — what an
+    // account in AD "Protected Users" needs, since NTLM is refused for it. There
+    // is no NTLM fallback once Kerberos is on. The KDC Address (stored as
+    // `kdc_proxy_url`) names a domain controller or an MS-KKDCP proxy; when it
+    // is empty the KDC is looked up instead.
     embedded_config.kerberos_enabled = rdp_config.kerberos_enabled;
     embedded_config.kdc_proxy_url = rdp_config.kdc_proxy_url.clone();
 
@@ -672,6 +673,12 @@ fn start_embedded_rdp_session(
             }
             // If never connected, close the tab — no point showing failed tab for initial failure
             if !was_connected_clone.get() {
+                // The attempt never reached a session, so the credentials it
+                // used may be what failed. Drop the cached copy so the next
+                // attempt reads the vault again (issue #351). A session that
+                // connected and dropped later proved its credentials and keeps
+                // them.
+                crate::state::forget_cached_credentials(&state_for_callback, connection_id);
                 notebook_for_state.close_tab(session_id);
                 // Note: specific error toast is shown by connect_error callback.
                 // Only show generic fallback if on_error was not triggered.
@@ -978,6 +985,9 @@ fn start_external_rdp_session(
         ignore_certificate: rdp_config.ignore_certificate,
         fido2_enabled: rdp_config.fido2_enabled,
         client_override: rdp_config.freerdp_client_override.clone(),
+        // Lets a RemoteApp session negotiate Kerberos instead of NTLM, which an
+        // AD "Protected Users" account cannot use (issue #351).
+        kerberos_enabled: rdp_config.kerberos_enabled,
     };
 
     // A tunnelled session's SshTunnel must outlive every launch attempt: a
@@ -1034,6 +1044,10 @@ fn spawn_external_rdp_attempt(
         let conn_name = conn_name.clone();
         move |error: String| {
             tracing::error!(%error, connection = %conn_name, "RDP session failed shortly after start");
+            // As for the embedded widget: a client that exits right after
+            // launch may have been refused, so the retry reads the vault again
+            // (issue #351).
+            crate::state::forget_cached_credentials(&state, connection_id);
             crate::toast::show_error_toast_on_active_window(&error);
             if let Some(entry_id) = history_entry_id
                 && let Ok(mut state_mut) = state.try_borrow_mut()
@@ -1127,11 +1141,20 @@ fn spawn_external_rdp_attempt(
     if let Err(e) = RdpLauncher::start(&tab, &launch_config, callbacks) {
         tracing::error!(%e, connection = %conn_name, "Failed to start RDP session");
         sidebar.update_connection_status(&connection_id.to_string(), "failed");
-        crate::toast::show_error_toast_on_active_window(&e.to_string());
+        // No FreeRDP 3 client: name the FreeRDP 2 that was refused, once, then
+        // say what to install (issue #351).
+        let message = match &e {
+            crate::embedded::EmbeddingError::NoSupportedFreeRdp(unsupported) => {
+                crate::embedded_rdp::connection::warn_unsupported_freerdp(*unsupported);
+                crate::embedded_rdp::connection::no_supported_freerdp_message()
+            }
+            other => other.to_string(),
+        };
+        crate::toast::show_error_toast_on_active_window(&message);
         if let Some(entry_id) = history_entry_id
             && let Ok(mut state_mut) = state.try_borrow_mut()
         {
-            state_mut.record_connection_failed(entry_id, &e.to_string());
+            state_mut.record_connection_failed(entry_id, &message);
         }
         return;
     }
@@ -1567,7 +1590,19 @@ fn start_vnc_session_internal(
         let notebook_for_state = notebook.clone();
         let sidebar_for_state = sidebar.clone();
         let state_for_callback = state.clone();
+        let was_ever_connected = std::cell::Cell::new(false);
         vnc_widget.connect_state_changed(move |vnc_state| {
+            if matches!(vnc_state, crate::session::SessionState::Error(_))
+                && !was_ever_connected.get()
+            {
+                // Same rule as RDP: an attempt that never reached a session may
+                // have been refused, so the retry reads the vault again
+                // instead of the cached password (issue #351).
+                crate::state::forget_cached_credentials(&state_for_callback, connection_id);
+            }
+            if vnc_state == crate::session::SessionState::Connected {
+                was_ever_connected.set(true);
+            }
             if vnc_state == crate::session::SessionState::Disconnected {
                 notebook_for_state.stop_recording(session_id);
                 notebook_for_state.mark_tab_disconnected(session_id);

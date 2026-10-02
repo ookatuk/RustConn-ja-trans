@@ -13,6 +13,7 @@ use uuid::Uuid;
 use crate::config::ConfigManager;
 use crate::error::{ConfigError, ConfigResult};
 use crate::models::{Connection, ConnectionGroup, ProtocolConfig};
+use crate::monitoring::MonitoringOverride;
 use crate::performance::interner;
 use crate::sync::SyncMode;
 
@@ -534,6 +535,46 @@ impl ConnectionManager {
     #[must_use]
     pub fn connection_count(&self) -> usize {
         self.connections.len()
+    }
+
+    // ========== Monitoring Overrides ==========
+
+    /// Counts the connections that switch monitoring on or off themselves.
+    ///
+    /// A connection that only overrides the polling interval still follows the
+    /// global switch, so it is not counted.
+    #[must_use]
+    pub fn monitoring_override_count(&self) -> usize {
+        self.connections
+            .values()
+            .filter(|c| c.monitoring_override() != MonitoringOverride::Inherit)
+            .count()
+    }
+
+    /// Makes every connection follow the global monitoring switch.
+    ///
+    /// Clears each connection's own on/off value through
+    /// [`Connection::reset_monitoring_override`], which keeps an interval
+    /// override and touches only the connections it changes. The list is then
+    /// persisted once, as the bulk sort operations do. Monitoring settings are
+    /// not part of a group sync export, so no export is announced.
+    ///
+    /// Returns how many connections changed.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if persistence fails.
+    pub fn clear_monitoring_overrides(&mut self) -> ConfigResult<usize> {
+        let mut cleared = 0;
+        for conn in self.connections.values_mut() {
+            if conn.reset_monitoring_override() {
+                cleared += 1;
+            }
+        }
+        if cleared > 0 {
+            self.persist_connections()?;
+        }
+        Ok(cleared)
     }
 
     // ========== Group CRUD Operations ==========
@@ -2019,6 +2060,9 @@ mod tests {
         assert_eq!(conn.name, "Test Server");
         assert_eq!(conn.host, "example.com");
         assert_eq!(conn.port, 22);
+        // Issue #352: a new connection follows the global monitoring switch.
+        assert!(conn.monitoring_config.is_none());
+        assert_eq!(manager.monitoring_override_count(), 0);
     }
 
     #[tokio::test]
@@ -2629,5 +2673,92 @@ mod tests {
             first_order < second_order,
             "the second favorite must sort after the first ({first_order} < {second_order})"
         );
+    }
+
+    fn add_with_monitoring(
+        manager: &mut ConnectionManager,
+        name: &str,
+        monitoring_config: Option<crate::monitoring::MonitoringConfig>,
+    ) -> Uuid {
+        let mut conn = Connection::new_ssh(name.to_string(), format!("{name}.example.com"), 22);
+        conn.monitoring_config = monitoring_config;
+        manager.create_connection_from(conn).unwrap()
+    }
+
+    /// Issue #352: the reset clears only the on/off value, keeps intervals,
+    /// leaves connections that already follow the switch alone, and reaches disk.
+    #[tokio::test]
+    async fn clear_monitoring_overrides_resets_only_the_switch_and_persists() {
+        use crate::monitoring::MonitoringConfig;
+
+        let (mut manager, temp_dir) = create_test_manager();
+        let switched_off = add_with_monitoring(
+            &mut manager,
+            "off",
+            Some(MonitoringConfig {
+                enabled: Some(false),
+                interval_secs: Some(15),
+            }),
+        );
+        let switched_on = add_with_monitoring(
+            &mut manager,
+            "on",
+            Some(MonitoringConfig {
+                enabled: Some(true),
+                interval_secs: None,
+            }),
+        );
+        let interval_only = add_with_monitoring(
+            &mut manager,
+            "interval",
+            Some(MonitoringConfig {
+                enabled: None,
+                interval_secs: Some(30),
+            }),
+        );
+        let inherits = add_with_monitoring(&mut manager, "inherits", None);
+        assert_eq!(manager.monitoring_override_count(), 2);
+
+        let untouched_at = manager.get_connection(interval_only).unwrap().updated_at;
+        assert_eq!(manager.clear_monitoring_overrides().unwrap(), 2);
+        assert_eq!(manager.monitoring_override_count(), 0);
+        assert_eq!(
+            manager.get_connection(interval_only).unwrap().updated_at,
+            untouched_at,
+            "a connection that already follows the switch is not touched"
+        );
+        assert_eq!(
+            manager.clear_monitoring_overrides().unwrap(),
+            0,
+            "a second reset finds nothing to do"
+        );
+
+        manager.flush_persistence().await.unwrap();
+        let reloaded = ConfigManager::with_config_dir(temp_dir.path().to_path_buf())
+            .load_connections()
+            .unwrap();
+        let stored = |id: Uuid| {
+            reloaded
+                .iter()
+                .find(|c| c.id == id)
+                .map(|c| c.monitoring_config.clone())
+        };
+        assert_eq!(
+            stored(switched_off),
+            Some(Some(MonitoringConfig {
+                enabled: None,
+                interval_secs: Some(15),
+            })),
+            "the interval override survives the reset"
+        );
+        assert_eq!(stored(switched_on), Some(None));
+        assert_eq!(
+            stored(interval_only),
+            Some(Some(MonitoringConfig {
+                enabled: None,
+                interval_secs: Some(30),
+            }))
+        );
+        assert_eq!(stored(inherits), Some(None));
     }
 }

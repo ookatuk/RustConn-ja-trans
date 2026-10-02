@@ -7,6 +7,7 @@
 mod cli;
 mod detection;
 pub mod freerdp;
+mod freerdp_version;
 pub mod icons;
 mod kubernetes;
 mod mosh;
@@ -35,6 +36,11 @@ pub use freerdp::{
     FreeRdpConfig, FreeRdpSizing, build_freerdp_args, contains_freerdp_secret_field,
     extract_geometry_from_args, filter_extra_args, freerdp_secret_field_takes_following_value,
     has_decorations_flag, is_freerdp_shell_or_proxy_arg,
+};
+pub use freerdp_version::{
+    FreeRdpProbe, FreeRdpSelection, FreeRdpVersion, MIN_SUPPORTED_FREERDP_MAJOR,
+    UnsupportedFreeRdp, is_supported_freerdp_client, launchable_freerdp_clients,
+    parse_freerdp_version, select_freerdp_client,
 };
 pub use icons::{
     CloudProvider, PROTOCOL_TAB_CSS_CLASSES, ProviderIconCache, all_protocol_icons,

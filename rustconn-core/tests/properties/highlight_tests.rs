@@ -1,10 +1,10 @@
 //! Property-based tests for highlight rules: regex validation, serde round-trip,
-//! and match-position correctness.
+//! match-position correctness, and the viewport rows the overlay draws them on.
 //!
 //! **Validates: Requirements 7.8, 11.6**
 
 use proptest::prelude::*;
-use rustconn_core::highlight::{CompiledHighlightRules, builtin_defaults};
+use rustconn_core::highlight::{CompiledHighlightRules, builtin_defaults, viewport_rows};
 use rustconn_core::models::HighlightRule;
 use uuid::Uuid;
 
@@ -161,6 +161,74 @@ proptest! {
             prop_assert!(m.end <= line.len());
             // The matched slice must equal the keyword
             prop_assert_eq!(&line[m.start..m.end], keyword.as_str());
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Proptest 17: Viewport rows follow VTE's whole-pixel scrolling (issue #343)
+// ---------------------------------------------------------------------------
+
+proptest! {
+    /// Whatever the scroll position and cell height, the first row is shifted
+    /// up by less than one row, the partly visible bottom row is added exactly
+    /// when there is a shift, and the grid's top lands on the pixel VTE
+    /// scrolled to.
+    #[test]
+    fn viewport_rows_shift_stays_within_one_row(
+        value in 0.0f64..1e6,
+        cell_height in 1.0f64..64.0,
+        row_count in 1i64..200,
+    ) {
+        let shown = viewport_rows(value, cell_height, row_count);
+
+        prop_assert!(
+            (0.0..cell_height).contains(&shown.y_offset),
+            "y_offset {} is outside 0..{cell_height}",
+            shown.y_offset
+        );
+        prop_assert!(shown.rows == row_count || shown.rows == row_count + 1);
+        prop_assert_eq!(shown.rows == row_count, shown.y_offset == 0.0);
+
+        let grid_top = shown.first_row as f64 * cell_height + shown.y_offset;
+        let vte_top = (value * cell_height).round();
+        prop_assert!(
+            (grid_top - vte_top).abs() <= 1e-6 * vte_top.max(1.0),
+            "grid top at {grid_top} px, VTE scrolled to {vte_top} px"
+        );
+    }
+
+    /// With the whole-pixel cell heights VTE reports the arithmetic is exact:
+    /// the grid's top is the rounded scroll offset, and the first row is the
+    /// scroll value's whole rows, or one more once the view is within half a
+    /// pixel of the next row, which the rounding then lands on.
+    #[test]
+    fn viewport_rows_matches_vte_for_whole_pixel_cells(
+        value in 0.0f64..1e6,
+        cell_px in 1u8..=64,
+        row_count in 1i64..200,
+    ) {
+        let cell_height = f64::from(cell_px);
+        let shown = viewport_rows(value, cell_height, row_count);
+
+        prop_assert!(shown.y_offset.fract() == 0.0, "offset {} px", shown.y_offset);
+        let vte_top = (value * cell_height).round() as i64;
+        prop_assert_eq!(
+            shown.first_row * i64::from(cell_px) + shown.y_offset as i64,
+            vte_top
+        );
+
+        // How far into its row the view rests, and where VTE's rounding tips
+        // over onto the next row. A margin either side keeps float noise in
+        // `value * cell_height` out of the comparison.
+        let whole_rows = value.floor() as i64;
+        let into_row = value.fract() * cell_height;
+        let tips_over_at = cell_height - 0.5;
+        if into_row < tips_over_at - 1e-6 {
+            prop_assert_eq!(shown.first_row, whole_rows);
+        } else if into_row > tips_over_at + 1e-6 {
+            prop_assert_eq!(shown.first_row, whole_rows + 1);
+            prop_assert!(shown.y_offset == 0.0, "offset {} px", shown.y_offset);
         }
     }
 }

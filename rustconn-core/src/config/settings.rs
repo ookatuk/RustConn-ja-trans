@@ -19,6 +19,17 @@ use crate::variables::Variable;
 /// Application-wide settings
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AppSettings {
+    /// Version of the `RustConn` that last saved this file, or `None` for a file
+    /// that predates the marker.
+    ///
+    /// [`crate::config::ConfigManager::save_settings`] stamps it on the copy it
+    /// writes, never on the value it is given. An in-memory `AppSettings` keeps
+    /// the marker it was loaded with, so a save cannot make two of them compare
+    /// unequal — the Settings dialog decides whether anything changed that way.
+    /// Older versions ignore the key. It has to stay a plain string: a version
+    /// that reads it as one fails to load the whole file if it is anything else.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub written_by: Option<String>,
     /// Terminal settings
     #[serde(default)]
     pub terminal: TerminalSettings,

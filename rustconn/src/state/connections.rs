@@ -9,8 +9,8 @@ use uuid::Uuid;
 use super::AppState;
 use crate::async_utils::with_runtime;
 use crate::vault_ops::{
-    delete_group_vault_credential, delete_vault_credential, migrate_vault_entries_on_group_change,
-    rename_vault_credential_for_move,
+    delete_group_vault_credential, delete_trashed_vault_credential,
+    migrate_vault_entries_on_group_change, rename_vault_credential_for_move,
 };
 
 impl AppState {
@@ -190,11 +190,16 @@ impl AppState {
                 .cloned(),
         );
         let settings = self.settings.clone();
+        // A live connection can resolve to the same key as a trashed one — Group
+        // Sync leaves exactly that pair behind — and its entry must survive.
+        let live = self.connection_manager.list_connections_owned();
 
         crate::utils::spawn_blocking_with_callback(
             move || {
                 for conn in &vault_conns {
-                    if let Err(e) = delete_vault_credential(&settings, &hierarchy, conn) {
+                    if let Err(e) =
+                        delete_trashed_vault_credential(&settings, &hierarchy, conn, &live)
+                    {
                         tracing::warn!(
                             connection_name = %conn.name,
                             error = %e,
@@ -263,9 +268,12 @@ impl AppState {
             .cloned()
             .collect();
 
-        // Clean up credentials (best-effort, log failures)
+        // Clean up credentials (best-effort, log failures). An entry a live
+        // connection still resolves to is kept: see
+        // `delete_trashed_vault_credential`.
+        let live = self.connection_manager.list_connections_owned();
         for conn in &vault_connections {
-            if let Err(e) = delete_vault_credential(&settings, &groups, conn) {
+            if let Err(e) = delete_trashed_vault_credential(&settings, &groups, conn, &live) {
                 tracing::warn!(
                     connection_name = %conn.name,
                     error = %e,

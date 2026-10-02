@@ -15,9 +15,15 @@
 //! pure, unit-tested function so the GUI only switches on the resulting
 //! [`RdpFailureClass`].
 //!
+//! What to *tell* the user about a rejected sign-in is a separate, finer
+//! question, answered by [`classify_auth_failure`]: a Kerberos KDC that cannot
+//! be found needs different advice from a wrong password (issue [#351]). It
+//! never changes the fallback decision.
+//!
 //! [#199]: https://github.com/totoshko88/RustConn/issues/199
 //! [#234]: https://github.com/totoshko88/RustConn/issues/234
 //! [#235]: https://github.com/totoshko88/RustConn/issues/235
+//! [#351]: https://github.com/totoshko88/RustConn/issues/351
 
 /// What kind of failure ended (or prevented) an embedded RDP session.
 ///
@@ -239,6 +245,181 @@ pub fn is_authentication_failure(msg: &str) -> bool {
 fn is_authentication_failure_lower(lower: &str) -> bool {
     AUTH_NSTATUS_CODES.iter().any(|c| lower.contains(c))
         || AUTH_MARKERS.iter().any(|m| lower.contains(m))
+}
+
+/// What a rejected CredSSP/NLA sign-in was rejected for, as far as the message says.
+///
+/// Finer than [`RdpFailureClass::Authentication`]: that class decides that no
+/// external client is tried, this one picks the advice shown to the user.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum AuthFailureKind {
+    /// sspi found no KDC for the realm: no KDC Address, nothing in the
+    /// environment and nothing in `krb5.conf`.
+    NoKdc {
+        /// The realm, when sspi's message names one, as it does for a
+        /// cross-realm referral.
+        realm: Option<String>,
+    },
+    /// A KDC was named but could not be reached over TCP or UDP, or the KDC
+    /// proxy failed.
+    KdcUnreachable,
+    /// `STATUS_ACCOUNT_RESTRICTION`: an account restriction refused the sign-in,
+    /// such as the NTLM ban on members of AD "Protected Users".
+    AccountRestriction,
+    /// Logon hours or workstation restrictions, or a KDC policy refusal.
+    LogonRestriction,
+    /// A wrong user name or password, or a user the domain does not know.
+    InvalidCredentials,
+    /// The password has expired.
+    PasswordExpired,
+    /// The password must be changed before the first sign-in.
+    PasswordMustChange,
+    /// The account is disabled.
+    AccountDisabled,
+    /// The account is locked out.
+    AccountLockedOut,
+    /// The account has expired.
+    AccountExpired,
+    /// The KDC revoked the account's credentials: disabled, locked out or
+    /// expired, without saying which.
+    AccountRevoked,
+    /// The account may not sign in to this server, for example without the
+    /// Remote Desktop logon right.
+    LogonTypeNotGranted,
+    /// The clocks of this computer and of the domain differ by more than
+    /// Kerberos allows.
+    ClockSkew,
+    /// The KDC does not know the service principal `TERMSRV/<host>`, usually
+    /// because the host is not the server's DNS name.
+    UnknownServerPrincipal,
+    /// Any other CredSSP/NLA failure.
+    Generic,
+}
+
+/// `NTSTATUS` codes a CredSSP server returns, and what each says about the sign-in.
+///
+/// `0xc0000070` is `STATUS_INVALID_WORKSTATION`. The GUI used to word it as
+/// "password must be changed", which is `0xc0000224`.
+static NTSTATUS_KINDS: &[(&str, AuthFailureKind)] = &[
+    ("0xc000006d", AuthFailureKind::InvalidCredentials), // STATUS_LOGON_FAILURE
+    ("0xc000006a", AuthFailureKind::InvalidCredentials), // STATUS_WRONG_PASSWORD
+    ("0xc0000064", AuthFailureKind::InvalidCredentials), // STATUS_NO_SUCH_USER
+    ("0xc000006e", AuthFailureKind::AccountRestriction), // STATUS_ACCOUNT_RESTRICTION
+    ("0xc000006f", AuthFailureKind::LogonRestriction),   // STATUS_INVALID_LOGON_HOURS
+    ("0xc0000070", AuthFailureKind::LogonRestriction),   // STATUS_INVALID_WORKSTATION
+    ("0xc0000071", AuthFailureKind::PasswordExpired),    // STATUS_PASSWORD_EXPIRED
+    ("0xc0000072", AuthFailureKind::AccountDisabled),    // STATUS_ACCOUNT_DISABLED
+    ("0xc000015b", AuthFailureKind::LogonTypeNotGranted), // STATUS_LOGON_TYPE_NOT_GRANTED
+    ("0xc0000193", AuthFailureKind::AccountExpired),     // STATUS_ACCOUNT_EXPIRED
+    ("0xc0000224", AuthFailureKind::PasswordMustChange), // STATUS_PASSWORD_MUST_CHANGE
+    ("0xc0000234", AuthFailureKind::AccountLockedOut),   // STATUS_ACCOUNT_LOCKED_OUT
+    ("status_logon_failure", AuthFailureKind::InvalidCredentials),
+];
+
+/// `KRB-ERROR` texts as sspi 0.21 words them (its `utils.rs` error-code table).
+static KERBEROS_KINDS: &[(&str, AuthFailureKind)] = &[
+    // KRB_AP_ERR_SKEW (37), which sspi files under `ErrorKind::TimeSkew`.
+    ("clock skew too great", AuthFailureKind::ClockSkew),
+    ("timeskew", AuthFailureKind::ClockSkew),
+    // KDC_ERR_S_PRINCIPAL_UNKNOWN (7): the domain has no `TERMSRV/<host>`.
+    (
+        "server not found in kerberos database",
+        AuthFailureKind::UnknownServerPrincipal,
+    ),
+    // KDC_ERR_C_PRINCIPAL_UNKNOWN (6)
+    (
+        "client not found in kerberos database",
+        AuthFailureKind::InvalidCredentials,
+    ),
+    // KDC_ERR_PREAUTH_FAILED (24): the password did not decrypt the timestamp.
+    (
+        "pre-authentication information was invalid",
+        AuthFailureKind::InvalidCredentials,
+    ),
+    // KDC_ERR_KEY_EXPIRED (23)
+    ("password has expired", AuthFailureKind::PasswordExpired),
+    // KDC_ERR_CLIENT_REVOKED (18)
+    (
+        "clients credentials have been revoked",
+        AuthFailureKind::AccountRevoked,
+    ),
+    // KDC_ERR_POLICY (12)
+    (
+        "kdc policy rejects request",
+        AuthFailureKind::LogonRestriction,
+    ),
+];
+
+/// sspi's wording when neither the configuration nor its own lookup names a KDC.
+const NO_KDC_MARKER: &str = "no kdc server found";
+
+/// Contexts of the KDC transport errors raised by `ironrdp-tokio`'s
+/// `ReqwestNetworkClient` (0.10). Its `Display` carries the context only, not
+/// the underlying I/O error.
+const KDC_TRANSPORT_MARKERS: &[&str] = &[
+    "failed to send kdc request",
+    "failed to receive kdc response",
+    "[kdcproxy @",
+    "cannot bind udp socket",
+    "failed to send udp request",
+    "failed to receive udp request",
+];
+
+/// Says what a CredSSP/NLA failure was about, to pick the advice shown to the user.
+///
+/// `None` when the message is not about the NLA sign-in at all — a refused TCP
+/// connection, a TLS failure, a timeout — which the caller words itself.
+/// Checked from the most specific to the least: server `NTSTATUS` codes,
+/// Kerberos `KRB-ERROR` texts, a KDC that is missing or unreachable, an early
+/// user authorization refusal, and finally any other CredSSP failure as
+/// [`AuthFailureKind::Generic`].
+///
+/// Never consulted for the fallback decision: whether an external client is
+/// tried is [`classify_rdp_failure`]'s call alone.
+#[must_use]
+pub fn classify_auth_failure(msg: &str) -> Option<AuthFailureKind> {
+    let lower = msg.to_ascii_lowercase();
+    if let Some(kind) = first_listed(&lower, NTSTATUS_KINDS) {
+        return Some(kind);
+    }
+    if let Some(kind) = first_listed(&lower, KERBEROS_KINDS) {
+        return Some(kind);
+    }
+    if lower.contains(NO_KDC_MARKER) {
+        return Some(AuthFailureKind::NoKdc {
+            realm: realm_named_in(msg, &lower),
+        });
+    }
+    if KDC_TRANSPORT_MARKERS.iter().any(|m| lower.contains(m)) {
+        return Some(AuthFailureKind::KdcUnreachable);
+    }
+    // `EarlyUserAuthResult::AccessDenied`: the server turned the account away
+    // after CredSSP succeeded, which is what a missing Remote Desktop logon
+    // right does.
+    if lower.contains("accessdenied") {
+        return Some(AuthFailureKind::LogonTypeNotGranted);
+    }
+    lower
+        .contains("credssp")
+        .then_some(AuthFailureKind::Generic)
+}
+
+/// The kind of the first table entry whose marker occurs in `lower`.
+fn first_listed(lower: &str, table: &[(&str, AuthFailureKind)]) -> Option<AuthFailureKind> {
+    table
+        .iter()
+        .find(|(marker, _)| lower.contains(marker))
+        .map(|(_, kind)| kind.clone())
+}
+
+/// The realm in sspi's ``No KDC server found for realm `X` `` wording, if any.
+fn realm_named_in(msg: &str, lower: &str) -> Option<String> {
+    const PREFIX: &str = "for realm `";
+    // `lower` is `msg` lower-cased byte for byte, so offsets carry over.
+    let start = lower.find(PREFIX)? + PREFIX.len();
+    let rest = msg.get(start..)?;
+    let realm = rest.get(..rest.find('`')?)?.trim();
+    (!realm.is_empty()).then(|| realm.to_owned())
 }
 
 #[cfg(test)]
@@ -487,5 +668,251 @@ mod tests {
         let class = classify_rdp_failure(msg);
         assert_eq!(class, RdpFailureClass::ProtocolIncompatible);
         assert!(class.warrants_freerdp_fallback());
+    }
+
+    /// Verbatim from issue #351: the core log line, NLA with Kerberos on.
+    const ISSUE_351_NO_KDC_LOG: &str = "CredSSP error_kind=Credssp(Error { error_type: \
+         NoAuthenticatingAuthority, description: \"No KDC server found\", nstatus: None })";
+
+    /// Verbatim from issue #351: what the GUI received for the same failure.
+    const ISSUE_351_NO_KDC_GUI: &str = "Connection failed: Connection finalize failed: [CredSSP @ \
+         /usr/src/packages/BUILD/vendor/ironrdp-async-0.10.0/src/connector.rs:107] CredSSP \
+         [kind: Credssp(Error { error_type: NoAuthenticatingAuthority, description: \
+         \"No KDC server found\", nstatus: None })]";
+
+    /// Verbatim from issue #351: the core log line, NLA with NTLM, refused because
+    /// the account is in Protected Users.
+    const ISSUE_351_NTLM_LOG: &str = "CredSSP error_kind=Credssp(Error { error_type: \
+         InvalidToken, description: \"CredSSP server returned an error status\", \
+         nstatus: Some(NStatusCode(0xc000006e)) })";
+
+    /// Verbatim from issue #351: what the GUI received for the same failure.
+    const ISSUE_351_NTLM_GUI: &str = "Authentication failed: Connection finalize failed: \
+         [CredSSP @ /usr/src/packages/BUILD/vendor/ironrdp-async-0.10.0/src/connector.rs:107] \
+         CredSSP [kind: Credssp(Error { error_type: InvalidToken, description: \
+         \"CredSSP server returned an error status\", nstatus: Some(NStatusCode(0xc000006e)) })]";
+
+    /// A CredSSP failure the way `map_connector_error` words a server status.
+    fn credssp_status(code: &str) -> String {
+        format!(
+            "Authentication failed: Connection finalize failed: [CredSSP @ connector.rs:107] \
+             CredSSP [kind: Credssp(Error {{ error_type: InvalidToken, description: \
+             \"CredSSP server returned an error status\", nstatus: Some(NStatusCode({code})) }})]"
+        )
+    }
+
+    /// A Kerberos failure the way `map_connector_error` words an sspi error.
+    fn sspi_error(error_type: &str, description: &str) -> String {
+        format!(
+            "Connection failed: Connection finalize failed: [CredSSP @ connector.rs:107] \
+             CredSSP [kind: Credssp(Error {{ error_type: {error_type}, description: \
+             \"{description}\", nstatus: None }})]"
+        )
+    }
+
+    #[test]
+    fn issue_351_missing_kdc_is_named_and_still_does_not_fall_back() {
+        for msg in [ISSUE_351_NO_KDC_LOG, ISSUE_351_NO_KDC_GUI] {
+            assert_eq!(
+                classify_auth_failure(msg),
+                Some(AuthFailureKind::NoKdc { realm: None }),
+                "message: {msg}"
+            );
+        }
+        let class = classify_rdp_failure(ISSUE_351_NO_KDC_GUI);
+        assert_eq!(class, RdpFailureClass::Other);
+        assert!(!class.warrants_freerdp_fallback());
+    }
+
+    #[test]
+    fn issue_351_ntlm_refusal_is_an_account_restriction() {
+        for msg in [ISSUE_351_NTLM_LOG, ISSUE_351_NTLM_GUI] {
+            assert_eq!(
+                classify_auth_failure(msg),
+                Some(AuthFailureKind::AccountRestriction),
+                "message: {msg}"
+            );
+        }
+        let class = classify_rdp_failure(ISSUE_351_NTLM_GUI);
+        assert_eq!(class, RdpFailureClass::Authentication);
+        assert!(!class.warrants_freerdp_fallback());
+    }
+
+    #[test]
+    fn every_handled_ntstatus_code_has_its_own_kind() {
+        for (code, expected) in [
+            ("0xc000006d", AuthFailureKind::InvalidCredentials),
+            ("0xc000006a", AuthFailureKind::InvalidCredentials),
+            ("0xc0000064", AuthFailureKind::InvalidCredentials),
+            ("0xc000006e", AuthFailureKind::AccountRestriction),
+            ("0xc000006f", AuthFailureKind::LogonRestriction),
+            ("0xc0000070", AuthFailureKind::LogonRestriction),
+            ("0xc0000071", AuthFailureKind::PasswordExpired),
+            ("0xc0000072", AuthFailureKind::AccountDisabled),
+            ("0xc000015b", AuthFailureKind::LogonTypeNotGranted),
+            ("0xc0000193", AuthFailureKind::AccountExpired),
+            ("0xc0000224", AuthFailureKind::PasswordMustChange),
+            ("0xc0000234", AuthFailureKind::AccountLockedOut),
+        ] {
+            let msg = credssp_status(code);
+            assert_eq!(
+                classify_auth_failure(&msg),
+                Some(expected.clone()),
+                "code: {code}"
+            );
+            assert_eq!(
+                classify_auth_failure(&msg.to_ascii_uppercase()),
+                Some(expected),
+                "upper-case code: {code}"
+            );
+            // The finer kind never changes the fallback decision.
+            assert!(
+                !classify_rdp_failure(&msg).warrants_freerdp_fallback(),
+                "code: {code}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_rejected_password_keeps_its_message_and_never_falls_back() {
+        let msg = credssp_status("0xc000006d");
+        assert_eq!(
+            classify_auth_failure(&msg),
+            Some(AuthFailureKind::InvalidCredentials)
+        );
+        assert_eq!(classify_rdp_failure(&msg), RdpFailureClass::Authentication);
+        assert_eq!(
+            classify_auth_failure("STATUS_LOGON_FAILURE"),
+            Some(AuthFailureKind::InvalidCredentials)
+        );
+    }
+
+    #[test]
+    fn kerberos_errors_have_their_own_kinds() {
+        for (error_type, description, expected) in [
+            (
+                "TimeSkew",
+                "clock skew too great",
+                AuthFailureKind::ClockSkew,
+            ),
+            (
+                "TimeSkew",
+                "clock skew too great. Additional error text: \\\"skew\\\"",
+                AuthFailureKind::ClockSkew,
+            ),
+            (
+                "UnknownCredentials",
+                "server not found in Kerberos database",
+                AuthFailureKind::UnknownServerPrincipal,
+            ),
+            (
+                "UnknownCredentials",
+                "client not found in Kerberos database",
+                AuthFailureKind::InvalidCredentials,
+            ),
+            (
+                "KdcInvalidRequest",
+                "pre-authentication information was invalid",
+                AuthFailureKind::InvalidCredentials,
+            ),
+            (
+                "InvalidParameter",
+                "password has expired; change password to reset",
+                AuthFailureKind::PasswordExpired,
+            ),
+            (
+                "UnknownCredentials",
+                "clients credentials have been revoked",
+                AuthFailureKind::AccountRevoked,
+            ),
+            (
+                "KdcInvalidRequest",
+                "KDC policy rejects request",
+                AuthFailureKind::LogonRestriction,
+            ),
+        ] {
+            let msg = sspi_error(error_type, description);
+            assert_eq!(
+                classify_auth_failure(&msg),
+                Some(expected),
+                "description: {description}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_cross_realm_kdc_miss_names_the_realm() {
+        let msg = sspi_error(
+            "NoAuthenticatingAuthority",
+            "No KDC server found for realm `DEV.AAG.LOCAL`",
+        );
+        assert_eq!(
+            classify_auth_failure(&msg),
+            Some(AuthFailureKind::NoKdc {
+                realm: Some("DEV.AAG.LOCAL".to_owned()),
+            })
+        );
+    }
+
+    #[test]
+    fn an_unreachable_kdc_is_not_reported_as_a_bad_password() {
+        for msg in [
+            "Connection failed: Connection finalize failed: \
+             [failed to send KDC request over TCP @ \
+             /usr/src/packages/BUILD/vendor/ironrdp-tokio-0.10.0/src/reqwest.rs:47] \
+             custom error [kind: Custom]",
+            "Connection failed: Connection finalize failed: [KdcProxy @ reqwest.rs:113] \
+             custom error [kind: Custom]",
+            "Connection failed: Connection finalize failed: [failed to send UDP request @ \
+             reqwest.rs:91] custom error [kind: Custom]",
+        ] {
+            assert_eq!(
+                classify_auth_failure(msg),
+                Some(AuthFailureKind::KdcUnreachable),
+                "message: {msg}"
+            );
+            assert!(
+                !classify_rdp_failure(msg).warrants_freerdp_fallback(),
+                "message: {msg}"
+            );
+        }
+    }
+
+    #[test]
+    fn an_early_authorization_refusal_is_a_missing_logon_right() {
+        let msg = "Authentication failed: Connection finalize failed: [CredSSP @ connector.rs:166] \
+                   access denied [kind: AccessDenied]";
+        assert_eq!(
+            classify_auth_failure(msg),
+            Some(AuthFailureKind::LogonTypeNotGranted)
+        );
+    }
+
+    #[test]
+    fn other_credssp_failures_are_generic() {
+        for msg in [
+            sspi_error("InternalError", "unexpected status: CompleteNeeded"),
+            "CredSSP [kind: Credssp(Error { error_type: OutOfSequence })]".to_owned(),
+            "Credssp failure".to_owned(),
+        ] {
+            assert_eq!(
+                classify_auth_failure(&msg),
+                Some(AuthFailureKind::Generic),
+                "message: {msg}"
+            );
+        }
+    }
+
+    #[test]
+    fn failures_outside_the_sign_in_have_no_auth_kind() {
+        for msg in [
+            ISSUE_235,
+            "Failed to connect to host.internal:3389: connection refused",
+            "TLS upgrade failed: invalid peer certificate",
+            "Operation timed out",
+            LICENSE_EXCHANGE_FAILURE,
+        ] {
+            assert_eq!(classify_auth_failure(msg), None, "message: {msg}");
+        }
     }
 }

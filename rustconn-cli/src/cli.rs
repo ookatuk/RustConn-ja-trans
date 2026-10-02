@@ -2243,4 +2243,18 @@ pub enum MonitorCommands {
         #[arg(short, long, default_value = "table", value_enum)]
         format: OutputFormat,
     },
+
+    /// Make connections follow the global monitoring setting again
+    #[command(
+        about = "Remove the per-connection monitoring on/off override (keeps a custom interval)"
+    )]
+    Reset {
+        /// Connection name or UUID
+        #[arg(required_unless_present = "all", conflicts_with = "all")]
+        name: Option<String>,
+
+        /// Reset every connection
+        #[arg(long)]
+        all: bool,
+    },
 }

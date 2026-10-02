@@ -64,6 +64,7 @@ pub mod gateway;
 pub mod gfx_handler;
 pub mod graphics;
 pub mod input;
+pub mod kerberos;
 pub mod keyboard_layout;
 pub mod multimonitor;
 #[cfg(feature = "rdp-embedded")]
@@ -87,13 +88,18 @@ pub use event::{
     create_frame_update_with_conversion,
 };
 pub use failure::{
-    RdpFailureClass, classify_rdp_failure, is_authentication_failure, is_license_exchange_failure,
+    AuthFailureKind, RdpFailureClass, classify_auth_failure, classify_rdp_failure,
+    is_authentication_failure, is_license_exchange_failure,
 };
 pub use gateway::{
     GatewayAuthMethod, GatewayConfig, GatewayError, GatewayState, resolve_gateway_user,
 };
 pub use graphics::{
     FrameStatistics, GraphicsError, GraphicsMode, GraphicsQuality, ServerGraphicsCapabilities,
+};
+pub use kerberos::{
+    KDC_DEFAULT_PORT, KdcUrlError, KerberosHint, KerberosSettings, kerberos_preflight,
+    kerberos_realm, kerberos_settings_for, normalize_kdc_url,
 };
 pub use keyboard_layout::{LAYOUT_US_ENGLISH, detect_keyboard_layout, xkb_name_to_klid};
 pub use multimonitor::{MonitorArrangement, MonitorDefinition, MonitorLayout};

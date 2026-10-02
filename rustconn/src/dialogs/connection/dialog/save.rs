@@ -40,6 +40,7 @@ impl ConnectionDialog {
         state: &crate::state::SharedAppState,
         editing_id: &Rc<RefCell<Option<Uuid>>>,
         web_config_seed: &Rc<RefCell<Option<rustconn_core::models::WebConfig>>>,
+        monitoring_config_seed: &Rc<RefCell<Option<rustconn_core::monitoring::MonitoringConfig>>>,
         name_entry: &Entry,
         icon_entry: &Entry,
         description_view: &TextView,
@@ -115,6 +116,7 @@ impl ConnectionDialog {
         rdp_mptcp_check: &adw::SwitchRow,
         rdp_fido2_check: &adw::SwitchRow,
         rdp_kerberos_check: &adw::SwitchRow,
+        rdp_kdc_address_entry: &adw::EntryRow,
         rdp_jump_host_dropdown: &DropDown,
         rdp_connections_data: &Rc<RefCell<Vec<(Option<Uuid>, String)>>>,
         rdp_freerdp_clients_data: &Rc<RefCell<Vec<String>>>,
@@ -243,7 +245,7 @@ impl ConnectionDialog {
         theme_cursor_button: &ColorDialogButton,
         connections_data: &Rc<RefCell<Vec<(Option<Uuid>, String)>>>,
         script_command_entry: &Entry,
-        monitoring_toggle: &adw::SwitchRow,
+        monitoring_combo: &adw::ComboRow,
         recording_toggle: &adw::SwitchRow,
         highlight_rules: &Rc<RefCell<Vec<HighlightRule>>>,
         activity_mode_combo: &adw::ComboRow,
@@ -339,6 +341,7 @@ impl ConnectionDialog {
         let rdp_mptcp_check = rdp_mptcp_check.clone();
         let rdp_fido2_check = rdp_fido2_check.clone();
         let rdp_kerberos_check = rdp_kerberos_check.clone();
+        let rdp_kdc_address_entry = rdp_kdc_address_entry.clone();
         let rdp_jump_host_dropdown = rdp_jump_host_dropdown.clone();
         let rdp_connections_data = rdp_connections_data.clone();
         let rdp_freerdp_clients_data = rdp_freerdp_clients_data.clone();
@@ -476,9 +479,10 @@ impl ConnectionDialog {
         let theme_cursor_button = theme_cursor_button.clone();
         let editing_id = editing_id.clone();
         let web_config_seed = web_config_seed.clone();
+        let monitoring_config_seed = monitoring_config_seed.clone();
         let connections_data = connections_data.clone();
         let script_command_entry = script_command_entry.clone();
-        let monitoring_toggle = monitoring_toggle.clone();
+        let monitoring_combo = monitoring_combo.clone();
         let recording_toggle = recording_toggle.clone();
         let highlight_rules = highlight_rules.clone();
         let activity_mode_combo = activity_mode_combo.clone();
@@ -578,6 +582,7 @@ impl ConnectionDialog {
                 rdp_mptcp_check: &rdp_mptcp_check,
                 rdp_fido2_check: &rdp_fido2_check,
                 rdp_kerberos_check: &rdp_kerberos_check,
+                rdp_kdc_address_entry: &rdp_kdc_address_entry,
                 rdp_jump_host_dropdown: &rdp_jump_host_dropdown,
                 rdp_connections_data: &rdp_connections_data,
                 rdp_freerdp_clients_data: &rdp_freerdp_clients_data,
@@ -718,7 +723,8 @@ impl ConnectionDialog {
                 editing_id: &editing_id,
                 web_config_seed: &web_config_seed,
                 script_command_entry: &script_command_entry,
-                monitoring_toggle: &monitoring_toggle,
+                monitoring_combo: &monitoring_combo,
+                monitoring_config_seed: &monitoring_config_seed,
                 recording_toggle: &recording_toggle,
                 highlight_rules: &collected_highlight_rules,
                 activity_mode_combo: &activity_mode_combo,

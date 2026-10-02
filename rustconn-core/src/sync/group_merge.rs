@@ -5,9 +5,13 @@
 //! which connections, groups, and variable templates need to be created,
 //! updated, or deleted locally.
 //!
-//! The merge algorithm uses **name + group_path** as the primary key for
-//! connections and **path** as the primary key for groups. Conflict resolution
-//! is timestamp-based: if both sides have a connection with the same name, the
+//! The merge algorithm uses **name + group path** as the primary key for
+//! connections and **path** as the primary key for groups. Every path is taken
+//! *inside the synced group*: the Master's root name is removed from the front
+//! of each exported path and the Import root's own path from each local one, so
+//! the root is `""` on both sides. Neither root's name, nor where the Import
+//! root sits in the local tree, takes part in matching. Conflict resolution is
+//! timestamp-based: if both sides have a connection under the same key, the
 //! one with the newer `updated_at` wins.
 
 use std::collections::{HashMap, HashSet};
@@ -16,7 +20,7 @@ use uuid::Uuid;
 
 use super::group_export::{GroupSyncExport, SyncConnection, SyncGroup, compute_group_path};
 use super::variable_template::VariableTemplate;
-use crate::models::{Connection, ConnectionGroup};
+use crate::models::{Connection, ConnectionGroup, collect_descendant_group_ids};
 
 /// Name-based merge engine for Group Sync Import mode.
 ///
@@ -37,39 +41,57 @@ pub struct GroupMergeResult {
     pub connections_to_update: Vec<(Uuid, SyncConnection)>,
     /// Local connections not present in the remote export — should be deleted.
     pub connections_to_delete: Vec<Uuid>,
-    /// Remote groups (by path) not present locally — should be created.
+    /// Remote groups (by path inside the synced group) not present locally —
+    /// should be created. Each keeps the path the export wrote.
     pub groups_to_create: Vec<SyncGroup>,
-    /// Local groups (by path) not present in the remote export — should be deleted.
+    /// Local groups (by path inside the synced group) not present in the
+    /// remote export — should be deleted. Never the Import root itself.
     pub groups_to_delete: Vec<Uuid>,
     /// Remote variable templates not present locally — should be created.
     pub variables_to_create: Vec<VariableTemplate>,
 }
 
-/// Composite key for connection lookup: `(name, group_path)`.
-type ConnectionKey = (String, String);
+/// Composite key for connection lookup: `(name, group path inside the synced
+/// group)`.
+type ConnectionKey<'a> = (&'a str, &'a str);
 
 impl GroupMergeEngine {
-    /// Computes the diff between local state and a remote [`GroupSyncExport`].
+    /// Computes the diff between the Import tree under `root_id` and a remote
+    /// [`GroupSyncExport`].
+    ///
+    /// Keys are taken inside the synced group (see the module docs), so the
+    /// Import root can carry any name — the Settings "Import" button names it
+    /// after the file, not after the Master's group — and can sit anywhere in
+    /// the local tree. When both roots have the same name the pairing is the
+    /// one 0.22.12 and earlier made, minus one common prefix; when the names
+    /// differ, those versions paired nothing and recreated everything.
     ///
     /// # Algorithm
     ///
     /// 1. **Phase 1 — Groups by path**: remote paths not in local → create;
-    ///    local paths not in remote → delete.
-    /// 2. **Phase 2 — Connections by (name, group_path)**: remote not in local
+    ///    local paths not in remote → delete. The Import root stands for the
+    ///    export as a whole and is never a candidate.
+    /// 2. **Phase 2 — Connections by (name, group path)**: remote not in local
     ///    → create; local not in remote → delete; both exist and
     ///    `remote.updated_at > local.updated_at` → update.
     /// 3. **Phase 3 — Variable templates**: remote templates whose name is not
     ///    found among `local_variable_names` → create.
     ///
+    /// Groups and connections outside the root's subtree are ignored: they are
+    /// not the Import group's to match, update or delete.
+    ///
     /// # Arguments
     ///
-    /// * `local_groups` — all local groups belonging to the Import root group
-    ///   (including the root itself).
-    /// * `local_connections` — all local connections belonging to those groups.
+    /// * `root_id` — the local Import root group.
+    /// * `local_groups` — local groups including the Import root and its
+    ///   subtree; any others in the slice, such as the root's parent, are
+    ///   ignored.
+    /// * `local_connections` — local connections belonging to those groups.
     /// * `remote` — the parsed remote export file.
     /// * `local_variable_names` — names of variables that already exist locally.
     #[must_use]
     pub fn merge(
+        root_id: Uuid,
         local_groups: &[ConnectionGroup],
         local_connections: &[Connection],
         remote: &GroupSyncExport,
@@ -77,11 +99,20 @@ impl GroupMergeEngine {
     ) -> GroupMergeResult {
         let mut result = GroupMergeResult::default();
 
-        // --- Phase 1: Merge groups by path ---
-        Self::merge_groups(local_groups, remote, &mut result);
+        let local_paths = local_relative_paths(root_id, local_groups);
+        let remote_root = remote.root_group.name.as_str();
 
-        // --- Phase 2: Merge connections by (name, group_path) ---
-        Self::merge_connections(local_groups, local_connections, remote, &mut result);
+        // --- Phase 1: Merge groups by path ---
+        Self::merge_groups(root_id, &local_paths, remote, remote_root, &mut result);
+
+        // --- Phase 2: Merge connections by (name, group path) ---
+        Self::merge_connections(
+            &local_paths,
+            local_connections,
+            remote,
+            remote_root,
+            &mut result,
+        );
 
         // --- Phase 3: Variable templates ---
         Self::merge_variables(
@@ -93,69 +124,75 @@ impl GroupMergeEngine {
         result
     }
 
-    /// Phase 1: diff groups by hierarchical path.
+    /// Phase 1: diff subgroups by their path inside the synced group.
     fn merge_groups(
-        local_groups: &[ConnectionGroup],
+        root_id: Uuid,
+        local_paths: &HashMap<Uuid, String>,
         remote: &GroupSyncExport,
+        remote_root: &str,
         result: &mut GroupMergeResult,
     ) {
-        // Build set of remote paths (subgroups only, not root).
-        let remote_paths: HashSet<&str> = remote.groups.iter().map(|g| g.path.as_str()).collect();
-
-        // Build map of local paths → group id (subgroups only).
-        let local_path_map: HashMap<String, Uuid> = local_groups
+        // Remote subgroups. The export carries its root separately, in
+        // `root_group`, never in `groups`.
+        let remote_paths: HashSet<&str> = remote
+            .groups
             .iter()
-            .filter(|g| g.parent_id.is_some())
-            .map(|g| (compute_group_path(g.id, local_groups), g.id))
+            .map(|g| relative_path(&g.path, remote_root))
             .collect();
 
-        let local_paths: HashSet<&str> = local_path_map.keys().map(String::as_str).collect();
+        // Local subgroups, keyed the same way. The root is left out by id, not
+        // by `parent_id`: an Import root nested under another local group has a
+        // parent, and until 0.22.13 that put it on the delete list of its own
+        // sync.
+        let local_path_map: HashMap<&str, Uuid> = local_paths
+            .iter()
+            .filter(|&(id, _)| *id != root_id)
+            .map(|(id, path)| (path.as_str(), *id))
+            .collect();
 
         // New remote paths → groups_to_create
         for remote_group in &remote.groups {
-            if !local_paths.contains(remote_group.path.as_str()) {
+            if !local_path_map.contains_key(relative_path(&remote_group.path, remote_root)) {
                 result.groups_to_create.push(remote_group.clone());
             }
         }
 
         // Missing remote paths → groups_to_delete
         for (path, group_id) in &local_path_map {
-            if !remote_paths.contains(path.as_str()) {
+            if !remote_paths.contains(path) {
                 result.groups_to_delete.push(*group_id);
             }
         }
     }
 
-    /// Phase 2: diff connections by `(name, group_path)`.
+    /// Phase 2: diff connections by `(name, group path inside the synced group)`.
     fn merge_connections(
-        local_groups: &[ConnectionGroup],
+        local_paths: &HashMap<Uuid, String>,
         local_connections: &[Connection],
         remote: &GroupSyncExport,
+        remote_root: &str,
         result: &mut GroupMergeResult,
     ) {
-        // Index remote connections by (name, group_path).
-        let remote_by_key: HashMap<ConnectionKey, &SyncConnection> = remote
+        // TODO(0.23, id-based matching): exports written since 0.22.13 carry
+        // `SyncConnection::id` and `SyncGroup::id`, and nothing reads them yet,
+        // so a connection renamed or moved on the Master is still recreated
+        // here rather than updated.
+        let remote_by_key: HashMap<ConnectionKey<'_>, &SyncConnection> = remote
             .connections
             .iter()
-            .map(|c| ((c.name.clone(), c.group_path.clone()), c))
-            .collect();
-
-        // Build a group_id → path lookup for local connections.
-        let group_path_lookup: HashMap<Uuid, String> = local_groups
-            .iter()
-            .map(|g| (g.id, compute_group_path(g.id, local_groups)))
-            .collect();
-
-        // Index local connections by (name, group_path).
-        let local_by_key: HashMap<ConnectionKey, &Connection> = local_connections
-            .iter()
             .map(|c| {
-                let path = c
-                    .group_id
-                    .and_then(|gid| group_path_lookup.get(&gid))
-                    .cloned()
-                    .unwrap_or_default();
-                ((c.name.clone(), path), c)
+                let key = (c.name.as_str(), relative_path(&c.group_path, remote_root));
+                (key, c)
+            })
+            .collect();
+
+        // A local connection outside the Import root's subtree gets no key, so
+        // it is never matched, updated or deleted by this sync.
+        let local_by_key: HashMap<ConnectionKey<'_>, &Connection> = local_connections
+            .iter()
+            .filter_map(|c| {
+                let path = local_paths.get(&c.group_id?)?;
+                Some(((c.name.as_str(), path.as_str()), c))
             })
             .collect();
 
@@ -195,9 +232,45 @@ impl GroupMergeEngine {
     }
 }
 
+/// Paths of the Import root and its subtree as seen from inside the root,
+/// keyed by group id; the root itself maps to `""`.
+///
+/// Only the root and its descendants are listed. A group above or beside the
+/// root in `local_groups` is not part of the Import tree, so it must never be
+/// matched — and above all never deleted.
+fn local_relative_paths(root_id: Uuid, local_groups: &[ConnectionGroup]) -> HashMap<Uuid, String> {
+    // The root's own path includes whatever ancestors `local_groups` holds,
+    // e.g. "Work/production-servers"; `compute_group_path` puts the same
+    // prefix in front of every descendant, so removing it leaves the part
+    // inside the root.
+    let root_path = compute_group_path(root_id, local_groups);
+    collect_descendant_group_ids(root_id, local_groups)
+        .into_iter()
+        .map(|id| {
+            let path = compute_group_path(id, local_groups);
+            let relative = relative_path(&path, &root_path).to_owned();
+            (id, relative)
+        })
+        .collect()
+}
+
+/// Returns `path` as seen from inside `root`: `""` for the root itself, the
+/// part after `root/` for anything below it, and `path` unchanged otherwise.
+///
+/// The root's path is removed as a whole string rather than segment by
+/// segment, so a `/` inside a group name cannot shift the split.
+fn relative_path<'a>(path: &'a str, root: &str) -> &'a str {
+    if path == root {
+        return "";
+    }
+    path.strip_prefix(root)
+        .and_then(|rest| rest.strip_prefix('/'))
+        .unwrap_or(path)
+}
+
 #[cfg(test)]
 mod tests {
-    use chrono::{Duration, Utc};
+    use chrono::{DateTime, Duration, Utc};
 
     use super::*;
     use crate::models::{
@@ -207,6 +280,7 @@ mod tests {
     /// Helper: create a minimal `SyncConnection`.
     fn make_sync_conn(name: &str, group_path: &str) -> SyncConnection {
         SyncConnection {
+            id: None,
             name: name.to_owned(),
             group_path: group_path.to_owned(),
             host: "10.0.0.1".to_owned(),
@@ -224,6 +298,7 @@ mod tests {
             wol_config: None,
             icon: None,
             highlight_rules: Vec::new(),
+            monitoring_config: None,
             updated_at: Utc::now(),
         }
     }
@@ -231,6 +306,7 @@ mod tests {
     /// Helper: create a minimal `SyncGroup`.
     fn make_sync_group(name: &str, path: &str) -> SyncGroup {
         SyncGroup {
+            id: None,
             name: name.to_owned(),
             path: path.to_owned(),
             description: None,
@@ -285,6 +361,7 @@ mod tests {
     #[test]
     fn empty_inputs_produce_empty_result() {
         let result = GroupMergeEngine::merge(
+            Uuid::new_v4(),
             &[],
             &[],
             &make_export(vec![], vec![], vec![]),
@@ -299,7 +376,7 @@ mod tests {
         let export = make_export(vec![remote_group], vec![], vec![]);
 
         let root = make_local_group("Root", None);
-        let result = GroupMergeEngine::merge(&[root], &[], &export, &HashSet::new());
+        let result = GroupMergeEngine::merge(root.id, &[root], &[], &export, &HashSet::new());
 
         assert_eq!(result.groups_to_create.len(), 1);
         assert_eq!(result.groups_to_create[0].path, "Root/Web");
@@ -312,7 +389,13 @@ mod tests {
         let child = make_local_group("OldGroup", Some(root.id));
         let export = make_export(vec![], vec![], vec![]);
 
-        let result = GroupMergeEngine::merge(&[root, child.clone()], &[], &export, &HashSet::new());
+        let result = GroupMergeEngine::merge(
+            root.id,
+            &[root, child.clone()],
+            &[],
+            &export,
+            &HashSet::new(),
+        );
 
         assert!(result.groups_to_create.is_empty());
         assert_eq!(result.groups_to_delete.len(), 1);
@@ -326,7 +409,8 @@ mod tests {
         let remote_group = make_sync_group("Web", "Root/Web");
         let export = make_export(vec![remote_group], vec![], vec![]);
 
-        let result = GroupMergeEngine::merge(&[root, child], &[], &export, &HashSet::new());
+        let result =
+            GroupMergeEngine::merge(root.id, &[root, child], &[], &export, &HashSet::new());
 
         assert!(result.groups_to_create.is_empty());
         assert!(result.groups_to_delete.is_empty());
@@ -342,7 +426,7 @@ mod tests {
         let remote_conn = make_sync_conn("nginx-1", "Root");
         let export = make_export(vec![], vec![remote_conn], vec![]);
 
-        let result = GroupMergeEngine::merge(&[root], &[], &export, &HashSet::new());
+        let result = GroupMergeEngine::merge(root.id, &[root], &[], &export, &HashSet::new());
 
         assert_eq!(result.connections_to_create.len(), 1);
         assert_eq!(result.connections_to_create[0].name, "nginx-1");
@@ -355,6 +439,7 @@ mod tests {
         let export = make_export(vec![], vec![], vec![]);
 
         let result = GroupMergeEngine::merge(
+            root.id,
             &[root],
             std::slice::from_ref(&local_conn),
             &export,
@@ -376,6 +461,7 @@ mod tests {
 
         let export = make_export(vec![], vec![remote_conn], vec![]);
         let result = GroupMergeEngine::merge(
+            root.id,
             &[root],
             std::slice::from_ref(&local_conn),
             &export,
@@ -396,7 +482,8 @@ mod tests {
         remote_conn.updated_at = Utc::now() - Duration::hours(1);
 
         let export = make_export(vec![], vec![remote_conn], vec![]);
-        let result = GroupMergeEngine::merge(&[root], &[local_conn], &export, &HashSet::new());
+        let result =
+            GroupMergeEngine::merge(root.id, &[root], &[local_conn], &export, &HashSet::new());
 
         assert!(result.connections_to_update.is_empty());
         assert!(result.connections_to_create.is_empty());
@@ -414,7 +501,8 @@ mod tests {
         remote_conn.updated_at = ts;
 
         let export = make_export(vec![], vec![remote_conn], vec![]);
-        let result = GroupMergeEngine::merge(&[root], &[local_conn], &export, &HashSet::new());
+        let result =
+            GroupMergeEngine::merge(root.id, &[root], &[local_conn], &export, &HashSet::new());
 
         assert!(result.connections_to_update.is_empty());
         assert!(result.connections_to_create.is_empty());
@@ -435,7 +523,7 @@ mod tests {
         };
         let export = make_export(vec![], vec![], vec![template]);
 
-        let result = GroupMergeEngine::merge(&[], &[], &export, &HashSet::new());
+        let result = GroupMergeEngine::merge(Uuid::new_v4(), &[], &[], &export, &HashSet::new());
 
         assert_eq!(result.variables_to_create.len(), 1);
         assert_eq!(result.variables_to_create[0].name, "web_key");
@@ -452,7 +540,7 @@ mod tests {
         let export = make_export(vec![], vec![], vec![template]);
 
         let local_vars: HashSet<String> = std::iter::once("web_key".to_owned()).collect();
-        let result = GroupMergeEngine::merge(&[], &[], &export, &local_vars);
+        let result = GroupMergeEngine::merge(Uuid::new_v4(), &[], &[], &export, &local_vars);
 
         assert!(result.variables_to_create.is_empty());
     }
@@ -497,6 +585,7 @@ mod tests {
         );
 
         let result = GroupMergeEngine::merge(
+            root.id,
             &[root, web],
             &[nginx.clone(), old_server.clone()],
             &export,
@@ -525,5 +614,200 @@ mod tests {
         // Variable template created
         assert_eq!(result.variables_to_create.len(), 1);
         assert_eq!(result.variables_to_create[0].name, "db_pass");
+    }
+
+    // ---------------------------------------------------------------
+    // Matching inside the synced group (0.22.13)
+    //
+    // Up to 0.22.12 every key carried its own root's name, so these
+    // scenarios reported churn on every sync: with the Import root named
+    // "production-servers" against the Master's "Production Servers",
+    // `connections_to_create` held "bastion" and "nginx-1",
+    // `connections_to_delete` both local copies, and "Web" was in both
+    // `groups_to_create` and `groups_to_delete`. A nested Import root was
+    // also in its own `groups_to_delete`, whatever its name.
+    // ---------------------------------------------------------------
+
+    /// The Master's tree as the exporter writes it: every path starts with
+    /// the Master root's name, "Production Servers".
+    fn production_servers_export(ts: DateTime<Utc>) -> GroupSyncExport {
+        let mut bastion = make_sync_conn("bastion", "Production Servers");
+        bastion.updated_at = ts;
+        let mut nginx = make_sync_conn("nginx-1", "Production Servers/Web");
+        nginx.updated_at = ts;
+
+        let mut export = make_export(
+            vec![make_sync_group("Web", "Production Servers/Web")],
+            vec![bastion, nginx],
+            vec![],
+        );
+        export.root_group = make_sync_group("Production Servers", "Production Servers");
+        export
+    }
+
+    /// The local copy of [`production_servers_export`] under `root`: "bastion"
+    /// in the root, "nginx-1" in a "Web" subgroup. Returns the subgroup and
+    /// the connections.
+    fn mirror_under(
+        root: &ConnectionGroup,
+        ts: DateTime<Utc>,
+    ) -> (ConnectionGroup, Vec<Connection>) {
+        let web = make_local_group("Web", Some(root.id));
+        let mut bastion = make_local_conn("bastion", root.id);
+        bastion.updated_at = ts;
+        let mut nginx = make_local_conn("nginx-1", web.id);
+        nginx.updated_at = ts;
+        (web, vec![bastion, nginx])
+    }
+
+    /// The Settings "Import" button names the Import group after the file
+    /// slug, so the Import root is "production-servers" while the Master's
+    /// is "Production Servers".
+    #[test]
+    fn import_root_named_after_the_file_matches_the_master_tree() {
+        let ts = Utc::now();
+        let export = production_servers_export(ts);
+        let root = make_local_group("production-servers", None);
+        let (web, connections) = mirror_under(&root, ts);
+
+        let result = GroupMergeEngine::merge(
+            root.id,
+            &[root, web],
+            &connections,
+            &export,
+            &HashSet::new(),
+        );
+
+        assert_eq!(result, GroupMergeResult::default());
+    }
+
+    /// Renaming the local Import group is a local choice; it must not
+    /// recreate anything.
+    #[test]
+    fn renamed_import_root_still_matches() {
+        let ts = Utc::now();
+        let export = production_servers_export(ts);
+        let mut root = make_local_group("Production Servers", None);
+        let (web, connections) = mirror_under(&root, ts);
+
+        let before = GroupMergeEngine::merge(
+            root.id,
+            &[root.clone(), web.clone()],
+            &connections,
+            &export,
+            &HashSet::new(),
+        );
+        assert_eq!(before, GroupMergeResult::default());
+
+        root.name = "Prod (team copy)".to_owned();
+        let after = GroupMergeEngine::merge(
+            root.id,
+            &[root, web],
+            &connections,
+            &export,
+            &HashSet::new(),
+        );
+        assert_eq!(after, GroupMergeResult::default());
+    }
+
+    /// An Import root inside another local group. With the parent in the
+    /// slice its own path is "Work/production-servers"; without it — what
+    /// `SyncManager` passes — the root still has a `parent_id`. Neither the
+    /// root, nor the parent, nor a connection in the parent may be touched.
+    #[test]
+    fn nested_import_root_matches_and_is_never_deleted() {
+        let ts = Utc::now();
+        let export = production_servers_export(ts);
+        let work = make_local_group("Work", None);
+        let root = make_local_group("production-servers", Some(work.id));
+        let (web, connections) = mirror_under(&root, ts);
+
+        let mut with_outsider = connections.clone();
+        with_outsider.push(make_local_conn("laptop", work.id));
+        let with_parent = GroupMergeEngine::merge(
+            root.id,
+            &[work, root.clone(), web.clone()],
+            &with_outsider,
+            &export,
+            &HashSet::new(),
+        );
+        assert_eq!(with_parent, GroupMergeResult::default());
+
+        let subtree_only = GroupMergeEngine::merge(
+            root.id,
+            &[root, web],
+            &connections,
+            &export,
+            &HashSet::new(),
+        );
+        assert_eq!(subtree_only, GroupMergeResult::default());
+    }
+
+    /// Matching inside the synced group must not weaken deletion: a
+    /// connection the Master no longer has still goes.
+    #[test]
+    fn connection_missing_from_the_export_is_still_deleted_under_a_renamed_root() {
+        let ts = Utc::now();
+        let export = production_servers_export(ts);
+        let root = make_local_group("production-servers", None);
+        let (web, mut connections) = mirror_under(&root, ts);
+        let stale = make_local_conn("decommissioned", web.id);
+        let stale_id = stale.id;
+        connections.push(stale);
+
+        let result = GroupMergeEngine::merge(
+            root.id,
+            &[root, web],
+            &connections,
+            &export,
+            &HashSet::new(),
+        );
+
+        assert_eq!(result.connections_to_delete, vec![stale_id]);
+        assert!(result.connections_to_create.is_empty());
+        assert!(result.connections_to_update.is_empty());
+        assert!(result.groups_to_create.is_empty());
+        assert!(result.groups_to_delete.is_empty());
+    }
+
+    /// A newer copy on the Master is an update of the matched local
+    /// connection, not a delete-and-recreate.
+    #[test]
+    fn newer_remote_connection_updates_under_a_renamed_root() {
+        let ts = Utc::now() - Duration::hours(1);
+        let mut export = production_servers_export(ts);
+        let root = make_local_group("production-servers", None);
+        let (web, connections) = mirror_under(&root, ts);
+        let nginx_id = connections[1].id;
+        for conn in &mut export.connections {
+            if conn.name == "nginx-1" {
+                conn.updated_at = Utc::now();
+            }
+        }
+
+        let result = GroupMergeEngine::merge(
+            root.id,
+            &[root, web],
+            &connections,
+            &export,
+            &HashSet::new(),
+        );
+
+        assert_eq!(result.connections_to_update.len(), 1);
+        assert_eq!(result.connections_to_update[0].0, nginx_id);
+        assert!(result.connections_to_create.is_empty());
+        assert!(result.connections_to_delete.is_empty());
+    }
+
+    #[test]
+    fn relative_path_strips_the_root_as_a_whole() {
+        assert_eq!(relative_path("Root", "Root"), "");
+        assert_eq!(relative_path("Root/Web", "Root"), "Web");
+        // A `/` inside the root's name does not shift the split.
+        assert_eq!(relative_path("A/B/Web", "A/B"), "Web");
+        // A sibling whose name merely starts with the root's is not inside it.
+        assert_eq!(relative_path("Production/Web", "Prod"), "Production/Web");
+        // A path from outside the root is left alone.
+        assert_eq!(relative_path("Other/Web", "Root"), "Other/Web");
     }
 }

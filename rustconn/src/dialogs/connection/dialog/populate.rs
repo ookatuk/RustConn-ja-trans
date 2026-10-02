@@ -310,15 +310,14 @@ impl ConnectionDialog {
             self.theme_preview.queue_draw();
         }
 
-        // Set remote monitoring toggle
-        // If monitoring_config has enabled=Some(false), toggle is OFF.
-        // Otherwise (None or enabled=Some(true)), toggle is ON.
-        let mon_enabled = conn
-            .monitoring_config
-            .as_ref()
-            .and_then(|mc| mc.enabled)
-            .unwrap_or(true);
-        self.monitoring_toggle.set_active(mon_enabled);
+        // Remote monitoring override (issue #352): no on/off value shows as
+        // "Use global setting" instead of as on. The whole config is kept so a
+        // save keeps an interval the editor has no widget for.
+        self.monitoring_combo
+            .set_selected(super::super::advanced_tab::monitoring_choice_index(
+                conn.monitoring_override(),
+            ));
+        *self.monitoring_config_seed.borrow_mut() = conn.monitoring_config.clone();
 
         // Set session recording toggle
         self.recording_toggle
@@ -1335,6 +1334,12 @@ impl ConnectionDialog {
         self.rdp_mptcp_check.set_active(rdp.mptcp);
         self.rdp_fido2_check.set_active(rdp.fido2_enabled);
         self.rdp_kerberos_check.set_active(rdp.kerberos_enabled);
+        // `set_active` only notifies on a change, so the KDC Address row's
+        // sensitivity is set here too rather than left to the switch handler.
+        self.rdp_kdc_address_entry
+            .set_sensitive(rdp.kerberos_enabled);
+        self.rdp_kdc_address_entry
+            .set_text(rdp.kdc_proxy_url.as_deref().unwrap_or_default());
         self.rdp_disable_nla_check.set_active(rdp.disable_nla);
         self.rdp_security_layer_dropdown
             .set_selected(rdp.security_layer.index());

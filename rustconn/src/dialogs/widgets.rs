@@ -478,6 +478,25 @@ impl SwitchRowBuilder {
     }
 }
 
+/// Marks `field` invalid or valid, for the eye and for assistive technology.
+///
+/// The red outline alone tells a screen reader nothing, and the HIG asks
+/// that no information be carried by colour only, so the accessible
+/// `invalid` state follows the `error` style class. Shared by the highlight
+/// rule editors and the RDP connection editor's KDC Address.
+pub fn set_invalid(field: &impl IsA<gtk4::Widget>, invalid: bool) {
+    let widget = field.upcast_ref::<gtk4::Widget>();
+    if invalid {
+        widget.add_css_class("error");
+        widget.update_state(&[gtk4::accessible::State::Invalid(
+            gtk4::AccessibleInvalidState::True,
+        )]);
+    } else {
+        widget.remove_css_class("error");
+        widget.reset_state(gtk4::AccessibleState::Invalid);
+    }
+}
+
 /// Shared text and field feedback for the two highlight rule editors.
 ///
 /// The global editor in Settings and the per-connection one in the connection
@@ -488,6 +507,7 @@ impl SwitchRowBuilder {
 pub mod highlight_fields {
     use gtk4::prelude::*;
 
+    use super::set_invalid;
     use crate::i18n::i18n;
 
     /// Label of the underline (foreground) colour field.
@@ -539,24 +559,6 @@ pub mod highlight_fields {
                 set_invalid(field, true);
                 field.set_tooltip_text(Some(&error.to_string()));
             }
-        }
-    }
-
-    /// Marks `field` invalid or valid, for the eye and for assistive technology.
-    ///
-    /// The red outline alone tells a screen reader nothing, and the HIG asks
-    /// that no information be carried by colour only, so the accessible
-    /// `invalid` state follows the `error` style class.
-    fn set_invalid(field: &impl IsA<gtk4::Widget>, invalid: bool) {
-        let widget = field.upcast_ref::<gtk4::Widget>();
-        if invalid {
-            widget.add_css_class("error");
-            widget.update_state(&[gtk4::accessible::State::Invalid(
-                gtk4::AccessibleInvalidState::True,
-            )]);
-        } else {
-            widget.remove_css_class("error");
-            widget.reset_state(gtk4::AccessibleState::Invalid);
         }
     }
 

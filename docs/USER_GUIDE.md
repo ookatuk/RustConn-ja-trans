@@ -1,6 +1,6 @@
 # RustConn User Guide
 
-**Version 0.22.12** | GTK4/libadwaita Connection Manager for Linux
+**Version 0.22.13** | GTK4/libadwaita Connection Manager for Linux
 
 RustConn is a modern connection manager designed for Linux with Wayland-first approach. It supports SSH, RDP, VNC, SPICE, MOSH, SFTP, Telnet, Serial, Kubernetes, Web protocols and Zero Trust integrations through a native GTK4/libadwaita interface.
 
@@ -1140,6 +1140,16 @@ always uses an X11 client regardless of this setting, because the `wl*`/`sdl*`
 clients cannot host individual application windows. From the CLI:
 `--rdp-freerdp-client NAME` (pass an empty string on `update` to clear it).
 
+*Changed in 0.22.13.* Only FreeRDP 3 clients are used. RustConn passes FreeRDP
+its command line through an `/args-from:` file, which FreeRDP 2 rejects, and on
+Debian and Ubuntu FreeRDP 2 installs under the same names (`xfreerdp`,
+`wlfreerdp`) that FreeRDP 3 uses elsewhere — so each client's version is checked
+before it is launched. A FreeRDP 2 client is left out of the list, a connection
+pinned to one falls back to auto-detection, and the embedded `wlfreerdp` mode
+needs `wlfreerdp3` or a `wlfreerdp` that is FreeRDP 3. When only FreeRDP 2 is
+installed, RustConn says which version it found and asks for FreeRDP 3
+(issue #351).
+
 #### Server Certificate Changes
 
 RDP servers almost always present a self-signed certificate. Like SSH's
@@ -1201,6 +1211,45 @@ This adds the FreeRDP `/fido` flag to the session launch. The embedded IronRDP c
 
 **CLI:** not exposed. `.rdp` export does not carry it either: the flag is a FreeRDP
 option, not a field in the Microsoft `.rdp` format.
+
+#### Kerberos Authentication (Protected Users)
+
+Accounts in the Active Directory **Protected Users** group may not sign in with NTLM, so
+the embedded client's default NLA is refused for them with an account-restriction error.
+Turn on **Kerberos Authentication** (Connection Dialog → RDP → Features) to sign in with
+Kerberos instead. It applies to the embedded IronRDP client only.
+
+What it needs:
+
+- **The password saved for the connection.** The client requests its own Kerberos
+  tickets with it; a ticket obtained with `kinit` is not used, and none is needed.
+- **Host set to the server's DNS name** as the domain knows it, such as
+  `rdp1.example.com`. The service principal is `TERMSRV/<host>`, so an IP address,
+  `localhost` or the local end of an SSH jump-host tunnel cannot work; RustConn warns
+  about these before connecting.
+- **Domain set to the DNS domain**, such as `EXAMPLE.COM`, not the short NetBIOS name.
+  A user name of the form `user@example.com` works as well.
+- A clock within five minutes of the domain's.
+
+**Where the KDC comes from.** The optional **KDC Address** row under the switch takes a
+domain controller name or IP address (`dc1.example.com`, `dc1.example.com:88`,
+`[2001:db8::1]:88`), a `tcp://` or `udp://` address, or an `https://` KDC proxy URL
+(MS-KKDCP, such as `https://gateway.example.com/KdcProxy`) for networks where port 88 is
+not reachable. When the row is empty, the KDC is taken from, in this order:
+
+1. the `SSPI_KDC_URL_<REALM>` environment variable, then `SSPI_KDC_URL` — for example
+   `SSPI_KDC_URL=tcp://dc1.example.com:88`;
+2. the realm's `kdc` entry under `[realms]` in `/etc/krb5.conf`;
+3. the realm's own DNS name, `tcp://example.com:88`, which in Active Directory resolves
+   to the domain controllers.
+
+DNS SRV records are not looked up on Linux. A domain ending in `.local` often does not
+resolve through the system resolver, because `.local` is reserved for mDNS; enter a
+domain controller's address as the KDC Address for such a domain.
+
+There is no fallback to NTLM once Kerberos is on. A KDC that cannot be found or reached
+ends the sign-in with a message naming the problem — a Protected Users account would be
+refused over NTLM anyway.
 
 #### Dynamic Resolution on Resize
 
@@ -1323,7 +1372,8 @@ Launch individual remote applications instead of a full desktop session. The rem
 **How It Works:**
 - RemoteApp uses the RAIL (Remote Applications Integrated Locally) protocol extension
 - RustConn automatically uses FreeRDP for RemoteApp sessions — IronRDP does not support RAIL
-- FreeRDP must be installed on the system (bundled in Flatpak builds)
+- Sign-in is restricted to NTLM by default (`/auth-pkg-list:ntlm`): it works for standalone servers and needs no Kerberos setup on this machine. With **Kerberos Authentication** on, the restriction is left out and FreeRDP negotiates Kerberos through the system krb5 configuration (a ticket from `kinit`) — required for an AD "Protected Users" account, which has NTLM disabled. *Changed in 0.22.13* (issue #351)
+- FreeRDP 3's X11 client (`xfreerdp3`, or an `xfreerdp` that is FreeRDP 3) must be installed on the system; the Flatpak looks for it on the host, because its bundled FreeRDP has no X11 client
 - The Arguments and Display Name fields appear only after entering a Program path
 
 **Program Path Format:**
@@ -2990,7 +3040,7 @@ Tracks: total connections, success rate, connection duration (average/total), mo
 
 ### Remote Monitoring
 
-MobaXterm-style monitoring bar below SSH terminals showing real-time system metrics from remote Linux hosts. Completely agentless — no software needs to be installed on the remote host. RustConn collects data by parsing `/proc/*` and `df` output over a separate SSH connection. For Telnet and Kubernetes sessions, monitoring is available if the host is also reachable via SSH.
+MobaXterm-style monitoring bar below SSH terminals showing real-time system metrics from remote Linux hosts. Completely agentless — no software needs to be installed on the remote host. RustConn collects data by parsing `/proc/*` and `df` output over a separate SSH connection. Monitoring runs for SSH connections only; Telnet, Kubernetes and other session types have no monitoring bar. It displays metrics only, with no thresholds, alerts or actions.
 
 **Monitoring Bar:**
 ```
@@ -3014,9 +3064,15 @@ MobaXterm-style monitoring bar below SSH terminals showing real-time system metr
 3. Configure polling interval (1–60 seconds, default: 3)
 4. Select which metrics to display in the **Visible Metrics** group
 
-**Per-Connection Override:** Edit connection → **Advanced** tab → **Remote Monitoring** section → toggle **Enable Monitoring** ON or OFF. This overrides the global setting for this specific connection — if global monitoring is disabled but the toggle is ON, monitoring will still run for this connection (and vice versa).
+**Per-Connection Override:** Edit connection → **Advanced** tab → **Remote Monitoring** section → **Enable Monitoring**:
 
-**Requirements:** Remote host must be Linux. No agent installation needed. Works with SSH, Telnet, and Kubernetes connections.
+- **Use global setting** (the default) — the connection follows the global switch above.
+- **Enabled** — monitoring runs for this connection even when the global switch is off.
+- **Disabled** — monitoring never runs for this connection, and no monitoring SSH session is opened.
+
+Before 0.22.13 this was an on/off switch, and saving a connection in the editor stored **Enabled** whenever it was on, so such connections keep monitoring after the global switch is turned off. To make them follow the global switch again, use **Settings → Monitoring → Reset Per-Connection Overrides**, which shows how many connections set their own value before anything changes, or run `rustconn-cli monitor reset --all`. A polling interval set for one connection with `rustconn-cli monitor enable --interval` is kept by both the editor and the reset.
+
+**Requirements:** Remote host must be Linux. No agent installation needed. Works with SSH connections.
 
 ### Flatpak Components
 
@@ -3212,7 +3268,7 @@ The settings dialog uses `adw::PreferencesDialog` with built-in search. Settings
 
 **Clients group:** Auto-detected CLI tools with versions — Protocol Clients (SSH, RDP, VNC, SPICE, Telnet, Serial, Kubernetes) and Zero Trust (AWS, GCP, Azure, OCI, Cloudflare, Teleport, Tailscale, Boundary, Hoop.dev). Searches PATH and user directories.
 
-**Monitoring group:** Enable monitoring (global toggle), Polling interval (1–60 seconds, default: 3), Visible Metrics (CPU, Memory, Disk, Network, Load Average, System Info).
+**Monitoring group:** Enable monitoring (global toggle), Polling interval (1–60 seconds, default: 3), Reset Per-Connection Overrides (makes every connection follow the global toggle; per-connection polling intervals are kept), Visible Metrics (CPU, Memory, Disk, Network, Load Average, System Info).
 
 ### Custom Keybindings
 
@@ -3613,6 +3669,10 @@ Group Sync is designed for teams. Each root group exports to a dedicated `.rcn` 
 3. The group appears in the sidebar with a sync indicator (⟳)
 
 Import groups are read-only for synced fields (name, host, port, protocol). Local-only fields (SSH key path, sort order, pinned status) remain editable. Changes from the Master are auto-imported when the file watcher detects updates (3s debounce).
+
+**How Import matches the Master's file:** a connection is matched by its name and its group path *inside* the synced group, and a subgroup by its path inside the synced group. The name of the synced group itself takes no part, so you can rename the local Import group (the "Import" button names it after the file, not after the Master's group) or move it under another group without changing what matches. A newer copy on the Master updates the matched connection and keeps your local-only fields; a connection the Master no longer has goes to Trash.
+
+> **Current limitations:** renaming a connection on the Master, or moving it to another group there, looks to an Import device like one connection removed and another added. The Import side moves the old copy to Trash and creates a new one, so its password has to be entered again there. A connection or subgroup that a sync adds *inside a subgroup* is still created directly in the synced group rather than at its path, so the next sync sees it as removed and added again. Matching by connection ID and placing by path are planned for a later release; files written since 0.22.13 already carry the IDs it will use, and older RustConn versions read those files unchanged.
 
 Credentials are never synced — only variable names are included. Each team member configures their own secret backend values locally.
 

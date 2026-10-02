@@ -210,6 +210,8 @@ pub struct ConnectionDialog {
     rdp_mptcp_check: adw::SwitchRow,
     rdp_fido2_check: adw::SwitchRow,
     rdp_kerberos_check: adw::SwitchRow,
+    /// KDC Address for Kerberos NLA, saved normalized as `kdc_proxy_url`.
+    rdp_kdc_address_entry: adw::EntryRow,
     rdp_jump_host_dropdown: DropDown,
     rdp_connections_data: Rc<RefCell<Vec<(Option<Uuid>, String)>>>,
     rdp_freerdp_clients_data: Rc<RefCell<Vec<String>>>,
@@ -386,8 +388,8 @@ pub struct ConnectionDialog {
     theme_cursor_button: ColorDialogButton,
     theme_reset_button: Button,
     theme_preview: DrawingArea,
-    // Remote monitoring override field
-    monitoring_toggle: adw::SwitchRow,
+    // Remote monitoring override field: Use global setting / Enabled / Disabled
+    monitoring_combo: adw::ComboRow,
     // Session recording field
     recording_toggle: adw::SwitchRow,
     // Highlight rules fields
@@ -428,6 +430,14 @@ pub struct ConnectionDialog {
     /// the certificate exception. Saving now starts from this value and overlays
     /// what the widgets know.
     web_config_seed: Rc<RefCell<Option<rustconn_core::models::WebConfig>>>,
+    /// The `MonitoringConfig` this dialog was populated from.
+    ///
+    /// The Advanced tab picks only the on/off value, but the config also holds
+    /// an `interval_secs` that `rustconn-cli monitor enable --interval` sets and
+    /// no widget shows. Saving rebuilt the config from the switch alone, so
+    /// every edit wiped that interval (issue #352); saving now applies the
+    /// picker's choice to this value instead. `None` for a new connection.
+    monitoring_config_seed: Rc<RefCell<Option<rustconn_core::monitoring::MonitoringConfig>>>,
     // Callback
     on_save: super::ConnectionCallback,
     connections_data: Rc<RefCell<Vec<(Option<Uuid>, String)>>>,

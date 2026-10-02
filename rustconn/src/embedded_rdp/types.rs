@@ -29,6 +29,11 @@ pub enum EmbeddedRdpError {
     #[error("wlfreerdp not available, falling back to external mode")]
     WlFreeRdpNotAvailable,
 
+    /// No FreeRDP 3 client is installed. Carries the version of the FreeRDP
+    /// that was refused — FreeRDP 2 — when one was found (issue #351).
+    #[error("No supported FreeRDP client is installed (RustConn needs FreeRDP 3)")]
+    NoSupportedFreeRdp(Option<rustconn_core::protocol::FreeRdpVersion>),
+
     /// Input forwarding error
     #[error("Input forwarding error: {0}")]
     InputForwarding(String),
@@ -230,14 +235,17 @@ pub struct RdpConfig {
     /// Allows using local FIDO2 security keys for authentication in the remote session.
     /// Requires FreeRDP 3.x with `/fido` support. Only applies to External mode.
     pub fido2_enabled: bool,
-    /// Attempt Kerberos authentication for NLA instead of NTLM (issue #351).
+    /// Authenticate NLA with Kerberos instead of NTLM (issue #351).
     ///
-    /// Only affects the embedded IronRDP path (CredSSP). Needed for AD
-    /// "Protected Users" hosts, which disable NTLM domain-wide. Requires a
-    /// working local krb5 setup (a TGT via `kinit`, or a KDC proxy URL).
+    /// Only affects the embedded IronRDP path (CredSSP). Needed for accounts in
+    /// the AD "Protected Users" group, which may not use NTLM. Signs in with the
+    /// saved password, not a `kinit` ticket, and has no NTLM fallback when the
+    /// KDC cannot be found or reached.
     pub kerberos_enabled: bool,
-    /// Optional KDC proxy (MS-KKDCP) URL for the Kerberos exchange, used only
-    /// when [`Self::kerberos_enabled`] is set. `None` = direct KDC via krb5.
+    /// KDC address for the Kerberos exchange, used only when
+    /// [`Self::kerberos_enabled`] is set: a domain controller or an MS-KKDCP
+    /// proxy URL. `None` lets sspi look the KDC up, then tries the realm's own
+    /// DNS name.
     pub kdc_proxy_url: Option<String>,
 }
 
@@ -477,6 +485,23 @@ pub enum RdpEvent {
     AuthRequired,
     /// Fallback to external mode triggered
     FallbackTriggered(String),
+    /// The embedded client's process exited
+    ClientExited(EmbeddedClientExit),
+}
+
+/// How the embedded FreeRDP client's process ended.
+///
+/// Reported as an event so the widget stops showing "Connected" over a client
+/// that is gone: an exit right after launch is a failed connection, a later
+/// one is the session ending (issue #351).
+#[derive(Debug, Clone)]
+pub struct EmbeddedClientExit {
+    /// Exit status as the operating system reported it
+    pub status: std::process::ExitStatus,
+    /// Time from the launch until the exit was noticed
+    pub running_for: std::time::Duration,
+    /// The last lines of the client's stderr, Qt noise removed
+    pub stderr_tail: String,
 }
 
 /// Thread state for FreeRDP operations
@@ -563,6 +588,11 @@ mod tests {
 
         let err = EmbeddedRdpError::Connection("timeout".to_string());
         assert!(err.to_string().contains("timeout"));
+
+        let err = EmbeddedRdpError::NoSupportedFreeRdp(Some(
+            rustconn_core::protocol::FreeRdpVersion::new(2, 11, 5),
+        ));
+        assert!(err.to_string().contains("FreeRDP 3"));
     }
 
     #[test]

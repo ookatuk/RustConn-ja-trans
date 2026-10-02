@@ -495,6 +495,7 @@ fn arb_full_settings() -> impl Strategy<Value = AppSettings> {
                 sidebar_width,
             )| {
                 AppSettings {
+                    written_by: None,
                     terminal: TerminalSettings {
                         font_family,
                         font_size,

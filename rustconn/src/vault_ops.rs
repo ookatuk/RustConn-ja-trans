@@ -1806,12 +1806,8 @@ pub fn delete_vault_credential(
     match backend_type {
         SecretBackendType::KdbxFile | SecretBackendType::KeePassXc => {
             if let Some(kdbx_path) = settings.secrets.kdbx_path.as_ref() {
-                // Full hierarchical path incl. the "RustConn/" prefix and the
-                // protocol suffix, e.g. "RustConn/Group/Name (rdp)" — the format
-                // `delete_entry_from_kdbx` (and the CLI) expect.
-                let entry_path =
-                    rustconn_core::secret::KeePassHierarchy::build_entry_path(connection, groups);
-                let full_entry_path = format!("{entry_path} ({protocol_str})");
+                // Built by the same helper the Trash guard compares with.
+                let full_entry_path = kdbx_connection_entry(groups, connection, &protocol_str);
                 let key_file = settings.secrets.kdbx_key_file.clone();
                 let kdbx = std::path::Path::new(kdbx_path);
                 let key = key_file.as_ref().map(std::path::Path::new);
@@ -1853,6 +1849,118 @@ pub fn delete_vault_credential(
             primary_result
         }
     }
+}
+
+/// The KDBX entry [`delete_vault_credential`] removes for `connection`: the
+/// full hierarchical path, `RustConn/` prefix included, plus the protocol
+/// suffix — e.g. `"RustConn/Group/Name (rdp)"`, the format
+/// `delete_entry_from_kdbx` (and the CLI) expect.
+fn kdbx_connection_entry(
+    groups: &[rustconn_core::models::ConnectionGroup],
+    connection: &rustconn_core::models::Connection,
+    protocol_str: &str,
+) -> String {
+    let entry_path = rustconn_core::secret::KeePassHierarchy::build_entry_path(connection, groups);
+    format!("{entry_path} ({protocol_str})")
+}
+
+/// Every key [`delete_vault_credential`] removes for `connection` on
+/// `backend_type`, the key the credential is stored under today first.
+fn vault_keys_deleted_for(
+    groups: &[rustconn_core::models::ConnectionGroup],
+    connection: &rustconn_core::models::Connection,
+    backend_type: rustconn_core::config::SecretBackendType,
+) -> Vec<String> {
+    use rustconn_core::config::SecretBackendType;
+
+    let protocol_str = connection
+        .protocol_config
+        .protocol_type()
+        .as_str()
+        .to_lowercase();
+    if matches!(
+        backend_type,
+        SecretBackendType::KeePassXc | SecretBackendType::KdbxFile
+    ) {
+        return vec![kdbx_connection_entry(groups, connection, &protocol_str)];
+    }
+    vault_keys_for_connection(groups, connection, &protocol_str, backend_type)
+}
+
+/// The key `connection`'s credential is stored under today: the first of the
+/// keys [`delete_vault_credential`] would remove for it.
+fn current_vault_key(
+    groups: &[rustconn_core::models::ConnectionGroup],
+    connection: &rustconn_core::models::Connection,
+    backend_type: rustconn_core::config::SecretBackendType,
+) -> Option<String> {
+    vault_keys_deleted_for(groups, connection, backend_type)
+        .into_iter()
+        .next()
+}
+
+/// Finds a live connection whose credential would go with `trashed`'s if the
+/// latter were deleted now.
+///
+/// A vault key is built from a connection's name, group path and protocol —
+/// never from its id — so a trashed connection and a live one that agree on
+/// those three resolve to the same entry. Group Sync produces exactly that
+/// pair whenever it recreates a connection: the old copy goes to the Trash,
+/// and the new one keeps the name and lands in the same group. Emptying the
+/// Trash then deleted the live copy's password together with the old one's.
+///
+/// Each live connection's current key is compared with every key deleting
+/// `trashed` removes, using the builders [`delete_vault_credential`] uses, so
+/// `groups` must be the hierarchy that delete is called with. Any live
+/// connection counts, whatever its password source: keeping a shared entry
+/// costs an orphan at worst, deleting it costs a password.
+#[must_use]
+pub fn live_connection_sharing_vault_key<'a>(
+    settings: &rustconn_core::config::AppSettings,
+    groups: &[rustconn_core::models::ConnectionGroup],
+    trashed: &rustconn_core::models::Connection,
+    live: &'a [rustconn_core::models::Connection],
+) -> Option<&'a rustconn_core::models::Connection> {
+    let backend_type = select_backend_for_load(&settings.secrets);
+    let doomed = vault_keys_deleted_for(groups, trashed, backend_type);
+    // ponytail: rebuilds every live key for each trashed connection, so a purge
+    // is O(trashed × live); fine for a Trash of dozens against hundreds of
+    // connections — collect the live keys into a HashSet once per purge if a
+    // profile ever shows it.
+    live.iter()
+        .filter(|candidate| candidate.id != trashed.id)
+        .find(|candidate| {
+            current_vault_key(groups, candidate, backend_type)
+                .is_some_and(|key| doomed.contains(&key))
+        })
+}
+
+/// Deletes a trashed connection's vault credential, unless a live connection
+/// still resolves to the same entry (see [`live_connection_sharing_vault_key`]).
+///
+/// Used by every permanent delete — the Undo window closing and emptying the
+/// Trash — in place of a bare [`delete_vault_credential`].
+///
+/// # Errors
+///
+/// Returns the error of [`delete_vault_credential`]. Keeping a shared entry is
+/// not an error.
+pub fn delete_trashed_vault_credential(
+    settings: &rustconn_core::config::AppSettings,
+    groups: &[rustconn_core::models::ConnectionGroup],
+    trashed: &rustconn_core::models::Connection,
+    live: &[rustconn_core::models::Connection],
+) -> Result<(), String> {
+    if let Some(twin) = live_connection_sharing_vault_key(settings, groups, trashed, live) {
+        tracing::debug!(
+            connection_id = %trashed.id,
+            connection_name = %trashed.name,
+            live_connection_id = %twin.id,
+            "Kept a trashed connection's vault credential: a live connection uses the same key"
+        );
+        return Ok(());
+    }
+    delete_vault_credential(settings, groups, trashed)
 }
 
 /// Deletes a group's vault credentials from the configured backend.
@@ -3783,5 +3891,92 @@ mod tests {
             vec!["ours"],
             "only secret variables RustConn itself stores are ours to copy"
         );
+    }
+
+    // ── Trash guard: a live twin keeps the shared entry ──────────────
+    //
+    // Group Sync recreates a connection it cannot match and trashes the old
+    // copy, so the Trash can hold a predecessor with the name, the group and
+    // the protocol of a live connection — everything a vault key is built
+    // from. Deleting the predecessor's credential deleted the live password.
+
+    #[test]
+    fn a_trashed_twin_of_a_live_connection_keeps_its_keyring_entry() {
+        let settings = app_settings(SecretBackendType::LibSecret);
+        let group = ConnectionGroup::new("production-servers".to_string());
+        let groups = std::slice::from_ref(&group);
+        let trashed = vault_connection("bastion", Some(group.id));
+        let live = vec![vault_connection("bastion", Some(group.id))];
+
+        let twin = live_connection_sharing_vault_key(&settings, groups, &trashed, &live);
+        assert_eq!(twin.map(|c| c.id), Some(live[0].id));
+    }
+
+    #[test]
+    fn a_trashed_connection_with_a_key_of_its_own_is_deleted() {
+        let settings = app_settings(SecretBackendType::LibSecret);
+        let prod = ConnectionGroup::new("Prod".to_string());
+        let staging = ConnectionGroup::new("Staging".to_string());
+        let groups = vec![prod.clone(), staging.clone()];
+        let trashed = vault_connection("web", Some(prod.id));
+        // The same name in another group, another name in the same group:
+        // neither shares the group-scoped keyring key.
+        let live = vec![
+            vault_connection("web", Some(staging.id)),
+            vault_connection("db", Some(prod.id)),
+        ];
+
+        let twin = live_connection_sharing_vault_key(&settings, &groups, &trashed, &live);
+        assert!(twin.is_none());
+    }
+
+    #[test]
+    fn a_trashed_twin_keeps_its_keepass_entry() {
+        let settings = keepass_app_settings();
+        let group = ConnectionGroup::new("production-servers".to_string());
+        let groups = std::slice::from_ref(&group);
+        let trashed = vault_connection("bastion", Some(group.id));
+        let twin = vault_connection("bastion", Some(group.id));
+        let mut over_rdp = vault_connection("bastion", Some(group.id));
+        over_rdp.protocol_config =
+            rustconn_core::models::ProtocolConfig::Rdp(rustconn_core::models::RdpConfig::default());
+
+        // The entry the delete removes is the one the twin resolves to.
+        assert_eq!(
+            kdbx_connection_entry(groups, &trashed, "ssh"),
+            "RustConn/production-servers/bastion (ssh)"
+        );
+        let live = std::slice::from_ref(&twin);
+        assert!(live_connection_sharing_vault_key(&settings, groups, &trashed, live).is_some());
+
+        // Another protocol is another entry ("… (rdp)"), so nothing is kept.
+        let live = std::slice::from_ref(&over_rdp);
+        assert!(live_connection_sharing_vault_key(&settings, groups, &trashed, live).is_none());
+    }
+
+    /// Bitwarden and the other flat backends key on the name alone, so a
+    /// same-named live connection in any group resolves to the trashed one's
+    /// entry.
+    #[test]
+    fn a_flat_key_is_shared_across_groups() {
+        let settings = app_settings(SecretBackendType::Bitwarden);
+        let prod = ConnectionGroup::new("Prod".to_string());
+        let staging = ConnectionGroup::new("Staging".to_string());
+        let groups = vec![prod.clone(), staging.clone()];
+        let trashed = vault_connection("web", Some(prod.id));
+        let live = vec![vault_connection("web", Some(staging.id))];
+
+        let twin = live_connection_sharing_vault_key(&settings, &groups, &trashed, &live);
+        assert!(twin.is_some());
+    }
+
+    /// A connection never protects itself: a caller that passes every
+    /// connection, the trashed one included, still gets the entry deleted.
+    #[test]
+    fn a_trashed_connection_is_not_its_own_twin() {
+        let settings = app_settings(SecretBackendType::LibSecret);
+        let trashed = vault_connection("web", None);
+        let live = std::slice::from_ref(&trashed);
+        assert!(live_connection_sharing_vault_key(&settings, &[], &trashed, live).is_none());
     }
 }

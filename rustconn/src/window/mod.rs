@@ -251,6 +251,33 @@ pub fn shutdown_sessions_for_exit(notebook: &SharedNotebook) {
     }
 }
 
+/// Bridges hardware-key touch notifications from the worker thread that runs
+/// `keepassxc-cli` to the main-thread banner (issue #350).
+///
+/// GTK widgets are `!Send`, so this cannot touch the banner directly. It sends
+/// a `true` when a touch-waiting run starts and a `false` when it ends over an
+/// `mpsc` channel; a `glib::timeout_add_local` drain on the main thread nets
+/// the deltas into an in-flight count and reveals the banner while it is above
+/// zero. `mpsc::Sender<bool>` is `Send + Sync` (Rust ≥ 1.72), which the
+/// [`TouchObserver`](rustconn_core::secret::TouchObserver) bound requires.
+struct BannerTouchObserver {
+    tx: std::sync::mpsc::Sender<bool>,
+}
+
+impl rustconn_core::secret::TouchObserver for BannerTouchObserver {
+    fn touch_started(&self) {
+        let _ = self.tx.send(true);
+        // Wake the main loop so the drain reveals the banner promptly rather
+        // than on the next 50 ms tick.
+        glib::MainContext::ref_thread_default().wakeup();
+    }
+
+    fn touch_finished(&self) {
+        let _ = self.tx.send(false);
+        glib::MainContext::ref_thread_default().wakeup();
+    }
+}
+
 /// Main application window wrapper
 ///
 /// Provides access to the main window and its components.
@@ -312,6 +339,10 @@ pub struct MainWindow {
     /// broadcast is not all-visible at once, so its active state must be
     /// impossible to miss (issue #329).
     group_broadcast_banner: adw::Banner,
+    /// Persistent banner below the header bar shown at startup when a config
+    /// file could not be read and was kept aside, or was written by a newer
+    /// RustConn. Filled once by `show_config_file_notice`; Dismiss hides it.
+    config_banner: adw::Banner,
     /// Persistent banner below the header bar for cloud sync failures.
     /// Shown by `show_sync_error_banner`, hidden on the next successful
     /// sync or via its Dismiss button.
@@ -831,6 +862,18 @@ impl MainWindow {
         let toolbar_view = adw::ToolbarView::new();
         toolbar_view.add_top_bar(&header_bar);
 
+        // Persistent banner for config files startup could not read, or found
+        // written by a newer RustConn (GNOME HIG: a state that needs attention
+        // belongs in a banner). Hidden until `show_config_file_notice` fills it.
+        let config_banner = adw::Banner::new("");
+        // The message carries a file path, which is not Pango markup.
+        config_banner.set_use_markup(false);
+        config_banner.set_button_label(Some(&crate::i18n::i18n("Dismiss")));
+        config_banner.connect_button_clicked(|banner| {
+            banner.set_revealed(false);
+        });
+        toolbar_view.add_top_bar(&config_banner);
+
         // Persistent banner for cloud sync failures (GNOME HIG: a state
         // that needs attention belongs in a banner, not a transient toast).
         // Hidden by default; shown via show_sync_error_banner(), hidden on
@@ -857,6 +900,43 @@ impl MainWindow {
             banner.set_revealed(false);
         });
         toolbar_view.add_top_bar(&secret_banner);
+
+        // Persistent banner shown while a `keepassxc-cli` run blocks on a
+        // hardware-key touch (issue #350). GTK widgets are !Send, so the
+        // worker-thread touch observer bridges to the main thread the same way
+        // BusyStack does: it sends a +1/-1 delta over an mpsc channel, and a
+        // glib::timeout_add_local drain tracks the in-flight count and reveals
+        // the banner whenever it is above zero. Informational — no button.
+        let touch_banner = adw::Banner::new(&crate::i18n::i18n(
+            "Touch your hardware key to unlock the password database",
+        ));
+        toolbar_view.add_top_bar(&touch_banner);
+        {
+            // true = a touch-waiting run started, false = it ended. One run can
+            // be challenged twice (open + save), and several may overlap, so we
+            // net the deltas into a count rather than treating each as a toggle.
+            let (touch_tx, touch_rx) = std::sync::mpsc::channel::<bool>();
+            rustconn_core::secret::set_touch_observer(Some(std::sync::Arc::new(
+                BannerTouchObserver { tx: touch_tx },
+            )));
+            let banner = touch_banner.clone();
+            let rx = std::sync::Mutex::new(touch_rx);
+            let in_flight = std::cell::Cell::new(0_i32);
+            glib::timeout_add_local(std::time::Duration::from_millis(50), move || {
+                if let Ok(guard) = rx.lock() {
+                    let mut count = in_flight.get();
+                    while let Ok(started) = guard.try_recv() {
+                        count += if started { 1 } else { -1 };
+                    }
+                    // Deltas are matched one-to-one by the TouchGuard, but clamp
+                    // defensively so a dropped message can never pin the banner on.
+                    count = count.max(0);
+                    in_flight.set(count);
+                    banner.set_revealed(count > 0);
+                }
+                glib::ControlFlow::Continue
+            });
+        }
 
         // Persistent banner shown while cross-tab group broadcast is active
         // (issue #329). Unlike a split broadcast, whose panels are all on screen,
@@ -1124,6 +1204,7 @@ impl MainWindow {
             group_broadcast,
             group_broadcast_toggle,
             group_broadcast_banner,
+            config_banner,
             sync_banner,
             secret_banner,
         };
@@ -1247,6 +1328,9 @@ impl MainWindow {
 
         // Initialize KeePass button status
         main_window.update_keepass_button_status();
+
+        // Report a config file startup kept aside or found from a newer RustConn
+        main_window.show_config_file_notice();
 
         // Connect signals
         main_window.connect_signals();
@@ -3460,6 +3544,7 @@ impl MainWindow {
         // dialog owned one for as long as it was open.
         dialog.connect_credential_transfer(&state);
         dialog.connect_portable_passphrase_change(&state);
+        dialog.connect_monitoring_override_reset(&state);
         tracing::debug!(
             elapsed_ms = opened_at.elapsed().as_millis() as u64,
             "settings dialog constructed and populated"
@@ -3853,6 +3938,38 @@ impl MainWindow {
     #[must_use]
     pub fn notebook_rc(&self) -> SharedNotebook {
         self.terminal_notebook.clone()
+    }
+
+    /// Reveals the config-file banner when startup kept an unreadable file aside
+    /// or found one written by a newer RustConn.
+    fn show_config_file_notice(&self) {
+        // Taken in a block of its own, so no borrow of the state is held while
+        // the banner's notify handlers run.
+        let notice = {
+            let Ok(mut state) = self.state.try_borrow_mut() else {
+                tracing::warn!("State busy at startup; config file notice not shown");
+                return;
+            };
+            state.take_config_file_notice()
+        };
+        let Some(notice) = notice else {
+            return;
+        };
+        let title = match notice {
+            crate::state::ConfigFileNotice::KeptUnreadable(kept) => {
+                let kept = kept.display().to_string();
+                crate::i18n::i18n_f(
+                    "Settings could not be read, so defaults are in use. The unreadable file was kept as {}.",
+                    &[&kept],
+                )
+            }
+            crate::state::ConfigFileNotice::WrittenByNewer(version) => crate::i18n::i18n_f(
+                "These settings were saved by a newer RustConn ({}). A backup is kept before they are changed.",
+                &[&version],
+            ),
+        };
+        self.config_banner.set_title(&title);
+        self.config_banner.set_revealed(true);
     }
 
     /// Returns the cloud-sync error banner shown below the header bar.

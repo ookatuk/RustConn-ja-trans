@@ -8,6 +8,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
+use rustconn_core::protocol::FreeRdpSelection;
 use secrecy::{ExposeSecret, SecretString};
 
 use super::types::{EmbeddedRdpError, RdpConfig};
@@ -314,19 +315,23 @@ impl SafeFreeRdpLauncher {
             .is_some_and(|p| !p.is_empty());
 
         // Honour an explicit client choice, falling back to auto-detection when
-        // it is unavailable or unsuitable for RemoteApp (issue #340).
-        let binary = super::detect::resolve_freerdp_binary(
+        // it is unavailable or unsuitable for RemoteApp (issue #340). Only a
+        // FreeRDP 3 client is ever chosen: every launch hands FreeRDP an
+        // `/args-from:` command line, which FreeRDP 2 rejects (issue #351).
+        let selection = super::detect::resolve_freerdp_binary(
             config.freerdp_client_override.as_deref(),
             is_remote_app,
             cancellation,
         );
         Self::ensure_not_cancelled(cancellation)?;
-        let binary = binary.ok_or_else(|| {
-            EmbeddedRdpError::FreeRdpInit(
-                "No FreeRDP client found. Install sdl-freerdp3, xfreerdp, or wlfreerdp."
-                    .to_string(),
-            )
-        })?;
+        let binary = match selection {
+            FreeRdpSelection::Supported(binary) => binary,
+            refused => {
+                return Err(EmbeddedRdpError::NoSupportedFreeRdp(
+                    refused.unsupported_version(),
+                ));
+            }
+        };
 
         // Keep the original target (including a `host:` marker) for version
         // probing and cache identity. The stripped name is only for spawning.
@@ -618,6 +623,9 @@ impl SafeFreeRdpLauncher {
             // by `launch_with_cancel` via `resolve_freerdp_binary`, not by the
             // arg builder that consumes this struct.
             client_override: config.freerdp_client_override.clone(),
+            // A RemoteApp fallback negotiates Kerberos instead of being held to
+            // NTLM when the connection asked for Kerberos (issue #351).
+            kerberos_enabled: config.kerberos_enabled,
         }
     }
 

@@ -1,4 +1,11 @@
 //! FreeRDP detection utilities.
+//!
+//! Every choice of FreeRDP client below goes through
+//! [`rustconn_core::protocol::select_freerdp_client`], with the cached version
+//! probe in this module as its oracle. Debian and Ubuntu install FreeRDP 2 under
+//! the names FreeRDP 3 uses elsewhere, and FreeRDP 2 cannot run the
+//! `/args-from:` command line RustConn hands it, so a name alone is not enough
+//! to launch a client (issue #351).
 
 use std::collections::HashMap;
 use std::io::Read;
@@ -6,6 +13,10 @@ use std::process::{Command, Stdio};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Mutex, OnceLock};
 use std::time::{Duration, Instant};
+
+use rustconn_core::protocol::{
+    FreeRdpProbe, FreeRdpSelection, FreeRdpVersion, parse_freerdp_version, select_freerdp_client,
+};
 
 /// Maximum time allowed for a FreeRDP `--version` process.
 const VERSION_PROBE_TIMEOUT: Duration = Duration::from_secs(2);
@@ -16,7 +27,15 @@ const PROBE_REAP_TIMEOUT: Duration = Duration::from_millis(500);
 /// Poll interval avoids busy-waiting while keeping probes and cancellation responsive.
 const PROBE_POLL_INTERVAL: Duration = Duration::from_millis(10);
 
-type FreeRdpVersion = (u32, u32, u32);
+/// The FreeRDP clients the embedded mode can launch, preferred first.
+///
+/// Only a Wayland-native client embeds as a subsurface; the SDL3 client that
+/// external launches prefer (issue #340) cannot. `wlfreerdp` qualifies only
+/// when its probe reports FreeRDP 3 — on Debian and Ubuntu it is FreeRDP 2.
+const EMBEDDED_FREERDP_CLIENTS: &[&str] = &["wlfreerdp3", "wlfreerdp"];
+
+/// The FreeRDP clients that can host a RemoteApp (RAIL) session, preferred first.
+const REMOTEAPP_FREERDP_CLIENTS: &[&str] = &["xfreerdp3", "xfreerdp"];
 
 /// Includes failed probes. Exact keys distinguish host and sandbox targets.
 static VERSION_CACHE: OnceLock<Mutex<HashMap<String, Option<FreeRdpVersion>>>> = OnceLock::new();
@@ -36,33 +55,9 @@ pub enum ArgsFromForm {
 
 const ARGS_FROM_FILE_PREFIX_MIN_MINOR: u32 = 26;
 
-fn parse_freerdp_version(output: &str) -> Option<FreeRdpVersion> {
-    let lower = output.to_ascii_lowercase();
-    let freerdp_offset = lower.find("freerdp")?;
-    output[freerdp_offset..]
-        .split_whitespace()
-        .find_map(parse_version_token)
-}
-
-fn parse_version_token(token: &str) -> Option<FreeRdpVersion> {
-    let start = token.find(|c: char| c.is_ascii_digit())?;
-    let numeric: String = token[start..]
-        .chars()
-        .take_while(|c| c.is_ascii_digit() || *c == '.')
-        .collect();
-    let mut parts = numeric.split('.');
-    let major = parts.next()?.parse().ok()?;
-    let minor = parts.next()?.parse().ok()?;
-    let patch = parts
-        .next()
-        .filter(|part| !part.is_empty())
-        .map_or(Some(0), |part| part.parse().ok())?;
-    Some((major, minor, patch))
-}
-
 const fn args_from_form_for_version(version: Option<FreeRdpVersion>) -> ArgsFromForm {
     match version {
-        Some((major, minor, _))
+        Some(FreeRdpVersion { major, minor, .. })
             if major > 3 || (major == 3 && minor >= ARGS_FROM_FILE_PREFIX_MIN_MINOR) =>
         {
             ArgsFromForm::FilePrefix
@@ -302,81 +297,114 @@ fn binary_exists(name: &str) -> bool {
     rustconn_core::which::is_available(name)
 }
 
-pub(crate) fn detect_best_freerdp_with_cancel(cancellation: Option<&AtomicBool>) -> Option<String> {
-    // macOS: a FreeRDP shipped as an `.app` bundle is not on PATH; the in-bundle
-    // executable path is used as a fallback below.
+/// Whether `binary` is installed, and if so which FreeRDP it is.
+///
+/// A `host:` candidate is looked up on the Flatpak host. Only an installed
+/// client is version-probed, and the probe is cached, so asking again costs a
+/// lookup rather than a spawn.
+fn probe_freerdp_candidate(binary: &str, cancellation: Option<&AtomicBool>) -> FreeRdpProbe {
+    if is_cancelled(cancellation) {
+        return FreeRdpProbe::Missing;
+    }
+    let installed = match binary.strip_prefix("host:") {
+        Some(host_binary) => host_binary_exists(host_binary, cancellation),
+        None => binary_exists(binary),
+    };
+    if installed {
+        FreeRdpProbe::Installed(freerdp_version_with_cancel(binary, cancellation))
+    } else {
+        FreeRdpProbe::Missing
+    }
+}
+
+/// The clients tried for an external launch, in this session's order.
+///
+/// The order lives in rustconn-core, shared with the client detection that
+/// reports which FreeRDP is installed (issue #340). macOS: a FreeRDP shipped as
+/// an `.app` bundle is not on `PATH`, so its in-bundle executable comes last;
+/// the external launcher runs that path directly.
+fn best_freerdp_candidates() -> Vec<String> {
     const MACOS_BUNDLES: &[(&str, &str)] = &[
         ("FreeRDP.app", "freerdp"),
         ("SDL-freerdp.app", "sdl-freerdp"),
         ("wlfreerdp.app", "wlfreerdp"),
     ];
-    // The launch order lives in rustconn-core, shared with the client
-    // detection that reports which FreeRDP is installed (issue #340).
-    let wayland = rustconn_core::protocol::is_wayland_session();
-    for candidate in rustconn_core::protocol::freerdp_launch_order() {
-        if is_cancelled(cancellation) {
-            return None;
-        }
-        if binary_exists(candidate) {
-            return Some((*candidate).to_string());
-        }
-    }
-    if is_cancelled(cancellation) {
-        return None;
-    }
-    // macOS: a FreeRDP shipped as an `.app` bundle is not on PATH. Return the
-    // in-bundle executable path, which the external launcher runs directly.
+    let mut candidates: Vec<String> = rustconn_core::protocol::freerdp_launch_order()
+        .iter()
+        .map(|candidate| (*candidate).to_string())
+        .collect();
     if let Some(path) = rustconn_core::which::find_macos_app(MACOS_BUNDLES)
-        .and_then(|p| p.into_os_string().into_string().ok())
+        .and_then(|path| path.into_os_string().into_string().ok())
     {
-        return Some(path);
+        candidates.push(path);
     }
-    tracing::warn!(protocol = "rdp", wayland, "No FreeRDP client found on PATH");
-    None
+    candidates
 }
 
-/// Detects the best available FreeRDP binary.
+/// The clients tried for a RemoteApp launch: the X11 clients in the sandbox
+/// first, then — under Flatpak, whose bundled FreeRDP has no X11 client — the
+/// same clients on the host.
+fn remoteapp_freerdp_candidates(flatpak: bool) -> Vec<String> {
+    let mut candidates: Vec<String> = REMOTEAPP_FREERDP_CLIENTS
+        .iter()
+        .map(|candidate| (*candidate).to_string())
+        .collect();
+    if flatpak {
+        candidates.extend(
+            REMOTEAPP_FREERDP_CLIENTS
+                .iter()
+                .map(|candidate| format!("host:{candidate}")),
+        );
+    }
+    candidates
+}
+
+/// Detects the best available FreeRDP binary — a FreeRDP 3 client.
 #[must_use]
 pub fn detect_best_freerdp() -> Option<String> {
-    detect_best_freerdp_with_cancel(None)
+    let selection = select_freerdp_client(best_freerdp_candidates(), |binary| {
+        probe_freerdp_candidate(binary, None)
+    });
+    if selection == FreeRdpSelection::NotInstalled {
+        tracing::warn!(
+            protocol = "rdp",
+            wayland = rustconn_core::protocol::is_wayland_session(),
+            "No FreeRDP client found on PATH"
+        );
+    }
+    selection.into_supported()
 }
 
-/// Detects if a Wayland-native FreeRDP variant is available for embedded mode.
+/// Chooses the client the embedded mode launches, asking `probe` about each.
+fn select_embedded_wlfreerdp_with(probe: impl FnMut(&str) -> FreeRdpProbe) -> FreeRdpSelection {
+    select_freerdp_client(EMBEDDED_FREERDP_CLIENTS, probe)
+}
+
+/// Chooses the Wayland client the embedded mode launches: `wlfreerdp3`, or a
+/// `wlfreerdp` that reports FreeRDP 3 (issue #351).
+///
+/// [`detect_wlfreerdp`] and the embedded launch both ask this, so the mode is
+/// only attempted when the launch will find a client it can run. Only the
+/// sandbox's own `PATH` counts: the embedded client is never spawned on a
+/// Flatpak host.
+#[must_use]
+pub fn select_embedded_wlfreerdp() -> FreeRdpSelection {
+    select_embedded_wlfreerdp_with(|binary| probe_freerdp_candidate(binary, None))
+}
+
+/// Detects if a Wayland-native FreeRDP 3 client is available for embedded mode.
 #[must_use]
 pub fn detect_wlfreerdp() -> bool {
     rustconn_core::protocol::is_wayland_session()
-        && (binary_exists("wlfreerdp3") || binary_exists("wlfreerdp"))
-}
-
-pub(crate) fn detect_best_freerdp_for_remoteapp_with_cancel(
-    cancellation: Option<&AtomicBool>,
-) -> Option<String> {
-    const REMOTEAPP_CANDIDATES: &[&str] = &["xfreerdp3", "xfreerdp"];
-    for candidate in REMOTEAPP_CANDIDATES {
-        if is_cancelled(cancellation) {
-            return None;
-        }
-        if binary_exists(candidate) {
-            return Some((*candidate).to_string());
-        }
-    }
-    if rustconn_core::flatpak::is_flatpak() {
-        for candidate in REMOTEAPP_CANDIDATES {
-            if is_cancelled(cancellation) {
-                return None;
-            }
-            if host_binary_exists(candidate, cancellation) {
-                return Some(format!("host:{candidate}"));
-            }
-        }
-    }
-    None
+        && matches!(select_embedded_wlfreerdp(), FreeRdpSelection::Supported(_))
 }
 
 /// Detects the best FreeRDP binary for RemoteApp sessions.
 #[must_use]
 pub fn detect_best_freerdp_for_remoteapp() -> Option<String> {
-    detect_best_freerdp_for_remoteapp_with_cancel(None)
+    let candidates = remoteapp_freerdp_candidates(rustconn_core::flatpak::is_flatpak());
+    select_freerdp_client(candidates, |binary| probe_freerdp_candidate(binary, None))
+        .into_supported()
 }
 
 /// Every FreeRDP client binary RustConn knows how to launch, newest-first.
@@ -396,59 +424,120 @@ pub const KNOWN_FREERDP_CLIENTS: &[&str] = &[
     "freerdp",
 ];
 
-/// Returns the known FreeRDP clients that are actually available, for the UI.
+/// Returns the known FreeRDP clients RustConn can launch, for the UI.
 ///
 /// Probes the local `PATH` and, under Flatpak, the host. Order follows
 /// [`KNOWN_FREERDP_CLIENTS`] (newest-first). The result seeds the connection
-/// editor's client dropdown, so an unavailable choice is never offered.
+/// editor's client dropdown, so neither an unavailable client nor a FreeRDP 2
+/// one the launcher would refuse is offered (issue #351).
 #[must_use]
 pub fn available_freerdp_clients() -> Vec<String> {
     let flatpak = rustconn_core::flatpak::is_flatpak();
-    KNOWN_FREERDP_CLIENTS
-        .iter()
-        .filter(|name| binary_exists(name) || (flatpak && host_binary_exists(name, None)))
-        .map(|name| (*name).to_string())
-        .collect()
+    rustconn_core::protocol::launchable_freerdp_clients(KNOWN_FREERDP_CLIENTS, |name| {
+        if binary_exists(name) {
+            FreeRdpProbe::Installed(freerdp_version(name))
+        } else if flatpak && host_binary_exists(name, None) {
+            FreeRdpProbe::Installed(freerdp_version(&format!("host:{name}")))
+        } else {
+            FreeRdpProbe::Missing
+        }
+    })
 }
 
 /// Resolves which FreeRDP binary to launch, honouring an explicit override.
 ///
 /// When `override_name` is set and the named client is available (on the local
-/// `PATH`, or on the Flatpak host, returned then as a `host:` form), it wins.
-/// An override that is not installed — or one that names a `wl*`/`sdl*` client
-/// for a RemoteApp (RAIL) session, which those clients cannot host — is dropped
-/// with a warning and the usual auto-detection takes over (issue #340).
+/// `PATH`, or on the Flatpak host, returned then as a `host:` form) and is
+/// FreeRDP 3, it wins. An override that is not installed, that names a
+/// `wl*`/`sdl*` client for a RemoteApp (RAIL) session, which those clients
+/// cannot host (issue #340), or that turns out to be FreeRDP 2 (issue #351) is
+/// dropped with a warning and the usual auto-detection takes over.
+///
+/// [`FreeRdpSelection::Unsupported`] means FreeRDP is installed but no
+/// candidate is FreeRDP 3; it carries the version the caller tells the user
+/// about.
 #[must_use]
 pub fn resolve_freerdp_binary(
     override_name: Option<&str>,
     is_remote_app: bool,
     cancellation: Option<&AtomicBool>,
-) -> Option<String> {
-    if let Some(name) = override_name.map(str::trim).filter(|name| !name.is_empty()) {
-        if is_remote_app && !is_remoteapp_capable_client(name) {
-            tracing::warn!(
-                protocol = "rdp",
-                client = %name,
-                "Ignoring FreeRDP client override for a RemoteApp session — wl/sdl clients cannot host RAIL; auto-detecting"
-            );
-        } else if binary_exists(name) {
-            return Some(name.to_string());
-        } else if rustconn_core::flatpak::is_flatpak() && host_binary_exists(name, cancellation) {
-            return Some(format!("host:{name}"));
-        } else {
-            tracing::warn!(
-                protocol = "rdp",
-                client = %name,
-                "Configured FreeRDP client is not available — falling back to auto-detection"
-            );
-        }
-    }
-
-    if is_remote_app {
-        detect_best_freerdp_for_remoteapp_with_cancel(cancellation)
+) -> FreeRdpSelection {
+    let pinned = override_name
+        .map(str::trim)
+        .filter(|name| !name.is_empty())
+        .and_then(|name| pinned_freerdp_candidate(name, is_remote_app, cancellation));
+    let automatic = if is_remote_app {
+        remoteapp_freerdp_candidates(rustconn_core::flatpak::is_flatpak())
     } else {
-        detect_best_freerdp_with_cancel(cancellation)
+        best_freerdp_candidates()
+    };
+
+    // The pin is simply the most preferred candidate: a FreeRDP 2 one is
+    // skipped like any other, and auto-detection carries on behind it.
+    let candidates = pinned.iter().cloned().chain(automatic);
+    let selection = select_freerdp_client(candidates, |binary| {
+        if pinned.as_deref() == Some(binary) {
+            // Found when the pin was resolved; only its version is left to learn.
+            FreeRdpProbe::Installed(freerdp_version_with_cancel(binary, cancellation))
+        } else {
+            probe_freerdp_candidate(binary, cancellation)
+        }
+    });
+
+    if let Some(ref pinned) = pinned
+        && !is_cancelled(cancellation)
+        && !matches!(&selection, FreeRdpSelection::Supported(chosen) if chosen == pinned)
+    {
+        tracing::warn!(
+            protocol = "rdp",
+            client = %pinned,
+            "Configured FreeRDP client is not FreeRDP 3, which RustConn needs — falling back to auto-detection"
+        );
     }
+    selection
+}
+
+/// The form a configured client is launched in, or `None` when it cannot be.
+///
+/// Local first, then — under Flatpak — on the host, returned as `host:<name>`.
+/// Only a plain program name is looked up on the host, because the name comes
+/// from the connection's configuration and the host lookup runs a shell.
+fn pinned_freerdp_candidate(
+    name: &str,
+    is_remote_app: bool,
+    cancellation: Option<&AtomicBool>,
+) -> Option<String> {
+    if is_remote_app && !is_remoteapp_capable_client(name) {
+        tracing::warn!(
+            protocol = "rdp",
+            client = %name,
+            "Ignoring FreeRDP client override for a RemoteApp session — wl/sdl clients cannot host RAIL; auto-detecting"
+        );
+        return None;
+    }
+    if binary_exists(name) {
+        return Some(name.to_string());
+    }
+    if rustconn_core::flatpak::is_flatpak()
+        && is_plain_binary_name(name)
+        && host_binary_exists(name, cancellation)
+    {
+        return Some(format!("host:{name}"));
+    }
+    tracing::warn!(
+        protocol = "rdp",
+        client = %name,
+        "Configured FreeRDP client is not available — falling back to auto-detection"
+    );
+    None
+}
+
+/// Whether `name` is a bare program name, safe to place on a shell command line.
+fn is_plain_binary_name(name: &str) -> bool {
+    !name.is_empty()
+        && name
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.' | '+'))
 }
 
 /// Whether a FreeRDP client can host a RemoteApp (RAIL) session.
@@ -472,8 +561,9 @@ fn is_remoteapp_capable_client(name: &str) -> bool {
 /// depends on the host having a `which` binary installed (#303). Deliberately not
 /// delegated to `rustconn_core::which::find_on_host`, which is otherwise the same
 /// probe — this one keeps the cancellation token that lets an abandoned session
-/// stop the detection thread. `name` is always one of the hardcoded FreeRDP
-/// candidates, so nothing user-supplied reaches the shell.
+/// stop the detection thread. `name` is one of the hardcoded FreeRDP candidates
+/// or a configured client that passed [`is_plain_binary_name`], so nothing that
+/// could change the command reaches the shell.
 fn host_binary_exists(name: &str, cancellation: Option<&AtomicBool>) -> bool {
     command_succeeds_with_timeout(
         "flatpak-spawn",
@@ -521,23 +611,99 @@ mod tests {
         (dir, path.to_string_lossy().into_owned())
     }
 
-    #[test]
-    fn parses_robust_freerdp_version_banners() {
-        for (banner, expected) in [
-            ("This is FreeRDP version 3.24.2 (3.24.2)", (3, 24, 2)),
-            ("THIS IS FREERDP VERSION v3.26.0", (3, 26, 0)),
-            ("FreeRDP build: 3.27.0-rc1", (3, 27, 0)),
-            ("FreeRDP version 4.0", (4, 0, 0)),
-        ] {
-            assert_eq!(parse_freerdp_version(banner), Some(expected));
+    const FREERDP_2: Option<FreeRdpVersion> = Some(FreeRdpVersion::new(2, 11, 5));
+    const FREERDP_3: Option<FreeRdpVersion> = Some(FreeRdpVersion::new(3, 32, 1));
+
+    /// A probe that knows only the listed clients, each with its version.
+    fn installed<'a>(
+        clients: &'a [(&'a str, Option<FreeRdpVersion>)],
+    ) -> impl FnMut(&str) -> FreeRdpProbe + 'a {
+        move |binary: &str| {
+            clients
+                .iter()
+                .find(|client| client.0 == binary)
+                .map_or(FreeRdpProbe::Missing, |client| {
+                    FreeRdpProbe::Installed(client.1)
+                })
         }
     }
 
+    /// The embedded launch takes `wlfreerdp3`, then a `wlfreerdp` that is
+    /// FreeRDP 3, and nothing else — so Ubuntu 24.04's FreeRDP 2 `wlfreerdp`
+    /// is never handed an `/args-from:` command line it rejects (issue #351).
     #[test]
-    fn rejects_unparseable_version_output() {
-        assert_eq!(parse_freerdp_version(""), None);
-        assert_eq!(parse_freerdp_version("FreeRDP version unknown"), None);
-        assert_eq!(parse_freerdp_version("version 3.26.0"), None);
+    fn embedded_mode_takes_only_a_freerdp_3_wayland_client() {
+        let both = [("wlfreerdp3", None), ("wlfreerdp", FREERDP_2)];
+        assert_eq!(
+            select_embedded_wlfreerdp_with(installed(&both)),
+            FreeRdpSelection::Supported("wlfreerdp3".to_string())
+        );
+
+        // The Flatpak's bundled client, and Arch's: FreeRDP 3 without the suffix.
+        let unsuffixed_3 = [("wlfreerdp", FREERDP_3)];
+        assert_eq!(
+            select_embedded_wlfreerdp_with(installed(&unsuffixed_3)),
+            FreeRdpSelection::Supported("wlfreerdp".to_string())
+        );
+
+        let unsuffixed_2 = [("wlfreerdp", FREERDP_2)];
+        let selection = select_embedded_wlfreerdp_with(installed(&unsuffixed_2));
+        assert_eq!(selection.unsupported_version(), FREERDP_2);
+        assert_eq!(selection.into_supported(), None);
+
+        // A `wlfreerdp` whose version could not be read is not trusted.
+        let unknown = [("wlfreerdp", None)];
+        assert!(matches!(
+            select_embedded_wlfreerdp_with(installed(&unknown)),
+            FreeRdpSelection::Unsupported(_)
+        ));
+
+        assert_eq!(
+            select_embedded_wlfreerdp_with(installed(&[])),
+            FreeRdpSelection::NotInstalled
+        );
+    }
+
+    #[test]
+    fn remoteapp_looks_in_the_sandbox_before_the_host() {
+        assert_eq!(
+            remoteapp_freerdp_candidates(false),
+            ["xfreerdp3", "xfreerdp"]
+        );
+        assert_eq!(
+            remoteapp_freerdp_candidates(true),
+            ["xfreerdp3", "xfreerdp", "host:xfreerdp3", "host:xfreerdp"]
+        );
+    }
+
+    /// A FreeRDP 2 X11 client in the sandbox does not stop a FreeRDP 3 one on
+    /// the Flatpak host from hosting the RemoteApp session.
+    #[test]
+    fn remoteapp_skips_freerdp_2_for_a_freerdp_3_host_client() {
+        let clients = [("xfreerdp", FREERDP_2), ("host:xfreerdp3", FREERDP_3)];
+        assert_eq!(
+            select_freerdp_client(remoteapp_freerdp_candidates(true), installed(&clients)),
+            FreeRdpSelection::Supported("host:xfreerdp3".to_string())
+        );
+    }
+
+    /// A configured client name reaches a host shell only when it is a bare
+    /// program name.
+    #[test]
+    fn only_a_plain_binary_name_is_looked_up_on_the_host() {
+        for plain in ["xfreerdp3", "sdl-freerdp", "wlfreerdp3", "freerdp_3.5+git"] {
+            assert!(is_plain_binary_name(plain), "{plain}");
+        }
+        for unsafe_name in [
+            "",
+            "x; rm -rf ~",
+            "$(id)",
+            "a b",
+            "`id`",
+            "/usr/bin/xfreerdp",
+        ] {
+            assert!(!is_plain_binary_name(unsafe_name), "{unsafe_name:?}");
+        }
     }
 
     #[test]
@@ -653,7 +819,7 @@ mod tests {
             // The banner parsed, so the script ran to completion and its mark is
             // on disk. Exactly one is the whole claim.
             Some(version) => {
-                assert_eq!(version, (3, 26, 1));
+                assert_eq!(version, FreeRdpVersion::new(3, 26, 1));
                 assert_eq!(
                     probes, "x",
                     "the binary must be probed exactly once, then served from cache"
@@ -671,11 +837,11 @@ mod tests {
     #[test]
     fn version_selects_compatible_args_from_form() {
         assert_eq!(
-            args_from_form_for_version(Some((3, 25, 0))),
+            args_from_form_for_version(Some(FreeRdpVersion::new(3, 25, 0))),
             ArgsFromForm::BarePath
         );
         assert_eq!(
-            args_from_form_for_version(Some((3, 26, 0))),
+            args_from_form_for_version(Some(FreeRdpVersion::new(3, 26, 0))),
             ArgsFromForm::FilePrefix
         );
         assert_eq!(args_from_form_for_version(None), ArgsFromForm::BarePath);
