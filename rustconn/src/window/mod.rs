@@ -1688,7 +1688,8 @@ impl MainWindow {
                 // Switch to the tab if there's a session in this pane
                 if let Some(session_id) = session_to_switch {
                     notebook_clone.switch_to_tab(session_id);
-                    // Grab focus on the terminal (click event is claimed, so we must do this)
+                    // Grab focus on the terminal: a press on the pane header or
+                    // the scrollbar does not focus it by itself.
                     if let Some(terminal) = sv_for_terminal.get_terminal(session_id) {
                         terminal.grab_focus();
                     }
