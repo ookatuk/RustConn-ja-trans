@@ -13,6 +13,7 @@ mod detach_actions;
 mod edit_actions;
 mod edit_dialogs;
 mod edit_group;
+mod fullscreen_header;
 mod group_broadcast;
 mod groups;
 mod history_actions;
@@ -968,23 +969,9 @@ impl MainWindow {
 
         window.set_content(Some(tab_overview));
 
-        // Hide the header bar (and the other top bars) while the window is
-        // fullscreen, and restore them on exit (issue #354). An embedded RDP or
-        // VNC session fills the content area, and a fixed header bar wastes a
-        // strip of screen and breaks the "borderless remote desktop" feel that
-        // fullscreen is for. React to the window's `fullscreened` property so
-        // this covers every path into fullscreen — the `win.toggle-fullscreen`
-        // action, the F11 shortcut, and a window-manager fullscreen — not just
-        // the menu toggle. The floating in-session overlay (Copy/Paste/Autotype)
-        // is a separate widget and is unaffected.
-        {
-            let toolbar_view_for_fs = toolbar_view.clone();
-            // Apply the current state once, in case the window starts fullscreen.
-            toolbar_view_for_fs.set_reveal_top_bars(!window.is_fullscreen());
-            window.connect_fullscreened_notify(move |win| {
-                toolbar_view_for_fs.set_reveal_top_bars(!win.is_fullscreen());
-            });
-        }
+        // Fullscreen hides the header bar — only the header bar, the banners
+        // stay — and brings it back on a top-edge hover or F10 (issue #354).
+        fullscreen_header::install(&window, &toolbar_view, &header_bar, &menu_button);
 
         // Adaptive layout breakpoints (#204).
         //
