@@ -187,6 +187,10 @@ pub enum ChildExitHook {
     SessionLog,
 }
 
+/// Shared slot for the reconnect banner's cloud login callback.
+type CloudLoginCallback =
+    Rc<RefCell<Option<Box<dyn Fn(Uuid, Uuid, rustconn_core::protocol::CloudLogin)>>>>;
+
 /// Terminal notebook widget for managing multiple terminal sessions
 /// Now using adw::TabView for modern GNOME HIG compliance
 pub struct TerminalNotebook {
@@ -240,6 +244,9 @@ pub struct TerminalNotebook {
     tab_group_manager: Rc<RefCell<TabGroupManager>>,
     /// Callback for reconnect button clicks (session_id, connection_id)
     on_reconnect: Rc<RefCell<Option<Box<dyn Fn(Uuid, Uuid)>>>>,
+    /// Callback for the reconnect banner's cloud login button
+    /// (session_id, connection_id, login command).
+    on_cloud_login: CloudLoginCallback,
     /// Resolves the split-pane container box a session is displayed in, when it
     /// is a split guest with no `TabPage` of its own (issue #328).
     ///
@@ -524,6 +531,7 @@ impl TerminalNotebook {
             split_session_colors: Rc::new(RefCell::new(HashMap::new())),
             tab_group_manager: Rc::new(RefCell::new(TabGroupManager::new())),
             on_reconnect: Rc::new(RefCell::new(None)),
+            on_cloud_login: Rc::new(RefCell::new(None)),
             split_pane_box_provider: Rc::new(RefCell::new(None)),
             on_tab_broadcast_toggle: Rc::new(RefCell::new(None)),
             tab_broadcast_membership: Rc::new(RefCell::new(None)),

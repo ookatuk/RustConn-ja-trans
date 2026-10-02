@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: rustconn 0.12.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-02 19:47+0300\n"
+"POT-Creation-Date: 2026-10-02 23:49+0300\n"
 "PO-Revision-Date: 2026-04-30 14:42+0800\n"
 "Last-Translator: GaaChun <zeonsinsang@163.com>\n"
 "Language-Team: Chinese(Simplified)\n"
@@ -52,8 +52,8 @@ msgstr "确定"
 #: rustconn/src/window/connection_dialogs.rs:1083
 #: rustconn/src/window/edit_group.rs:1889
 #: rustconn/src/window/edit_group.rs:1937
-#: rustconn/src/window/group_broadcast.rs:379 rustconn/src/window/mod.rs:3084
-#: rustconn/src/window/mod.rs:3968 rustconn/src/window/operations.rs:82
+#: rustconn/src/window/group_broadcast.rs:379 rustconn/src/window/mod.rs:3107
+#: rustconn/src/window/mod.rs:3991 rustconn/src/window/operations.rs:82
 #: rustconn/src/window/operations.rs:453 rustconn/src/window/operations.rs:636
 #: rustconn/src/window/sessions.rs:339 rustconn/src/window/workspaces.rs:548
 msgid "Cancel"
@@ -161,7 +161,7 @@ msgstr "{} — RustConn"
 #: rustconn/src/embedded_rdp/mod.rs:2038
 #: rustconn/src/embedded_rdp/polling_handlers.rs:69
 #: rustconn/src/embedded_vnc/ui.rs:142
-#: rustconn/src/terminal/session_lifecycle.rs:393
+#: rustconn/src/terminal/session_lifecycle.rs:382
 msgid "Session disconnected"
 msgstr "会话已断开"
 
@@ -202,7 +202,7 @@ msgid "Enter Password Manually"
 msgstr "手动输入密码"
 
 #: rustconn/src/dialogs/backend_missing.rs:56 rustconn/src/vault_ops.rs:66
-#: rustconn/src/vault_ops.rs:316 rustconn/src/window/mod.rs:897
+#: rustconn/src/vault_ops.rs:316 rustconn/src/window/mod.rs:912
 msgid "Open Settings"
 msgstr "打开设置"
 
@@ -4222,7 +4222,7 @@ msgid "Copy"
 msgstr "复制"
 
 #: rustconn/src/dialogs/credential_transfer.rs:152
-#: rustconn/src/terminal/playback.rs:264 rustconn/src/window/mod.rs:949
+#: rustconn/src/terminal/playback.rs:264 rustconn/src/window/mod.rs:964
 msgid "Stop"
 msgstr "停止"
 
@@ -4330,7 +4330,7 @@ msgstr "复制已停止"
 #: rustconn/src/dialogs/settings/cloud_sync_tab.rs:238
 #: rustconn/src/dialogs/tunnel_builder/mod.rs:618
 #: rustconn/src/dialogs/widgets.rs:598 rustconn/src/terminal/tab_menu.rs:501
-#: rustconn/src/vault_ops.rs:65 rustconn/src/window/mod.rs:3969
+#: rustconn/src/vault_ops.rs:65 rustconn/src/window/mod.rs:3992
 msgid "Close"
 msgstr "关闭"
 
@@ -8111,7 +8111,7 @@ msgstr "下一个标签页"
 msgid "Previous Tab"
 msgstr "上一个标签页"
 
-#: rustconn/src/dialogs/shortcuts.rs:184 rustconn/src/terminal/mod.rs:490
+#: rustconn/src/dialogs/shortcuts.rs:184 rustconn/src/terminal/mod.rs:497
 msgid "Tab Overview"
 msgstr "标签页概览"
 
@@ -9852,15 +9852,15 @@ msgid "Save files from remote clipboard"
 msgstr "从远程剪贴板保存文件"
 
 #: rustconn/src/embedded_rdp/mod.rs:764 rustconn/src/embedded_vnc/ui.rs:145
-#: rustconn/src/split_view/adapter.rs:1484 rustconn/src/terminal/mod.rs:1339
-#: rustconn/src/terminal/session_lifecycle.rs:406
+#: rustconn/src/split_view/adapter.rs:1484 rustconn/src/terminal/mod.rs:1347
+#: rustconn/src/terminal/session_lifecycle.rs:395
 #: rustconn/src/terminal/tab_menu.rs:846
 msgid "Reconnect"
 msgstr "重连"
 
 #: rustconn/src/embedded_rdp/mod.rs:766 rustconn/src/embedded_vnc/ui.rs:147
-#: rustconn/src/terminal/mod.rs:1341
-#: rustconn/src/terminal/session_lifecycle.rs:408
+#: rustconn/src/terminal/mod.rs:1349
+#: rustconn/src/terminal/session_lifecycle.rs:397
 msgid "Reconnect to this session"
 msgstr "重新连接到此会话"
 
@@ -10791,32 +10791,32 @@ msgstr "选择要显示的标签页"
 msgid "Execute Snippet…"
 msgstr "执行代码片段…"
 
-#: rustconn/src/terminal/mod.rs:486
+#: rustconn/src/terminal/mod.rs:493
 msgid "Tab Overview (Ctrl+Shift+O)"
 msgstr "标签页概览 (Ctrl+Shift+O)"
 
-#: rustconn/src/terminal/mod.rs:503 rustconn/src/terminal/tab_lifecycle.rs:35
-#: rustconn/src/terminal/tab_lifecycle.rs:50 rustconn/src/window/mod.rs:3544
+#: rustconn/src/terminal/mod.rs:510 rustconn/src/terminal/tab_lifecycle.rs:35
+#: rustconn/src/terminal/tab_lifecycle.rs:50 rustconn/src/window/mod.rs:3567
 msgid "Welcome"
 msgstr "欢迎"
 
-#: rustconn/src/terminal/mod.rs:1043
+#: rustconn/src/terminal/mod.rs:1051
 msgid "Output filter '{}' is not installed; session output is not filtered"
 msgstr "输出过滤器 '{}' 未安装；会话输出未经过滤"
 
-#: rustconn/src/terminal/mod.rs:1333
+#: rustconn/src/terminal/mod.rs:1341
 msgid "Command not found: {}"
 msgstr "命令未找到：{}"
 
-#: rustconn/src/terminal/mod.rs:1335
+#: rustconn/src/terminal/mod.rs:1343
 msgid "Failed to start '{}'"
 msgstr "无法启动 '{}'"
 
-#: rustconn/src/terminal/mod.rs:1357
+#: rustconn/src/terminal/mod.rs:1365
 msgid "'{}' is not installed"
 msgstr "'{}' 未安装"
 
-#: rustconn/src/terminal/mod.rs:1360
+#: rustconn/src/terminal/mod.rs:1368
 msgid "Failed to start '{}': {}"
 msgstr "无法启动 '{}': {}"
 
@@ -10874,19 +10874,31 @@ msgid ""
 "pasted — check it before continuing."
 msgstr "剪贴板中包含多行内容。每一行粘贴后会立即执行——请在继续前检查。"
 
-#: rustconn/src/terminal/session_lifecycle.rs:183
+#: rustconn/src/terminal/session_lifecycle.rs:172
 msgid "Reconnected at {}"
 msgstr "已于 {} 重新连接"
 
-#: rustconn/src/terminal/session_lifecycle.rs:400
-#: rustconn/src/terminal/session_lifecycle.rs:455
+#: rustconn/src/terminal/session_lifecycle.rs:389
+#: rustconn/src/terminal/session_lifecycle.rs:444
 msgid "Auto-reconnecting…"
 msgstr "正在自动重连…"
 
-#: rustconn/src/terminal/session_lifecycle.rs:495
-#: rustconn/src/terminal/session_lifecycle.rs:505
+#: rustconn/src/terminal/session_lifecycle.rs:484
+#: rustconn/src/terminal/session_lifecycle.rs:494
 msgid "Auto-reconnecting (attempt {}/{})"
 msgstr "自动重新连接（第 {}/{} 次）"
+
+#: rustconn/src/terminal/session_lifecycle.rs:564
+msgid "Sign-in expired"
+msgstr "登录已过期"
+
+#: rustconn/src/terminal/session_lifecycle.rs:573
+msgid "Log In to {}"
+msgstr "登录到 {}"
+
+#: rustconn/src/terminal/session_lifecycle.rs:577
+msgid "Run “{}” to sign in again in the browser"
+msgstr "运行“{}”以在浏览器中重新登录"
 
 #: rustconn/src/terminal/tab_menu.rs:178
 msgid "Set Tab Group"
@@ -11042,7 +11054,7 @@ msgstr "{} 个活动会话"
 msgid "About RustConn"
 msgstr "关于 RustConn"
 
-#: rustconn/src/vault_ops.rs:50 rustconn/src/window/mod.rs:4912
+#: rustconn/src/vault_ops.rs:50 rustconn/src/window/mod.rs:4935
 msgid "Passphrase Does Not Open the Portable File"
 msgstr "密码短语无法打开便携文件"
 
@@ -11971,39 +11983,39 @@ msgstr "无法将您的更改写入磁盘，关闭 RustConn 后将丢失：{}"
 msgid "Global variables could not be saved to disk."
 msgstr "无法将全局变量保存到磁盘。"
 
-#: rustconn/src/window/mod.rs:873 rustconn/src/window/mod.rs:884
+#: rustconn/src/window/mod.rs:888 rustconn/src/window/mod.rs:899
 msgid "Dismiss"
 msgstr "忽略"
 
-#: rustconn/src/window/mod.rs:913
+#: rustconn/src/window/mod.rs:928
 msgid "Touch your hardware key to unlock the password database"
 msgstr "轻触您的硬件密钥以解锁密码数据库"
 
-#: rustconn/src/window/mod.rs:2373
+#: rustconn/src/window/mod.rs:2396
 msgid "Already running in an external window"
 msgstr "已在外部窗口中运行"
 
-#: rustconn/src/window/mod.rs:2524
+#: rustconn/src/window/mod.rs:2547
 msgid "Connection to ‘{}’ failed"
 msgstr "连接到‘{}’失败"
 
-#: rustconn/src/window/mod.rs:2777 rustconn/src/window/mod.rs:2791
+#: rustconn/src/window/mod.rs:2800 rustconn/src/window/mod.rs:2814
 msgid "Pre-connect task failed: {}"
 msgstr "连接前任务失败：{}"
 
-#: rustconn/src/window/mod.rs:2825
+#: rustconn/src/window/mod.rs:2848
 msgid "Port knock failed: {}"
 msgstr "端口敲门失败：{}"
 
-#: rustconn/src/window/mod.rs:2874
+#: rustconn/src/window/mod.rs:2897
 msgid "SPA failed: {}"
 msgstr "SPA 失败：{}"
 
-#: rustconn/src/window/mod.rs:3070
+#: rustconn/src/window/mod.rs:3093
 msgid "{} (via {})"
 msgstr "{}（经由 {}）"
 
-#: rustconn/src/window/mod.rs:3076
+#: rustconn/src/window/mod.rs:3099
 msgid ""
 "This connection no longer goes where it did.\n"
 "\n"
@@ -12026,31 +12038,31 @@ msgstr ""
 "\n"
 "如果这不是你所做的更改，请取消——连接可能会将已保存的凭据发送到另一台机器。"
 
-#: rustconn/src/window/mod.rs:3081
+#: rustconn/src/window/mod.rs:3104
 msgid "Routing changed for “{}”"
 msgstr "“{}”的路由已更改"
 
-#: rustconn/src/window/mod.rs:3085 rustconn/src/window/rdp_vnc.rs:757
+#: rustconn/src/window/mod.rs:3108 rustconn/src/window/rdp_vnc.rs:757
 msgid "Connect Anyway"
 msgstr "仍然连接"
 
-#: rustconn/src/window/mod.rs:3170 rustconn/src/window/mod.rs:3345
+#: rustconn/src/window/mod.rs:3193 rustconn/src/window/mod.rs:3368
 msgid "Connection “{}” created"
 msgstr "连接“{}”已创建"
 
-#: rustconn/src/window/mod.rs:3549
+#: rustconn/src/window/mod.rs:3572
 msgid "RustConn - {}"
 msgstr "RustConn — {}"
 
-#: rustconn/src/window/mod.rs:3695
+#: rustconn/src/window/mod.rs:3718
 msgid "Settings saved"
 msgstr "设置已保存"
 
-#: rustconn/src/window/mod.rs:3732
+#: rustconn/src/window/mod.rs:3755
 msgid "Passphrase Not Saved on This Computer"
 msgstr "密码短语未保存在本机"
 
-#: rustconn/src/window/mod.rs:3734
+#: rustconn/src/window/mod.rs:3757
 msgid ""
 "The passphrase could not be encrypted for local storage, so it is kept for "
 "this session only and you will be asked for it again after a restart. Choose "
@@ -12060,11 +12072,11 @@ msgstr ""
 "无法为本地存储加密该密码短语，因此它只在本次会话中保留，重启后会再次询问。请"
 "改选“系统密钥环”，或检查 RustConn 是否可以写入其数据目录。"
 
-#: rustconn/src/window/mod.rs:3780
+#: rustconn/src/window/mod.rs:3803
 msgid "Credentials Not Saved to Keyring"
 msgstr "凭据未保存到密钥环"
 
-#: rustconn/src/window/mod.rs:3782
+#: rustconn/src/window/mod.rs:3805
 msgid ""
 "The system keyring did not accept the credentials, so they are kept for this "
 "session only and will be gone after a restart. Check that your keyring "
@@ -12073,55 +12085,55 @@ msgstr ""
 "系统密钥环未接受该凭据，因此凭据仅在本次会话内保留，重启后将丢失。请确认密钥"
 "环服务正在运行且已解锁，然后重新保存设置。"
 
-#: rustconn/src/window/mod.rs:3962
+#: rustconn/src/window/mod.rs:3985
 msgid "Close RustConn?"
 msgstr "关闭 RustConn？"
 
-#: rustconn/src/window/mod.rs:3964
+#: rustconn/src/window/mod.rs:3987
 msgid "{} session tab(s) are open. Active connections will be disconnected."
 msgstr "有 {} 个会话标签页处于打开状态。活动连接将被断开。"
 
-#: rustconn/src/window/mod.rs:4001
+#: rustconn/src/window/mod.rs:4024
 msgid ""
 "Settings could not be read, so defaults are in use. The unreadable file was "
 "kept as {}."
 msgstr "无法读取设置，因此正在使用默认值。无法读取的文件已保留为 {}。"
 
-#: rustconn/src/window/mod.rs:4006
+#: rustconn/src/window/mod.rs:4029
 msgid ""
 "These settings were saved by a newer RustConn ({}). A backup is kept before "
 "they are changed."
 msgstr "这些设置由较新版本的 RustConn（{}）保存。更改前会保留备份。"
 
-#: rustconn/src/window/mod.rs:4031
+#: rustconn/src/window/mod.rs:4054
 msgid "Cloud sync failed for '{}': {}"
 msgstr "'{}' 的云同步失败：{}"
 
-#: rustconn/src/window/mod.rs:4212
+#: rustconn/src/window/mod.rs:4235
 msgid "Startup connection not found"
 msgstr "未找到启动连接"
 
-#: rustconn/src/window/mod.rs:4248
+#: rustconn/src/window/mod.rs:4271
 msgid "Failed to open .rdp file"
 msgstr "打开 .rdp 文件失败"
 
-#: rustconn/src/window/mod.rs:4284
+#: rustconn/src/window/mod.rs:4307
 msgid "Failed to open .vv file"
 msgstr "打开 .vv 文件失败"
 
-#: rustconn/src/window/mod.rs:4321
+#: rustconn/src/window/mod.rs:4344
 msgid "Tunnel “{}” stopped: {}"
 msgstr "隧道“{}”已停止：{}"
 
-#: rustconn/src/window/mod.rs:4337
+#: rustconn/src/window/mod.rs:4360
 msgid "Gave up reconnecting tunnel “{}”: {}"
 msgstr "已放弃重连隧道“{}”：{}"
 
-#: rustconn/src/window/mod.rs:4828
+#: rustconn/src/window/mod.rs:4851
 msgid "Successfully exported {} connection(s). {} skipped."
 msgstr "成功导出 {} 个连接。{} 个已跳过。"
 
-#: rustconn/src/window/mod.rs:4914
+#: rustconn/src/window/mod.rs:4937
 msgid ""
 "The passphrase you saved does not decrypt the portable credential file, so "
 "none of the passwords in it can be read. Open Settings ▸ Secrets and enter "
@@ -12130,19 +12142,19 @@ msgstr ""
 "你保存的密码短语无法解密便携凭据文件，因此其中的任何密码都无法读取。请打开“设"
 "置 ▸ 密钥”，输入创建该文件时所用的密码短语。"
 
-#: rustconn/src/window/navigation_actions.rs:211
+#: rustconn/src/window/navigation_actions.rs:225
 msgid "Keyboard passthrough enabled — shortcuts disabled"
 msgstr "键盘直通已启用 — 快捷键已禁用"
 
-#: rustconn/src/window/navigation_actions.rs:213
+#: rustconn/src/window/navigation_actions.rs:227
 msgid "Keyboard passthrough disabled — shortcuts restored"
 msgstr "键盘直通已禁用 — 快捷键已恢复"
 
-#: rustconn/src/window/navigation_actions.rs:263
+#: rustconn/src/window/navigation_actions.rs:277
 msgid "Broadcast enabled — keystrokes mirrored to all split panels"
 msgstr "广播已启用 — 按键将镜像到所有分割面板"
 
-#: rustconn/src/window/navigation_actions.rs:265
+#: rustconn/src/window/navigation_actions.rs:279
 msgid "Broadcast disabled — keystrokes go to focused panel only"
 msgstr "广播已禁用 — 按键仅发送到当前焦点面板"
 
@@ -12402,6 +12414,11 @@ msgstr "命令完成：{}"
 #: rustconn/src/window/session_lifecycle.rs:618
 msgid "Command failed with status {}: {}"
 msgstr "命令失败，状态 {}：{}"
+
+#: rustconn/src/window/session_lifecycle.rs:1311
+msgid ""
+"Sign in again in the browser. The session reconnects when the login finishes."
+msgstr "请在浏览器中重新登录。登录完成后会话将自动重新连接。"
 
 #: rustconn/src/window/session_restore.rs:179
 msgid "Restore previous session?"

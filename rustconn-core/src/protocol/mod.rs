@@ -5,6 +5,7 @@
 //! Each protocol handler is responsible for validation and protocol metadata.
 
 mod cli;
+mod cloud_login;
 mod detection;
 pub mod freerdp;
 mod freerdp_version;
@@ -23,6 +24,7 @@ mod web;
 mod zerotrust;
 
 pub use cli::{format_command_message, format_connection_message};
+pub use cloud_login::{CloudLogin, expired_credentials_login};
 pub use detection::{
     ClientDetectionResult, ClientInfo, FREERDP_WAYLAND_FIRST, FREERDP_X11_FIRST,
     ZeroTrustDetectionResult, available_vnc_viewers, detect_aws_cli, detect_azure_cli,

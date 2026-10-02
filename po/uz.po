@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: rustconn 0.12.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-02 19:47+0300\n"
+"POT-Creation-Date: 2026-10-02 23:49+0300\n"
 "PO-Revision-Date: 2026-04-25 10:46+0000\n"
 "Last-Translator: RustConn Team\n"
 "Language-Team: Uzbek\n"
@@ -51,8 +51,8 @@ msgstr "OK"
 #: rustconn/src/window/connection_dialogs.rs:1083
 #: rustconn/src/window/edit_group.rs:1889
 #: rustconn/src/window/edit_group.rs:1937
-#: rustconn/src/window/group_broadcast.rs:379 rustconn/src/window/mod.rs:3084
-#: rustconn/src/window/mod.rs:3968 rustconn/src/window/operations.rs:82
+#: rustconn/src/window/group_broadcast.rs:379 rustconn/src/window/mod.rs:3107
+#: rustconn/src/window/mod.rs:3991 rustconn/src/window/operations.rs:82
 #: rustconn/src/window/operations.rs:453 rustconn/src/window/operations.rs:636
 #: rustconn/src/window/sessions.rs:339 rustconn/src/window/workspaces.rs:548
 msgid "Cancel"
@@ -166,7 +166,7 @@ msgstr "{} — RustConn"
 #: rustconn/src/embedded_rdp/mod.rs:2038
 #: rustconn/src/embedded_rdp/polling_handlers.rs:69
 #: rustconn/src/embedded_vnc/ui.rs:142
-#: rustconn/src/terminal/session_lifecycle.rs:393
+#: rustconn/src/terminal/session_lifecycle.rs:382
 msgid "Session disconnected"
 msgstr "Seans uzildi"
 
@@ -208,7 +208,7 @@ msgid "Enter Password Manually"
 msgstr "Parolni qo'lda kiritish"
 
 #: rustconn/src/dialogs/backend_missing.rs:56 rustconn/src/vault_ops.rs:66
-#: rustconn/src/vault_ops.rs:316 rustconn/src/window/mod.rs:897
+#: rustconn/src/vault_ops.rs:316 rustconn/src/window/mod.rs:912
 msgid "Open Settings"
 msgstr "Sozlamalarni ochish"
 
@@ -4335,7 +4335,7 @@ msgid "Copy"
 msgstr "Nusxalash"
 
 #: rustconn/src/dialogs/credential_transfer.rs:152
-#: rustconn/src/terminal/playback.rs:264 rustconn/src/window/mod.rs:949
+#: rustconn/src/terminal/playback.rs:264 rustconn/src/window/mod.rs:964
 msgid "Stop"
 msgstr "Toʻxtatish"
 
@@ -4452,7 +4452,7 @@ msgstr "Ko'chirish to'xtatildi"
 #: rustconn/src/dialogs/settings/cloud_sync_tab.rs:238
 #: rustconn/src/dialogs/tunnel_builder/mod.rs:618
 #: rustconn/src/dialogs/widgets.rs:598 rustconn/src/terminal/tab_menu.rs:501
-#: rustconn/src/vault_ops.rs:65 rustconn/src/window/mod.rs:3969
+#: rustconn/src/vault_ops.rs:65 rustconn/src/window/mod.rs:3992
 msgid "Close"
 msgstr "Yopish"
 
@@ -8343,7 +8343,7 @@ msgstr "Keyingi varaq"
 msgid "Previous Tab"
 msgstr "Oldingi varaq"
 
-#: rustconn/src/dialogs/shortcuts.rs:184 rustconn/src/terminal/mod.rs:490
+#: rustconn/src/dialogs/shortcuts.rs:184 rustconn/src/terminal/mod.rs:497
 msgid "Tab Overview"
 msgstr "Varaqlar ko'rinishi"
 
@@ -10163,15 +10163,15 @@ msgid "Save files from remote clipboard"
 msgstr "Masofaviy almashish buferidan fayllarni saqlash"
 
 #: rustconn/src/embedded_rdp/mod.rs:764 rustconn/src/embedded_vnc/ui.rs:145
-#: rustconn/src/split_view/adapter.rs:1484 rustconn/src/terminal/mod.rs:1339
-#: rustconn/src/terminal/session_lifecycle.rs:406
+#: rustconn/src/split_view/adapter.rs:1484 rustconn/src/terminal/mod.rs:1347
+#: rustconn/src/terminal/session_lifecycle.rs:395
 #: rustconn/src/terminal/tab_menu.rs:846
 msgid "Reconnect"
 msgstr "Qayta ulanish"
 
 #: rustconn/src/embedded_rdp/mod.rs:766 rustconn/src/embedded_vnc/ui.rs:147
-#: rustconn/src/terminal/mod.rs:1341
-#: rustconn/src/terminal/session_lifecycle.rs:408
+#: rustconn/src/terminal/mod.rs:1349
+#: rustconn/src/terminal/session_lifecycle.rs:397
 msgid "Reconnect to this session"
 msgstr "Bu seansga qayta ulanish"
 
@@ -11109,32 +11109,32 @@ msgstr "Ko'rsatish uchun tabni tanlang"
 msgid "Execute Snippet…"
 msgstr "Parchani bajarish…"
 
-#: rustconn/src/terminal/mod.rs:486
+#: rustconn/src/terminal/mod.rs:493
 msgid "Tab Overview (Ctrl+Shift+O)"
 msgstr "Varaqlar ko'rinishi (Ctrl+Shift+O)"
 
-#: rustconn/src/terminal/mod.rs:503 rustconn/src/terminal/tab_lifecycle.rs:35
-#: rustconn/src/terminal/tab_lifecycle.rs:50 rustconn/src/window/mod.rs:3544
+#: rustconn/src/terminal/mod.rs:510 rustconn/src/terminal/tab_lifecycle.rs:35
+#: rustconn/src/terminal/tab_lifecycle.rs:50 rustconn/src/window/mod.rs:3567
 msgid "Welcome"
 msgstr "Xush kelibsiz"
 
-#: rustconn/src/terminal/mod.rs:1043
+#: rustconn/src/terminal/mod.rs:1051
 msgid "Output filter '{}' is not installed; session output is not filtered"
 msgstr "«{}» chiqish filtri oʻrnatilmagan; sessiya chiqishi filtrlanmaydi"
 
-#: rustconn/src/terminal/mod.rs:1333
+#: rustconn/src/terminal/mod.rs:1341
 msgid "Command not found: {}"
 msgstr "Buyruq topilmadi: {}"
 
-#: rustconn/src/terminal/mod.rs:1335
+#: rustconn/src/terminal/mod.rs:1343
 msgid "Failed to start '{}'"
 msgstr "«{}» ishga tushirib boʻlmadi"
 
-#: rustconn/src/terminal/mod.rs:1357
+#: rustconn/src/terminal/mod.rs:1365
 msgid "'{}' is not installed"
 msgstr "«{}» oʻrnatilmagan"
 
-#: rustconn/src/terminal/mod.rs:1360
+#: rustconn/src/terminal/mod.rs:1368
 msgid "Failed to start '{}': {}"
 msgstr "«{}» ishga tushirib boʻlmadi: {}"
 
@@ -11194,19 +11194,31 @@ msgstr ""
 "Vaqtinchalik xotirada bir nechta qator bor. Har bir qator qo‘yilishi bilan "
 "bajariladi — davom etishdan oldin tekshiring."
 
-#: rustconn/src/terminal/session_lifecycle.rs:183
+#: rustconn/src/terminal/session_lifecycle.rs:172
 msgid "Reconnected at {}"
 msgstr "{} da qayta ulandi"
 
-#: rustconn/src/terminal/session_lifecycle.rs:400
-#: rustconn/src/terminal/session_lifecycle.rs:455
+#: rustconn/src/terminal/session_lifecycle.rs:389
+#: rustconn/src/terminal/session_lifecycle.rs:444
 msgid "Auto-reconnecting…"
 msgstr "Avtomatik qayta ulanish…"
 
-#: rustconn/src/terminal/session_lifecycle.rs:495
-#: rustconn/src/terminal/session_lifecycle.rs:505
+#: rustconn/src/terminal/session_lifecycle.rs:484
+#: rustconn/src/terminal/session_lifecycle.rs:494
 msgid "Auto-reconnecting (attempt {}/{})"
 msgstr "Avtomatik qayta ulanish (urinish {}/{})"
+
+#: rustconn/src/terminal/session_lifecycle.rs:564
+msgid "Sign-in expired"
+msgstr "Kirish muddati tugadi"
+
+#: rustconn/src/terminal/session_lifecycle.rs:573
+msgid "Log In to {}"
+msgstr "{} ga kirish"
+
+#: rustconn/src/terminal/session_lifecycle.rs:577
+msgid "Run “{}” to sign in again in the browser"
+msgstr "Brauzerda qayta kirish uchun “{}” buyrugʻini ishga tushirish"
 
 #: rustconn/src/terminal/tab_menu.rs:178
 msgid "Set Tab Group"
@@ -11362,7 +11374,7 @@ msgstr "{} faol sessiya(lar)"
 msgid "About RustConn"
 msgstr "RustConn haqida"
 
-#: rustconn/src/vault_ops.rs:50 rustconn/src/window/mod.rs:4912
+#: rustconn/src/vault_ops.rs:50 rustconn/src/window/mod.rs:4935
 msgid "Passphrase Does Not Open the Portable File"
 msgstr "Parol iborasi ko'chma faylni ochmaydi"
 
@@ -12334,39 +12346,39 @@ msgstr ""
 msgid "Global variables could not be saved to disk."
 msgstr "Global o'zgaruvchilarni diskka saqlash imkoni bo'lmadi."
 
-#: rustconn/src/window/mod.rs:873 rustconn/src/window/mod.rs:884
+#: rustconn/src/window/mod.rs:888 rustconn/src/window/mod.rs:899
 msgid "Dismiss"
 msgstr "Yopish"
 
-#: rustconn/src/window/mod.rs:913
+#: rustconn/src/window/mod.rs:928
 msgid "Touch your hardware key to unlock the password database"
 msgstr "Parollar ma'lumotlar bazasini ochish uchun apparat kalitiga teging"
 
-#: rustconn/src/window/mod.rs:2373
+#: rustconn/src/window/mod.rs:2396
 msgid "Already running in an external window"
 msgstr "Allaqachon tashqi oynada ishlamoqda"
 
-#: rustconn/src/window/mod.rs:2524
+#: rustconn/src/window/mod.rs:2547
 msgid "Connection to ‘{}’ failed"
 msgstr "‘{}’ ga ulanish muvaffaqiyatsiz"
 
-#: rustconn/src/window/mod.rs:2777 rustconn/src/window/mod.rs:2791
+#: rustconn/src/window/mod.rs:2800 rustconn/src/window/mod.rs:2814
 msgid "Pre-connect task failed: {}"
 msgstr "Ulanish oldidan vazifa bajarilmadi: {}"
 
-#: rustconn/src/window/mod.rs:2825
+#: rustconn/src/window/mod.rs:2848
 msgid "Port knock failed: {}"
 msgstr "Port knock amalga oshmadi: {}"
 
-#: rustconn/src/window/mod.rs:2874
+#: rustconn/src/window/mod.rs:2897
 msgid "SPA failed: {}"
 msgstr "SPA amalga oshmadi: {}"
 
-#: rustconn/src/window/mod.rs:3070
+#: rustconn/src/window/mod.rs:3093
 msgid "{} (via {})"
 msgstr "{} ({} orqali)"
 
-#: rustconn/src/window/mod.rs:3076
+#: rustconn/src/window/mod.rs:3099
 msgid ""
 "This connection no longer goes where it did.\n"
 "\n"
@@ -12390,31 +12402,31 @@ msgstr ""
 "Agar bu o‘zgarishni siz qilmagan bo‘lsangiz, bekor qiling — ulanish "
 "saqlangan hisob ma’lumotlarini boshqa mashinaga yuborishi mumkin."
 
-#: rustconn/src/window/mod.rs:3081
+#: rustconn/src/window/mod.rs:3104
 msgid "Routing changed for “{}”"
 msgstr "«{}» uchun marshrut o‘zgardi"
 
-#: rustconn/src/window/mod.rs:3085 rustconn/src/window/rdp_vnc.rs:757
+#: rustconn/src/window/mod.rs:3108 rustconn/src/window/rdp_vnc.rs:757
 msgid "Connect Anyway"
 msgstr "Baribir ulanish"
 
-#: rustconn/src/window/mod.rs:3170 rustconn/src/window/mod.rs:3345
+#: rustconn/src/window/mod.rs:3193 rustconn/src/window/mod.rs:3368
 msgid "Connection “{}” created"
 msgstr "“{}” ulanishi yaratildi"
 
-#: rustconn/src/window/mod.rs:3549
+#: rustconn/src/window/mod.rs:3572
 msgid "RustConn - {}"
 msgstr "RustConn — {}"
 
-#: rustconn/src/window/mod.rs:3695
+#: rustconn/src/window/mod.rs:3718
 msgid "Settings saved"
 msgstr "Sozlamalar saqlandi"
 
-#: rustconn/src/window/mod.rs:3732
+#: rustconn/src/window/mod.rs:3755
 msgid "Passphrase Not Saved on This Computer"
 msgstr "Parol iborasi bu kompyuterda saqlanmadi"
 
-#: rustconn/src/window/mod.rs:3734
+#: rustconn/src/window/mod.rs:3757
 msgid ""
 "The passphrase could not be encrypted for local storage, so it is kept for "
 "this session only and you will be asked for it again after a restart. Choose "
@@ -12426,11 +12438,11 @@ msgstr ""
 "so'raladi. Buning o'rniga «Tizim kalitlar shodasi»ni tanlang yoki RustConn "
 "o'z ma'lumotlar katalogiga yozishi mumkinligini tekshiring."
 
-#: rustconn/src/window/mod.rs:3780
+#: rustconn/src/window/mod.rs:3803
 msgid "Credentials Not Saved to Keyring"
 msgstr "Hisob ma’lumotlari kalitlar to‘plamiga saqlanmadi"
 
-#: rustconn/src/window/mod.rs:3782
+#: rustconn/src/window/mod.rs:3805
 msgid ""
 "The system keyring did not accept the credentials, so they are kept for this "
 "session only and will be gone after a restart. Check that your keyring "
@@ -12441,15 +12453,15 @@ msgstr ""
 "yo‘qoladi. Kalitlar to‘plami xizmati ishlayotganini va qulfi ochilganini "
 "tekshirib, sozlamalarni qayta saqlang."
 
-#: rustconn/src/window/mod.rs:3962
+#: rustconn/src/window/mod.rs:3985
 msgid "Close RustConn?"
 msgstr "RustConn yopilsinmi?"
 
-#: rustconn/src/window/mod.rs:3964
+#: rustconn/src/window/mod.rs:3987
 msgid "{} session tab(s) are open. Active connections will be disconnected."
 msgstr "{} ta seans varag'i ochiq. Faol ulanishlar uziladi."
 
-#: rustconn/src/window/mod.rs:4001
+#: rustconn/src/window/mod.rs:4024
 msgid ""
 "Settings could not be read, so defaults are in use. The unreadable file was "
 "kept as {}."
@@ -12457,7 +12469,7 @@ msgstr ""
 "Sozlamalarni o'qib bo'lmadi, shuning uchun standart qiymatlar ishlatilmoqda. "
 "O'qib bo'lmaydigan fayl {} sifatida saqlandi."
 
-#: rustconn/src/window/mod.rs:4006
+#: rustconn/src/window/mod.rs:4029
 msgid ""
 "These settings were saved by a newer RustConn ({}). A backup is kept before "
 "they are changed."
@@ -12465,35 +12477,35 @@ msgstr ""
 "Ushbu sozlamalar yangiroq RustConn ({}) tomonidan saqlangan. Ular "
 "o'zgartirilishdan oldin zaxira nusxa saqlanadi."
 
-#: rustconn/src/window/mod.rs:4031
+#: rustconn/src/window/mod.rs:4054
 msgid "Cloud sync failed for '{}': {}"
 msgstr "'{}' uchun bulutli sinxronlash muvaffaqiyatsiz tugadi: {}"
 
-#: rustconn/src/window/mod.rs:4212
+#: rustconn/src/window/mod.rs:4235
 msgid "Startup connection not found"
 msgstr "Ishga tushirish ulanishi topilmadi"
 
-#: rustconn/src/window/mod.rs:4248
+#: rustconn/src/window/mod.rs:4271
 msgid "Failed to open .rdp file"
 msgstr ".rdp faylni ochib bo’lmadi"
 
-#: rustconn/src/window/mod.rs:4284
+#: rustconn/src/window/mod.rs:4307
 msgid "Failed to open .vv file"
 msgstr ".vv faylni ochib bo'lmadi"
 
-#: rustconn/src/window/mod.rs:4321
+#: rustconn/src/window/mod.rs:4344
 msgid "Tunnel “{}” stopped: {}"
 msgstr "“{}” tunneli to'xtadi: {}"
 
-#: rustconn/src/window/mod.rs:4337
+#: rustconn/src/window/mod.rs:4360
 msgid "Gave up reconnecting tunnel “{}”: {}"
 msgstr "“{}” tunnelini qayta ulash to'xtatildi: {}"
 
-#: rustconn/src/window/mod.rs:4828
+#: rustconn/src/window/mod.rs:4851
 msgid "Successfully exported {} connection(s). {} skipped."
 msgstr "{} ta ulanish muvaffaqiyatli eksport qilindi. {} tashlab yuborildi."
 
-#: rustconn/src/window/mod.rs:4914
+#: rustconn/src/window/mod.rs:4937
 msgid ""
 "The passphrase you saved does not decrypt the portable credential file, so "
 "none of the passwords in it can be read. Open Settings ▸ Secrets and enter "
@@ -12504,21 +12516,21 @@ msgstr ""
 "Sozlamalar ▸ Maxfiy ma'lumotlar bo'limini ochib, fayl yaratilgan parol "
 "iborasini kiriting."
 
-#: rustconn/src/window/navigation_actions.rs:211
+#: rustconn/src/window/navigation_actions.rs:225
 msgid "Keyboard passthrough enabled — shortcuts disabled"
 msgstr "Klaviatura o'tkazishi yoqildi — yorliqlar o'chirildi"
 
-#: rustconn/src/window/navigation_actions.rs:213
+#: rustconn/src/window/navigation_actions.rs:227
 msgid "Keyboard passthrough disabled — shortcuts restored"
 msgstr "Klaviatura o'tkazishi o'chirildi — yorliqlar tiklandi"
 
-#: rustconn/src/window/navigation_actions.rs:263
+#: rustconn/src/window/navigation_actions.rs:277
 msgid "Broadcast enabled — keystrokes mirrored to all split panels"
 msgstr ""
 "Translyatsiya yoqildi — tugma bosishlari barcha bo‘lingan panellarga "
 "ko‘chiriladi"
 
-#: rustconn/src/window/navigation_actions.rs:265
+#: rustconn/src/window/navigation_actions.rs:279
 msgid "Broadcast disabled — keystrokes go to focused panel only"
 msgstr "Translyatsiya o‘chirildi — tugma bosishlari faqat faol panelga boradi"
 
@@ -12779,6 +12791,11 @@ msgstr "Buyruq tugadi: {}"
 #: rustconn/src/window/session_lifecycle.rs:618
 msgid "Command failed with status {}: {}"
 msgstr "Buyruq muvaffaqiyatsiz, holat {}: {}"
+
+#: rustconn/src/window/session_lifecycle.rs:1311
+msgid ""
+"Sign in again in the browser. The session reconnects when the login finishes."
+msgstr "Brauzerda qayta kiring. Kirish tugagach, seans qayta ulanadi."
 
 #: rustconn/src/window/session_restore.rs:179
 msgid "Restore previous session?"

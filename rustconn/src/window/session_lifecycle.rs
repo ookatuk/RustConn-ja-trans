@@ -994,9 +994,22 @@ impl MainWindow {
                 return;
             }
 
+            // A Zero Trust CLI whose credentials expired says so in its last
+            // output lines. Read them before `mark_tab_disconnected` resets the
+            // VTE state.
+            let cloud_login = if is_failure {
+                Self::expired_cloud_login(&state_clone, &notebook_clone, session_id, connection_id)
+            } else {
+                None
+            };
+            let is_expired_credentials = cloud_login.is_some();
+
             // Mark tab as disconnected and show reconnect overlay
             notebook_clone.mark_tab_disconnected(session_id);
             notebook_clone.show_reconnect_overlay(session_id);
+            if let Some(login) = cloud_login {
+                notebook_clone.offer_cloud_login(session_id, login);
+            }
 
             // Auto-reconnect: poll host and reconnect when it comes back online
             // Only for non-intentional disconnects (failures, not user-initiated)
@@ -1055,11 +1068,19 @@ impl MainWindow {
             // seconds and would spin forever on bad credentials; a sweep fires
             // once, on a discrete external event, and one re-prompt is a far
             // smaller price than never recovering a dropped SSH session.
-            notebook_clone.set_auto_reconnect_eligible(session_id, is_failure && !is_rapid_crash);
+            //
+            // Expired cloud credentials are excluded from both: the host is
+            // reachable, so every reconnect would fail the same way until the
+            // user signs in again.
+            notebook_clone.set_auto_reconnect_eligible(
+                session_id,
+                is_failure && !is_rapid_crash && !is_expired_credentials,
+            );
 
             if is_failure
                 && !is_ssh_auth_failure
                 && !is_rapid_crash
+                && !is_expired_credentials
                 && let Ok(state_ref) = state_clone.try_borrow()
                 && let Some(conn) = state_ref.get_connection(connection_id)
             {
@@ -1181,6 +1202,126 @@ impl MainWindow {
             sidebar_clone.decrement_session_count(&connection_id_str, is_failure);
             });
         });
+    }
+
+    /// Returns the login command when a Zero Trust session ended on expired credentials.
+    ///
+    /// Reads the session's visible terminal text, so it must run before
+    /// `mark_tab_disconnected` resets the VTE state. `None` for any other
+    /// protocol, for an unrecognised failure, and while the state is borrowed.
+    fn expired_cloud_login(
+        state: &SharedAppState,
+        notebook: &SharedNotebook,
+        session_id: Uuid,
+        connection_id: Uuid,
+    ) -> Option<rustconn_core::protocol::CloudLogin> {
+        let is_zero_trust = notebook
+            .get_session_info(session_id)
+            .is_some_and(|info| info.protocol.starts_with("zerotrust"));
+        if !is_zero_trust {
+            return None;
+        }
+        // The screen can hold whatever the session printed, so the copy is
+        // scrubbed when it goes out of scope.
+        let output = Zeroizing::new(notebook.get_terminal_text(session_id)?);
+        let state_ref = state.try_borrow().ok()?;
+        let conn = state_ref.get_connection(connection_id)?;
+        let rustconn_core::ProtocolConfig::ZeroTrust(zt_config) = &conn.protocol_config else {
+            return None;
+        };
+        rustconn_core::protocol::expired_credentials_login(zt_config, &output)
+    }
+
+    /// Runs a cloud CLI login in the session's terminal, then reconnects.
+    ///
+    /// The login runs in the same terminal rather than in the background
+    /// because these commands are interactive: `aws login` may ask for a
+    /// region, and every one of them prints a URL or device code to use when
+    /// no browser opens. Running through [`TerminalNotebook::spawn_command`]
+    /// also gives it the same `PATH` and sandbox config directories
+    /// (`CLOUDSDK_CONFIG`, `AZURE_CONFIG_DIR`, …) as the session, so the
+    /// renewed token lands where the reconnect will look for it.
+    ///
+    /// The session's disconnect handler is replaced for the login's lifetime:
+    /// the login exiting is not a session ending, and must not record history
+    /// or run the post-disconnect task a second time. A successful login
+    /// triggers the reconnect, which wires the real handler again; a failed one
+    /// brings the banner back with the login button.
+    pub(crate) fn start_cloud_login(
+        notebook: &SharedNotebook,
+        session_id: Uuid,
+        connection_id: Uuid,
+        login: rustconn_core::protocol::CloudLogin,
+    ) {
+        use crate::i18n::i18n;
+        use rustconn_core::protocol::format_command_message;
+
+        tracing::info!(
+            %session_id,
+            %connection_id,
+            provider = login.provider_name(),
+            command = %login.command_line(),
+            "Starting cloud login for expired credentials"
+        );
+
+        notebook.remove_reconnect_banner(session_id);
+
+        let notebook_weak = Rc::downgrade(notebook);
+        let login_for_retry = login.clone();
+        notebook.connect_child_exited(session_id, ChildExitHook::Disconnect, move |exit_status| {
+            let Some(nb) = notebook_weak.upgrade() else {
+                return;
+            };
+            // A waitpid status of 0 is exactly "exited normally with code 0":
+            // any signal sets the low bits, any exit code the next byte.
+            let succeeded = exit_status == 0;
+            let login = login_for_retry.clone();
+            // Deferred for the same reason as the disconnect path: mutating the
+            // widget tree or resetting VTE inside `child-exited` can race the
+            // pending GTK snapshot (#171).
+            glib::idle_add_local_once(move || {
+                if crate::app::is_shutting_down() || nb.get_session_info(session_id).is_none() {
+                    return;
+                }
+                if succeeded {
+                    tracing::info!(%session_id, %connection_id, "Cloud login finished, reconnecting");
+                    let on_reconnect = nb.reconnect_callback();
+                    if let Some(ref callback) = *on_reconnect.borrow() {
+                        callback(session_id, connection_id);
+                    }
+                } else {
+                    tracing::warn!(
+                        %session_id,
+                        exit_status,
+                        provider = login.provider_name(),
+                        "Cloud login did not succeed"
+                    );
+                    nb.mark_tab_disconnected(session_id);
+                    nb.show_reconnect_overlay(session_id);
+                    nb.offer_cloud_login(session_id, login);
+                }
+            });
+        });
+
+        notebook.display_output(
+            session_id,
+            &format!(
+                "\r\n🔐 {}\r\n{}\r\n\r\n",
+                i18n(
+                    "Sign in again in the browser. The session reconnects when the login finishes."
+                ),
+                format_command_message(&login.command_line())
+            ),
+        );
+
+        let argv = login.spawn_argv();
+        let argv: Vec<&str> = argv.iter().map(String::as_str).collect();
+        if notebook.spawn_command(session_id, &argv, None, None, None)
+            && let Some(terminal) = notebook.get_terminal(session_id)
+        {
+            // The login may prompt (a region, a device code confirmation).
+            terminal.grab_focus();
+        }
     }
 
     /// Sets up logging handlers for a terminal session based on settings

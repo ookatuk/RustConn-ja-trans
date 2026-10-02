@@ -824,6 +824,17 @@ impl MainWindow {
             });
         }
 
+        // "Log In to <provider>" on a Zero Trust session whose cloud
+        // credentials expired: run the CLI login in the tab, then reconnect.
+        {
+            let notebook_for_login = Rc::downgrade(&terminal_notebook);
+            terminal_notebook.set_on_cloud_login(move |session_id, connection_id, login| {
+                if let Some(notebook) = notebook_for_login.upgrade() {
+                    Self::start_cloud_login(&notebook, session_id, connection_id, login);
+                }
+            });
+        }
+
         // TabView/TabBar configuration is handled internally
         // TabView is always visible — content lives inside TabPages
         terminal_notebook.widget().set_vexpand(true);

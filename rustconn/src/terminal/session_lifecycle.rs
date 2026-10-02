@@ -70,18 +70,9 @@ impl TerminalNotebook {
         // Cancel any background polling (auto-reconnect)
         self.cancel_poll(session_id);
 
-        // Remove the reconnect banner from wherever the session currently lives
-        if let Some(container) = self.session_content_box(session_id) {
-            // Find and remove the reconnect-banner widget
-            let mut child = container.first_child();
-            while let Some(widget) = child {
-                let next = widget.next_sibling();
-                if widget.widget_name() == "reconnect-banner" {
-                    container.remove(&widget);
-                }
-                child = next;
-            }
-        }
+        // Remove the reconnect banner from wherever the session currently lives.
+        // This also allows a new banner to be shown if this reconnect fails.
+        self.remove_reconnect_banner(session_id);
 
         // Reset the VTE terminal (clear screen, reset state machine)
         if let Some(terminal) = self.terminals.borrow().get(&session_id) {
@@ -99,8 +90,6 @@ impl TerminalNotebook {
             page.set_indicator_icon(gio::Icon::NONE);
         }
 
-        // Allow a new reconnect banner to be shown if this reconnect also fails
-        self.reconnect_shown.borrow_mut().remove(&session_id);
         // The session is live again, so it becomes focusable by the smart
         // double-click once more (issue #242).
         self.disconnected_sessions.borrow_mut().remove(&session_id);
@@ -519,9 +508,108 @@ impl TerminalNotebook {
         }
     }
 
+    /// Returns the session's reconnect banner, if one is shown.
+    fn reconnect_banner(&self, session_id: Uuid) -> Option<GtkBox> {
+        let container = self.session_content_box(session_id)?;
+        let mut child = container.first_child();
+        while let Some(widget) = child {
+            if widget.widget_name() == "reconnect-banner" {
+                return widget.downcast::<GtkBox>().ok();
+            }
+            child = widget.next_sibling();
+        }
+        None
+    }
+
+    /// Removes the reconnect banner and allows a later one to be shown.
+    pub fn remove_reconnect_banner(&self, session_id: Uuid) {
+        if let Some(container) = self.session_content_box(session_id) {
+            let mut child = container.first_child();
+            while let Some(widget) = child {
+                let next = widget.next_sibling();
+                if widget.widget_name() == "reconnect-banner" {
+                    container.remove(&widget);
+                }
+                child = next;
+            }
+        }
+        self.reconnect_shown.borrow_mut().remove(&session_id);
+    }
+
+    /// Adds a "Log In to <provider>" button to the session's reconnect banner.
+    ///
+    /// Shown when the session ended because the cloud CLI's credentials
+    /// expired, so reconnecting cannot succeed until the user signs in again.
+    /// The button goes before "Reconnect" and takes over the suggested-action
+    /// style, because it is the step that has to come first. Clicking it hands
+    /// the login command to the `on_cloud_login` callback.
+    pub fn offer_cloud_login(&self, session_id: Uuid, login: rustconn_core::protocol::CloudLogin) {
+        let Some(banner) = self.reconnect_banner(session_id) else {
+            return;
+        };
+        let Some(connection_id) = self
+            .session_info
+            .borrow()
+            .get(&session_id)
+            .map(|info| info.connection_id)
+        else {
+            return;
+        };
+
+        // The banner's first child is its "Session disconnected" label.
+        if let Some(label) = banner
+            .first_child()
+            .and_then(|w| w.downcast::<gtk4::Label>().ok())
+        {
+            label.set_label(&i18n("Sign-in expired"));
+        }
+
+        let reconnect_button = banner.last_child();
+        if let Some(ref reconnect) = reconnect_button {
+            reconnect.remove_css_class("suggested-action");
+        }
+
+        let provider = i18n(login.provider_name());
+        let button = gtk4::Button::with_label(&i18n_f("Log In to {}", &[&provider]));
+        button.add_css_class("suggested-action");
+        button.set_widget_name("cloud-login");
+        button.set_tooltip_text(Some(&i18n_f(
+            "Run “{}” to sign in again in the browser",
+            &[&login.command_line()],
+        )));
+        banner.insert_child_after(
+            &button,
+            reconnect_button.and_then(|r| r.prev_sibling()).as_ref(),
+        );
+
+        tracing::info!(
+            %session_id,
+            provider = login.provider_name(),
+            command = %login.command_line(),
+            "Offering cloud login for expired credentials"
+        );
+
+        let on_cloud_login = self.on_cloud_login.clone();
+        button.connect_clicked(move |_| {
+            if let Some(ref callback) = *on_cloud_login.borrow() {
+                callback(session_id, connection_id, login.clone());
+            }
+        });
+    }
+
     // ========================================================================
     // Reconnect Callback Management
     // ========================================================================
+
+    /// Sets the callback invoked when a banner's cloud login button is clicked.
+    ///
+    /// The callback receives `(session_id, connection_id, login)`.
+    pub fn set_on_cloud_login<F>(&self, callback: F)
+    where
+        F: Fn(Uuid, Uuid, rustconn_core::protocol::CloudLogin) + 'static,
+    {
+        *self.on_cloud_login.borrow_mut() = Some(Box::new(callback));
+    }
 
     /// Sets the callback invoked when a reconnect button is clicked
     ///
