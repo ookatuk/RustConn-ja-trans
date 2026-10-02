@@ -335,8 +335,9 @@ pub fn create_ui_page() -> (
     window_group.add(&window_title_shows_connection);
 
     // Show connection name as a compact header on each split-view pane (issue #277).
-    // Off by default — useful when 3+ panes are open side by side and the color
-    // indicator alone is not enough to tell them apart at a glance.
+    // On by default (#355): the header also serves as the drag handle for moving a
+    // pane between panels/tabs, and is helpful when 3+ panes are open side by side
+    // and the color indicator alone is not enough to tell them apart at a glance.
     let show_split_pane_labels = adw::SwitchRow::builder()
         .title(i18n("Show connection name in split panes"))
         .subtitle(i18n(

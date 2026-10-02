@@ -5,6 +5,11 @@ All notable changes to RustConn will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.22.14] - 2026-10-02
+
+### Added
+- **feat(split-view): show connection-name labels in split panes by default (issue [#355](https://github.com/totoshko88/RustConn/issues/355))** — the per-pane connection-name header added in #277 was off by default, so most users never saw it and had only the color indicator to tell panes apart. `UiSettings::show_split_pane_labels` now defaults to `true` (both in `Default` and via a `#[serde(default = "default_true")]` serde default, so a config file written by an older version that omits the key also gets labels on). The **Settings → Interface → "Show connection name in split panes"** switch still turns it off for anyone who prefers the bare panes. Beyond identification, the header now doubles as the drag handle for moving a pane between panels/tabs (see the drag-to-move fix below), so having it visible by default also makes that gesture discoverable.
+
 ## [0.22.13] - 2026-10-02
 
 ### Added

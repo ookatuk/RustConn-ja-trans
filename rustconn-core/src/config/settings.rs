@@ -1053,11 +1053,12 @@ pub struct UiSettings {
     pub tunnel_browser_command: String,
     /// Show connection name as a compact header on each split-view pane.
     ///
-    /// Default `false`. When enabled, a thin colored banner with the connection
-    /// name appears at the top of every pane in a split layout, making it easy
-    /// to identify which pane belongs to which connection at a glance — useful
-    /// with 3+ panes side by side (issue #277).
-    #[serde(default)]
+    /// Default `true`. A thin colored banner with the connection name appears at
+    /// the top of every pane in a split layout, making it easy to identify which
+    /// pane belongs to which connection at a glance — useful with 3+ panes side
+    /// by side (issue #277). The banner also doubles as the drag handle for
+    /// moving a pane between panels/tabs (issue #355).
+    #[serde(default = "default_true")]
     pub show_split_pane_labels: bool,
     /// Remember keyboard passthrough state across restarts.
     ///
@@ -1158,7 +1159,7 @@ impl Default for UiSettings {
             open_tunnelled_browser_in_embedded: true,
             tunnel_browser_start_url: default_tunnel_start_url(),
             tunnel_browser_command: String::new(),
-            show_split_pane_labels: false,
+            show_split_pane_labels: true,
             keyboard_passthrough: false,
         }
     }
