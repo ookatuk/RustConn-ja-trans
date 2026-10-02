@@ -3284,7 +3284,7 @@ Click the ↩ button next to any shortcut to reset it to default, or **Reset All
 
 ### Keyboard Passthrough Mode
 
-When working in remote sessions with TUI applications (nvim, tmux, htop, mc), RustConn's keyboard shortcuts can conflict with the remote application's bindings. Keyboard passthrough mode disables all application shortcuts so every key combination reaches the remote session.
+When working in remote sessions with TUI applications (nvim, tmux, htop, mc), RustConn's keyboard shortcuts can conflict with the remote application's bindings. Keyboard passthrough mode disables RustConn's own shortcuts so those key combinations reach the remote session instead.
 
 **Toggle passthrough:**
 - Press **Ctrl+Shift+Backspace** (works in both normal and passthrough mode)
@@ -3294,9 +3294,12 @@ When working in remote sessions with TUI applications (nvim, tmux, htop, mc), Ru
 **When passthrough is active:**
 - All application shortcuts are disabled (Ctrl+N, Ctrl+F, Ctrl+P, etc. go to the terminal)
 - The F10 primary-menu key is also suspended, so F10 reaches the remote session (e.g. Midnight Commander)
+- The tab bar's built-in shortcuts are suspended too (0.22.15+): Ctrl+Tab, Ctrl+Shift+Tab, Ctrl+Page Up/Down, Ctrl+Home/End, Ctrl+Shift+Page Up/Down/Home/End, Alt+1…9 and Alt+0 reach the session instead of switching or moving tabs
 - Only three shortcuts remain active: the passthrough toggle itself (Ctrl+Shift+Backspace), Quit (Ctrl+Q), and Fullscreen (F11)
 - A toast notification confirms the mode change
 - The menu item shows a checkmark when active
+
+**What passthrough cannot capture:** shortcuts owned by the desktop itself — Alt+Tab, the Super key, Super+number, workspace switching — are handled by the compositor (GNOME Shell, KWin) before RustConn sees the key, so they still act on your local desktop. The same applies to an RDP, VNC or SPICE session opened in an external viewer window: passthrough only affects RustConn's own window.
 
 **Customization:** The list of shortcuts that remain active in passthrough mode can be configured in `config.toml` under `[keybindings] passthrough_exceptions`.
 

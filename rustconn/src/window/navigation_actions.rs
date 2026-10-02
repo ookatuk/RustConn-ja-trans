@@ -177,6 +177,7 @@ impl MainWindow {
         let toast_overlay_clone = self.toast_overlay.clone();
         let passthrough_indicator_clone = self.passthrough_indicator.clone();
         let menu_button_clone = self.menu_button.clone();
+        let notebook_for_passthrough = terminal_notebook.clone();
         toggle_passthrough_action.connect_activate(move |action, _| {
             if let Some(win) = window_weak.upgrade() {
                 let is_passthrough = action
@@ -199,6 +200,11 @@ impl MainWindow {
                 // the `primary` flag while passthrough is active so F10 also
                 // reaches the remote session.
                 menu_button_clone.set_primary(!new_state);
+
+                // Same story for AdwTabView's own tab shortcuts (Ctrl+Tab,
+                // Ctrl+Shift+Tab, Ctrl+Page Up/Down, Alt+1…9): they live on
+                // the TabView, not in the accelerator table (issue #356).
+                notebook_for_passthrough.set_keyboard_passthrough(new_state);
 
                 // Show toast notification about the mode change
                 let message = if new_state {

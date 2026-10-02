@@ -2313,6 +2313,19 @@ impl TerminalNotebook {
         &self.tab_view
     }
 
+    /// Turns the TabView's built-in tab shortcuts off for keyboard passthrough.
+    ///
+    /// `AdwTabView` carries its own shortcut controller (Ctrl+Tab,
+    /// Ctrl+Shift+Tab, Ctrl+Page Up/Down, Ctrl+Home/End,
+    /// Ctrl+Shift+Page Up/Down/Home/End, Alt+0…9) with window-wide scope. It is not a `GApplication`
+    /// accelerator, so clearing the accelerator table in passthrough mode does
+    /// not reach it, and because it runs before the session widget's key
+    /// controller it switched tabs instead of forwarding the chord (issue #356).
+    pub fn set_keyboard_passthrough(&self, enabled: bool) {
+        self.tab_view
+            .set_shortcuts(tab_view_shortcuts_for_passthrough(enabled));
+    }
+
     /// Returns the global split session colors map (session_id → color_index).
     ///
     /// Used by split view popover to show color indicators for sessions
@@ -3238,6 +3251,45 @@ fn cursor_line_text(terminal: &Terminal) -> Option<String> {
             .find(|l| !l.trim().is_empty())
             .map(str::to_owned)
     })
+}
+
+/// The `AdwTabView` shortcut set for a keyboard-passthrough state.
+///
+/// Passthrough disables every one of them so the chord reaches the session;
+/// leaving it restores the full default set, which is what the TabView is built
+/// with, so toggling twice is a no-op.
+const fn tab_view_shortcuts_for_passthrough(enabled: bool) -> adw::TabViewShortcuts {
+    if enabled {
+        adw::TabViewShortcuts::NONE
+    } else {
+        adw::TabViewShortcuts::ALL_SHORTCUTS
+    }
+}
+
+#[cfg(test)]
+mod passthrough_shortcut_tests {
+    use libadwaita as adw;
+
+    use super::tab_view_shortcuts_for_passthrough;
+
+    /// Issue #356: Ctrl+Shift+Tab and friends switched tabs in passthrough.
+    #[test]
+    fn passthrough_disables_every_tab_view_shortcut() {
+        assert_eq!(
+            tab_view_shortcuts_for_passthrough(true),
+            adw::TabViewShortcuts::NONE
+        );
+    }
+
+    /// Leaving passthrough must give back exactly the set `adw::TabView::new()`
+    /// starts with — Ctrl+Tab, Ctrl+Page Up/Down and Alt+digit keep working.
+    #[test]
+    fn leaving_passthrough_restores_the_default_set() {
+        assert_eq!(
+            tab_view_shortcuts_for_passthrough(false),
+            adw::TabViewShortcuts::ALL_SHORTCUTS
+        );
+    }
 }
 
 /// The output-filter availability gate.

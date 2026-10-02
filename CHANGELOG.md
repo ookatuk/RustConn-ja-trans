@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - **The header bar revealed in fullscreen now covers the content beneath it (issue [#354](https://github.com/totoshko88/RustConn/issues/354))** — in 0.22.14 the header that slides in at the top edge of a fullscreen window had no background of its own, so the tab bar and the session showed through it and the two rows of controls were drawn over each other. It now has the solid header-bar background and a shadow while fullscreen, and returns to its usual look when fullscreen ends.
+- **Keyboard passthrough no longer lets the tab bar take Ctrl+Tab, Ctrl+Shift+Tab, Ctrl+Page Up/Down and Alt+digit (issue [#356](https://github.com/totoshko88/RustConn/issues/356))** — passthrough cleared RustConn's own shortcut table, but the tab view has a second set of built-in tab shortcuts that it never touched: Ctrl+Tab, Ctrl+Shift+Tab, Ctrl+Page Up/Down, Ctrl+Home/End, Ctrl+Shift+Page Up/Down/Home/End, Alt+1…9 and Alt+0. These are handled before the session sees the key, so with passthrough on they still switched or moved tabs instead of reaching the RDP, VNC or terminal session. Passthrough now turns them off as well, and turning passthrough off brings them back. Alt+Tab, the Super key and other desktop shortcuts are still handled by the desktop before RustConn sees them, so passthrough does not forward those.
+
+### Documentation
+- **The keyboard passthrough section of the User Guide now says what passthrough cannot capture (issue [#356](https://github.com/totoshko88/RustConn/issues/356))** — it claimed that every key combination reaches the remote session. It now lists the tab bar shortcuts that passthrough suspends, and states that desktop shortcuts such as Alt+Tab, Super and Super+number are handled by GNOME Shell or KWin before the key reaches RustConn, and that a session in an external viewer window is not affected by passthrough at all.
 
 ## [0.22.14] - 2026-10-02
 
