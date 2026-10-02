@@ -5,6 +5,11 @@ All notable changes to RustConn will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+- **The header bar revealed in fullscreen now covers the content beneath it (issue [#354](https://github.com/totoshko88/RustConn/issues/354))** — in 0.22.14 the header that slides in at the top edge of a fullscreen window had no background of its own, so the tab bar and the session showed through it and the two rows of controls were drawn over each other. It now has the solid header-bar background and a shadow while fullscreen, and returns to its usual look when fullscreen ends.
+
 ## [0.22.14] - 2026-10-02
 
 ### Added

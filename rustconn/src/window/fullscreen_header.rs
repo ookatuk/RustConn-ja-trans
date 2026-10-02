@@ -141,11 +141,23 @@ pub(super) fn install(
 
 /// Puts the header and the content layout into their fullscreen or windowed
 /// shape.
+///
+/// The top-bar style has to change with the layout. Under the default `Flat`
+/// style a toolbar view's top bars have no background of their own — they rely
+/// on the content starting below them. Once the content extends under them, a
+/// flat header is drawn straight over the tab bar and the session, and both
+/// show through it. `Raised` gives the top bars the opaque header-bar
+/// background and a shadow, so a revealed header covers what is beneath it.
 fn apply_fullscreen(
     toolbar_view: &adw::ToolbarView,
     header_bar: &adw::HeaderBar,
     fullscreen: bool,
 ) {
+    toolbar_view.set_top_bar_style(if fullscreen {
+        adw::ToolbarStyle::Raised
+    } else {
+        adw::ToolbarStyle::Flat
+    });
     toolbar_view.set_extend_content_to_top_edge(fullscreen);
     header_bar.set_visible(!fullscreen);
 }
