@@ -1755,6 +1755,65 @@ RustConn supports connecting through identity-aware proxy services (Zero Trust).
 
 Supported providers: AWS Session Manager, GCP IAP Tunnel, Azure Bastion, Azure SSH (AAD), OCI Bastion, Cloudflare Access, Teleport, Tailscale SSH, HashiCorp Boundary, Hoop.dev, Generic Command.
 
+#### Signing In Again When Cloud Credentials Expire
+
+Zero Trust providers rely on a sign-in cached by their own CLI, and that sign-in
+runs out — an AWS SSO session after its configured duration, an Azure refresh
+token after a period of inactivity, a Teleport certificate after its TTL. The
+session then fails at once with a message such as:
+
+```
+aws: [ERROR]: Your session has expired. Please reauthenticate using 'aws login'.
+```
+
+Clicking **Reconnect** would only fail the same way, so when RustConn recognises
+such a message in the last lines of the terminal, the bar under the session reads
+**Sign-in expired** and offers a **Log In to …** button before **Reconnect**:
+
+| Provider | Button | Command it runs |
+|----------|--------|-----------------|
+| AWS Session Manager | Log In to AWS | `aws sso login` when the error mentions SSO, otherwise `aws login`; `--profile <name>` is added when the connection uses a profile other than `default` (from the **AWS Profile** field or `--profile` in Additional CLI arguments) |
+| GCP IAP Tunnel | Log In to Google Cloud | `gcloud auth login` |
+| Azure Bastion, Azure SSH (AAD) | Log In to Azure | `az login` |
+| OCI Bastion | Log In to OCI | `oci session authenticate` |
+| Cloudflare Access | Log In to Cloudflare | `cloudflared access login https://<hostname>` |
+| Teleport | Log In to Teleport | `tsh login`, followed by the connection's cluster when one is set |
+| HashiCorp Boundary | Log In to Boundary | `boundary authenticate`, with `-addr <address>` when the connection sets one |
+| Hoop.dev | Log In to Hoop.dev | `hoop login` |
+
+Hover over the button to see the exact command before running it.
+
+**What happens when you click it:**
+
+1. The login runs in the same tab, below the error. It opens the sign-in page in
+   your browser; if no browser opens, or the CLI asks for something (a region, a
+   device code to confirm), answer it in the tab — the terminal has focus.
+2. When the login finishes successfully, the session reconnects by itself.
+3. If the login fails or you cancel it, the **Sign-in expired** bar comes back, so
+   you can try again or reconnect anyway.
+
+The login uses the same environment as the session. Under Flatpak and Snap this
+means the token is written to the sandbox's own CLI configuration directories
+(the ones listed for each provider in the [Zero Trust guide](ZERO_TRUST.md)), which
+is where the reconnected session reads it from. Signing in from a terminal outside
+RustConn updates the host's configuration instead, which a sandboxed RustConn may
+not see.
+
+> **Snap and `aws login`:** the `aws-credentials` plug lets RustConn write only
+> `~/.aws/sso/cache`, so `aws sso login` works but `aws login` cannot save the
+> credentials it caches in `~/.aws/login/cache`. Under Snap, run `aws login` in a
+> terminal outside RustConn, then click **Reconnect**.
+
+A session that ended on expired credentials is not reconnected automatically (see
+[Session Reconnect](#session-reconnect)): the host is reachable, so every attempt
+would fail until you sign in.
+
+**Not covered:** Tailscale SSH runs its own browser check when the node requires
+one, so it has no separate login step. A **Generic Command** can wrap any CLI and,
+under Flatpak, runs on the host, so RustConn does not guess a login for it — sign in
+from a terminal and click **Reconnect**. An expiry message RustConn does not
+recognise simply shows the usual **Session disconnected** bar.
+
 ### Web Bookmarks
 
 Web connections store website URLs and can open them in three browser modes depending on platform and configuration.
@@ -2021,7 +2080,7 @@ Enable in Settings → Interface page → Session Restore:
 
 ### Session Reconnect
 
-When a terminal session disconnects (SSH, Telnet, Serial, Kubernetes), a "Reconnect" banner appears at the top of the terminal tab. Click it to re-establish the connection in one click without opening the connection dialog.
+When a terminal session disconnects (SSH, Telnet, Serial, Kubernetes, Zero Trust), a "Reconnect" banner appears at the bottom of the terminal tab. Click it to re-establish the connection in one click without opening the connection dialog.
 
 - The banner appears automatically when the VTE child process exits
 - Reconnect uses the same connection settings (host, credentials, protocol options)
@@ -2035,8 +2094,10 @@ a background probe waits for the host to come back, using exponential backoff, a
 reconnects in place once it does. Automatic reconnect is deliberately *skipped*
 when reconnecting would be wrong: an SSH authentication failure (a stored password
 is stale — retrying only risks a lockout), a session that crashed within a few
-seconds of starting (a reconnect loop), or a tab you closed yourself. In those
-cases the manual banner is shown instead, so the decision stays yours.
+seconds of starting (a reconnect loop), a Zero Trust session whose cloud sign-in
+expired (see [Signing In Again When Cloud Credentials Expire](#signing-in-again-when-cloud-credentials-expire)),
+or a tab you closed yourself. In those cases the manual banner is shown instead, so
+the decision stays yours.
 
 ### Session Logging
 

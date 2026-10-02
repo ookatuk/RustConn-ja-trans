@@ -26,6 +26,8 @@ When selecting a provider, RustConn checks if the required CLI tool is available
 >
 > RustConn automatically redirects writable config to a sandbox-internal directory and bootstraps credentials from the host mount on first use.
 
+When a session fails because the provider CLI's sign-in has expired, the bar under the terminal offers a **Log In to …** button that runs the provider's login command in the tab and reconnects afterwards. The commands per provider and the limitations are in the User Guide: [Signing In Again When Cloud Credentials Expire](USER_GUIDE.md#signing-in-again-when-cloud-credentials-expire).
+
 ---
 
 ## Providers
