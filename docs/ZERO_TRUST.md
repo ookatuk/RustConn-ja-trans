@@ -1,6 +1,6 @@
 # RustConn Zero Trust Providers
 
-**Version 0.22.14** | Identity-aware proxy integrations for RustConn
+**Version 0.22.15** | Identity-aware proxy integrations for RustConn
 
 RustConn supports connecting through identity-aware proxy services (Zero Trust). Instead of direct SSH/RDP to a host, the connection is tunneled through a provider's CLI tool that handles authentication and authorization.
 
@@ -25,6 +25,8 @@ When selecting a provider, RustConn checks if the required CLI tool is available
 > - **Snap:** `personal-files` plugs (manual connection required): `sudo snap connect rustconn:aws-credentials`, `sudo snap connect rustconn:gcloud-credentials`, etc.
 >
 > RustConn automatically redirects writable config to a sandbox-internal directory and bootstraps credentials from the host mount on first use.
+
+When a session fails because the provider CLI's sign-in has expired, the bar under the terminal offers a **Log In to …** button that runs the provider's login command in the tab and reconnects afterwards. The commands per provider and the limitations are in the User Guide: [Signing In Again When Cloud Credentials Expire](USER_GUIDE.md#signing-in-again-when-cloud-credentials-expire).
 
 ---
 

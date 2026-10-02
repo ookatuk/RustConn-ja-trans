@@ -1,4 +1,34 @@
 -------------------------------------------------------------------
+Sat Oct 03 2026 Anton Isaiev <totoshko88@gmail.com> - 0.22.15
+
+- Version bump to 0.22.15
+- Added: a Copy submenu for connections that lists only what a connection has:
+  host, port, address, username, password (cleared after 30 s), SSH command and
+  custom properties (issue #357)
+- Added: Edit Connection and Copy in a session tab's context menu (issue #357)
+- Added: a Zero Trust session whose cloud sign-in expired offers Log In to AWS,
+  Google Cloud, Azure, OCI, Cloudflare, Teleport, Boundary or Hoop.dev and
+  reconnects after a successful login
+- Added: keyboard passthrough hands Alt+Tab, Super and similar desktop shortcuts
+  to an embedded RDP or VNC session; Super+Esc gives them back (issue #356)
+- Changed: fullscreen hides the tab bar together with the header bar; both
+  slide in at the top edge (issue #354)
+- Changed: Copy Username and Copy Password moved into the Copy submenu
+  (issue #357)
+- Fixed: smart-folder Edit, Wake On LAN, Check if Online and Delete act on the
+  right-clicked connection instead of the previous selection
+- Fixed: the Fullscreen checkmark follows the window, and the revealed
+  fullscreen header has an opaque background (issue #354)
+- Fixed: keyboard passthrough no longer lets the tab bar take Ctrl+Tab,
+  Ctrl+Page Up/Down and Alt+digit (issue #356)
+- Fixed: the terminal scrollbar can be dragged again in a split pane
+  (issue #358)
+- Fixed: a duplicate of a favorite is not a favorite, and a duplicate of a
+  dynamic-folder entry survives the folder's refresh
+- Dependencies: libc 0.2.189 -> 0.2.190; picky-krb held at 0.12.4
+  (0.12.5 breaks pinned sspi)
+
+-------------------------------------------------------------------
 Fri Oct 02 2026 Anton Isaiev <totoshko88@gmail.com> - 0.22.14
 
 - Version bump to 0.22.14

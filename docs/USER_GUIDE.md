@@ -1,6 +1,6 @@
 # RustConn User Guide
 
-**Version 0.22.14** | GTK4/libadwaita Connection Manager for Linux
+**Version 0.22.15** | GTK4/libadwaita Connection Manager for Linux
 
 RustConn is a modern connection manager designed for Linux with Wayland-first approach. It supports SSH, RDP, VNC, SPICE, MOSH, SFTP, Telnet, Serial, Kubernetes, Web protocols and Zero Trust integrations through a native GTK4/libadwaita interface.
 
@@ -599,14 +599,24 @@ For RDP, VNC, and SPICE connections, RustConn performs a fast TCP port check bef
 - Configurable globally in Settings → Connection page
 - Per-connection "Skip port check" option for special cases (firewalls, port knocking, VPN)
 
-### Copy Username / Copy Password
+### Copy Menu
 
-Right-click a connection in the sidebar → **Copy Username** or **Copy Password**.
+Right-click a connection in the sidebar or in a smart folder → **Copy ▸**, or right-click its session tab and use the **Copy** section. The menu lists only what this connection actually has (0.22.15+):
 
-- **Copy Username** copies the username from cached credentials (resolved during a previous connection) or falls back to the username stored on the connection model
-- **Copy Password** copies the password from cached credentials; you must connect at least once so credentials are resolved and cached
-- Password is auto-cleared from clipboard after 30 seconds (only if the clipboard still contains the copied password)
-- Toast notifications confirm the action or explain why it failed
+| Entry | Copies | Shown when |
+|-------|--------|------------|
+| **Host** | The host name or address as stored (not resolved to an IP) | The connection has a host |
+| **Port (2222)** | The port number; the label shows it, so routers on different ports can be told apart | The protocol has a port (not Serial, Kubernetes, Zero Trust or Web) |
+| **Address** | `host:port`, with an IPv6 address in brackets (`[2001:db8::1]:22`) | Host and port are both present |
+| **Username** | The username resolved at connect time, otherwise the one stored on the connection, otherwise the one the password source supplies | A username is stored, or the password source can supply one (vault, variable, script, group) |
+| **Password** | The password, from the credential cached at connect time or from the secret backend | The password source is not *None* or *Prompt* |
+| **SSH Command** | `ssh [-p PORT] [-J BASTION] [user@]host`, quoted for the shell, with the bastion resolved from the connection, its group and the global network settings | SSH and SFTP connections |
+| *Custom properties* | The property's value, one entry per property that has a value, under a separator | The connection has custom properties |
+
+- The SSH command contains only what is needed to reach the host. Identity files, `-o` options and the startup command are left out, so pasting it never runs anything on the remote host. A bracketed IPv6 host is written without its brackets, which `ssh` does not accept, and a host or username starting with `-` gets `--` in front, so `ssh` cannot read it as an option.
+- The password and **Protected** custom properties are cleared from the clipboard after 30 seconds, only if the clipboard still holds the copied value. Their values never appear in a menu label.
+- In the sidebar the submenu works from the keyboard as well: **Right** opens it, **Left** or **Backspace** goes back.
+- Toast notifications confirm the action or explain why it failed.
 
 ### Check if Online
 
@@ -1745,6 +1755,70 @@ RustConn supports connecting through identity-aware proxy services (Zero Trust).
 
 Supported providers: AWS Session Manager, GCP IAP Tunnel, Azure Bastion, Azure SSH (AAD), OCI Bastion, Cloudflare Access, Teleport, Tailscale SSH, HashiCorp Boundary, Hoop.dev, Generic Command.
 
+#### Signing In Again When Cloud Credentials Expire
+
+Zero Trust providers rely on a sign-in cached by their own CLI, and that sign-in
+runs out — an AWS SSO session after its configured duration, an Azure refresh
+token after a period of inactivity, a Teleport certificate after its TTL. The
+session then fails at once with a message such as:
+
+```
+aws: [ERROR]: Your session has expired. Please reauthenticate using 'aws login'.
+```
+
+Clicking **Reconnect** would only fail the same way, so when RustConn recognises
+such a message in the last lines of the terminal, the bar under the session reads
+**Sign-in expired** and offers a **Log In to …** button before **Reconnect**.
+Only a session that fails within its first minute is checked: after that the
+screen shows the remote host's output, not the CLI's, and a line there that
+happens to mention an expired token must not stop automatic reconnection. If the
+credentials run out during a long session, the next connection attempt fails at
+start-up and is recognised then.
+
+| Provider | Button | Command it runs |
+|----------|--------|-----------------|
+| AWS Session Manager | Log In to AWS | `aws sso login` when the error mentions SSO, otherwise `aws login`; `--profile <name>` is added when the connection uses a profile other than `default` (from the **AWS Profile** field or `--profile` in Additional CLI arguments) |
+| GCP IAP Tunnel | Log In to Google Cloud | `gcloud auth login` |
+| Azure Bastion, Azure SSH (AAD) | Log In to Azure | `az login` |
+| OCI Bastion | Log In to OCI | `oci session authenticate` |
+| Cloudflare Access | Log In to Cloudflare | `cloudflared access login https://<hostname>` |
+| Teleport | Log In to Teleport | `tsh login`, followed by the connection's cluster when one is set |
+| HashiCorp Boundary | Log In to Boundary | `boundary authenticate`, with `-addr <address>` when the connection sets one |
+| Hoop.dev | Log In to Hoop.dev | `hoop login` |
+
+Hover over the button to see the exact command before running it.
+
+**What happens when you click it:**
+
+1. The login runs in the same tab, below the error. It opens the sign-in page in
+   your browser; if no browser opens, or the CLI asks for something (a region, a
+   device code to confirm), answer it in the tab — the terminal has focus.
+2. When the login finishes successfully, the session reconnects by itself.
+3. If the login fails or you cancel it, the **Sign-in expired** bar comes back, so
+   you can try again or reconnect anyway.
+
+The login uses the same environment as the session. Under Flatpak and Snap this
+means the token is written to the sandbox's own CLI configuration directories
+(the ones listed for each provider in the [Zero Trust guide](ZERO_TRUST.md)), which
+is where the reconnected session reads it from. Signing in from a terminal outside
+RustConn updates the host's configuration instead, which a sandboxed RustConn may
+not see.
+
+> **Snap and `aws login`:** the `aws-credentials` plug lets RustConn write only
+> `~/.aws/sso/cache`, so `aws sso login` works but `aws login` cannot save the
+> credentials it caches in `~/.aws/login/cache`. Under Snap, run `aws login` in a
+> terminal outside RustConn, then click **Reconnect**.
+
+A session that ended on expired credentials is not reconnected automatically (see
+[Session Reconnect](#session-reconnect)): the host is reachable, so every attempt
+would fail until you sign in.
+
+**Not covered:** Tailscale SSH runs its own browser check when the node requires
+one, so it has no separate login step. A **Generic Command** can wrap any CLI and,
+under Flatpak, runs on the host, so RustConn does not guess a login for it — sign in
+from a terminal and click **Reconnect**. An expiry message RustConn does not
+recognise simply shows the usual **Session disconnected** bar.
+
 ### Web Bookmarks
 
 Web connections store website URLs and can open them in three browser modes depending on platform and configuration.
@@ -1874,7 +1948,7 @@ Available via the "⋯" menu → "Open in System Browser" — opens the current 
 - Not available in the snap package: the core24 GNOME platform provides no WebKitGTK 6.0, and bundling it is still pending (issue [#244](https://github.com/totoshko88/RustConn/issues/244)). Web connections there use System or Custom mode; a connection saved with Embedded mode falls back to the system browser.
 
 **Context menu actions:**
-- **Copy Username** / **Copy Password** — copies stored credentials to clipboard (auto-clears after 30 seconds)
+- **Copy ▸ Host / Username / Password** — copies the URL or stored credentials to the clipboard; the password auto-clears after 30 seconds (see [Copy Menu](#copy-menu))
 
 **CLI:**
 ```bash
@@ -1931,7 +2005,7 @@ The **Display Mode** setting in the connection dialog (Advanced tab → Window M
 3. For External Window mode, enable **Remember Position** to save window geometry between sessions (RDP only)
 
 **Notes:**
-- Fullscreen mode maximizes the RustConn window, not the remote desktop. Use F11 to toggle true fullscreen of the entire application. In fullscreen the application header bar is hidden, for every kind of session, so the session gets the space it took; it reappears when you leave fullscreen, however you entered it — the F11 shortcut, the menu toggle, or a window-manager fullscreen. To reach the header without leaving fullscreen, move the pointer to the very top edge of the screen (it hides again once the pointer moves back down, unless one of its menus is open) or press F10 to open the main menu. The tab bar and the sidebar stay as they are — hide the sidebar with F9 for more room. Banners that need your attention, such as an active group broadcast or a request to touch your hardware key, remain visible in fullscreen. On a touch screen without a keyboard there is no hover, so leaving fullscreen needs F11.
+- Fullscreen mode maximizes the RustConn window, not the remote desktop. Use F11 to toggle true fullscreen of the entire application. In fullscreen the application header bar and the tab bar are hidden, for every kind of session, so the session gets the space they took; they reappear when you leave fullscreen, however you entered it — the F11 shortcut, the menu toggle, or a window-manager fullscreen. To reach them without leaving fullscreen, move the pointer to the very top edge of the screen: the header and the tab bar slide in together over the session, without resizing it, and slide away a moment after the pointer moves back down. They stay while a header menu or a tab's context menu is open, or while you drag a tab. Switching tabs (for example with Ctrl+Page Up/Down) shows them for about a second and a half, and F10 opens the main menu. The sidebar stays as it is — hide it with F9 for more room. Banners that need your attention, such as an active group broadcast or a request to touch your hardware key, remain visible in fullscreen. On a touch screen without a keyboard there is no hover, so leaving fullscreen needs F11.
 - External Window mode for VNC requires an external VNC viewer installed (TigerVNC, vncviewer, gvncviewer, or similar). If no viewer is found, a toast notification shows the install hint.
 - External Window mode for RDP uses FreeRDP. The Flatpak bundles the SDL3 client and the snap the X11 client (`xfreerdp3`) — no separate installation needed. On native installs, RustConn auto-detects the installed FreeRDP clients in priority order: on a Wayland session `sdl-freerdp3` > `sdl-freerdp` > `wlfreerdp3` > `wlfreerdp` > `xfreerdp3` > `xfreerdp`, on an X11 session the `xfreerdp*` clients first. `rustconn-cli connect` uses the same order and the connection's pinned client.
 - The VNC protocol tab also has its own **Client Mode** (Embedded/External) setting. When Display Mode is set to External Window, it takes precedence over the protocol-level Client Mode.
@@ -1945,6 +2019,8 @@ The **Display Mode** setting in the connection dialog (Advanced tab → Window M
 - **Reorder** — Drag tabs
 - **Tab Overview** — Click the grid icon (▦) at the right end of the tab bar, or press **Ctrl+Shift+O**, to open a full-screen grid view of all open tabs. Useful when you have many tabs open and need to visually locate a session. Click any thumbnail to switch to it.
 - **Tab Switcher** — Press **Ctrl+%** (or open Command Palette with **Ctrl+P** and type `%`) to fuzzy-search across all open tabs by name. Results show protocol type and tab group. Select and press Enter to switch instantly.
+- **Edit Connection** — Right-click a tab → **Edit Connection…** opens the editor for that tab's saved connection, whatever is selected in the sidebar (0.22.15+). Tabs with no saved connection behind them — the Welcome tab, a local shell, a quick connection — do not show it.
+- **Copy** — The same tab menu has a **Copy** section with the fields described under [Copy Menu](#copy-menu): host, port, address, username, password, SSH command and custom properties.
 - **Pin Tab** — Right-click a tab → **Pin Tab**. Pinned tabs stay at the left edge of the tab bar and are never scrolled out of view. Useful for long-running sessions you need constant access to. Right-click again → **Unpin Tab** to restore normal behavior.
 
 ### Split View
@@ -2009,7 +2085,7 @@ Enable in Settings → Interface page → Session Restore:
 
 ### Session Reconnect
 
-When a terminal session disconnects (SSH, Telnet, Serial, Kubernetes), a "Reconnect" banner appears at the top of the terminal tab. Click it to re-establish the connection in one click without opening the connection dialog.
+When a terminal session disconnects (SSH, Telnet, Serial, Kubernetes, Zero Trust), a "Reconnect" banner appears at the bottom of the terminal tab. Click it to re-establish the connection in one click without opening the connection dialog.
 
 - The banner appears automatically when the VTE child process exits
 - Reconnect uses the same connection settings (host, credentials, protocol options)
@@ -2023,8 +2099,10 @@ a background probe waits for the host to come back, using exponential backoff, a
 reconnects in place once it does. Automatic reconnect is deliberately *skipped*
 when reconnecting would be wrong: an SSH authentication failure (a stored password
 is stale — retrying only risks a lockout), a session that crashed within a few
-seconds of starting (a reconnect loop), or a tab you closed yourself. In those
-cases the manual banner is shown instead, so the decision stays yours.
+seconds of starting (a reconnect loop), a Zero Trust session whose cloud sign-in
+expired (see [Signing In Again When Cloud Credentials Expire](#signing-in-again-when-cloud-credentials-expire)),
+or a tab you closed yourself. In those cases the manual banner is shown instead, so
+the decision stays yours.
 
 ### Session Logging
 
@@ -3284,7 +3362,7 @@ Click the ↩ button next to any shortcut to reset it to default, or **Reset All
 
 ### Keyboard Passthrough Mode
 
-When working in remote sessions with TUI applications (nvim, tmux, htop, mc), RustConn's keyboard shortcuts can conflict with the remote application's bindings. Keyboard passthrough mode disables all application shortcuts so every key combination reaches the remote session.
+When working in remote sessions with TUI applications (nvim, tmux, htop, mc), RustConn's keyboard shortcuts can conflict with the remote application's bindings. Keyboard passthrough mode disables RustConn's own shortcuts so those key combinations reach the remote session instead.
 
 **Toggle passthrough:**
 - Press **Ctrl+Shift+Backspace** (works in both normal and passthrough mode)
@@ -3294,9 +3372,18 @@ When working in remote sessions with TUI applications (nvim, tmux, htop, mc), Ru
 **When passthrough is active:**
 - All application shortcuts are disabled (Ctrl+N, Ctrl+F, Ctrl+P, etc. go to the terminal)
 - The F10 primary-menu key is also suspended, so F10 reaches the remote session (e.g. Midnight Commander)
+- The tab bar's built-in shortcuts are suspended too (0.22.15+): Ctrl+Tab, Ctrl+Shift+Tab, Ctrl+Page Up/Down, Ctrl+Home/End, Ctrl+Shift+Page Up/Down/Home/End, Alt+1…9 and Alt+0 reach the session instead of switching or moving tabs
 - Only three shortcuts remain active: the passthrough toggle itself (Ctrl+Shift+Backspace), Quit (Ctrl+Q), and Fullscreen (F11)
 - A toast notification confirms the mode change
 - The menu item shows a checkmark when active
+
+**Desktop shortcuts in an embedded RDP or VNC session (0.22.15+):** shortcuts owned by the desktop itself — Alt+Tab, the Super key, Super+number, workspace switching — are handled by the compositor (GNOME Shell, KWin) before any application sees the key. While passthrough is on and an embedded RDP or VNC session has keyboard focus, RustConn asks the desktop to hand these keys to the session, the same request an external FreeRDP window makes:
+- GNOME asks once whether to allow RustConn to inhibit shortcuts. If you deny it, the desktop keeps them.
+- **Super+Esc** always gives the shortcuts back to the desktop, in case you are stuck.
+- Clicking outside the session (sidebar, tab bar, another window) or turning passthrough off returns them too.
+- SSH and other terminal tabs are left alone on purpose, so Alt+Tab keeps switching windows there.
+
+A session in an external viewer window is not affected by RustConn's passthrough at all; external FreeRDP clients ask the desktop for these keys on their own.
 
 **Customization:** The list of shortcuts that remain active in passthrough mode can be configured in `config.toml` under `[keybindings] passthrough_exceptions`.
 

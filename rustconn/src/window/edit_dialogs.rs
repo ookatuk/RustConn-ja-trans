@@ -54,223 +54,233 @@ pub fn edit_selected_connection(
         // Edit group - show simple rename dialog
         show_edit_group_dialog(window, state.clone(), sidebar.clone(), id);
     } else {
-        // Edit connection
+        edit_connection_by_id(window, state, sidebar, id);
+    }
+}
+
+/// Opens the connection editor for the connection with `id`.
+///
+/// Takes the id rather than reading the sidebar selection, so a session tab
+/// can open the editor for its own connection whatever is selected in the
+/// sidebar (issue #357). Does nothing when no connection has that id.
+pub fn edit_connection_by_id(
+    window: &gtk4::Window,
+    state: &SharedAppState,
+    sidebar: &SharedSidebar,
+    id: Uuid,
+) {
+    let state_ref = state.borrow();
+    let Some(conn) = state_ref.get_connection(id).cloned() else {
+        return;
+    };
+    drop(state_ref);
+
+    let dialog = ConnectionDialog::new(Some(&window.clone().upcast()), state.clone());
+    dialog.setup_key_file_chooser(Some(&window.clone().upcast()));
+
+    // Set available groups
+    {
         let state_ref = state.borrow();
-        let Some(conn) = state_ref.get_connection(id).cloned() else {
-            return;
-        };
-        drop(state_ref);
+        let mut groups: Vec<_> = state_ref.list_groups_owned();
+        groups.sort_by_key(|a| a.name.to_lowercase());
+        dialog.set_groups(&groups);
+    }
 
-        let dialog = ConnectionDialog::new(Some(&window.clone().upcast()), state.clone());
-        dialog.setup_key_file_chooser(Some(&window.clone().upcast()));
+    // Set available connections for Jump Host (excluding self)
+    {
+        let state_ref = state.borrow();
+        let connections: Vec<_> = state_ref
+            .list_connections()
+            .into_iter()
+            .filter(|c| c.id != id)
+            .cloned()
+            .collect();
+        dialog.set_connections(&connections);
+        // The outermost bastion tier, so the ProxyJump row can name a
+        // globally configured jump host rather than leaving it invisible
+        // (issue #301).
+        dialog.set_network_settings(state_ref.settings().network.clone());
+    }
 
-        // Set available groups
-        {
-            let state_ref = state.borrow();
-            let mut groups: Vec<_> = state_ref.list_groups_owned();
-            groups.sort_by_key(|a| a.name.to_lowercase());
-            dialog.set_groups(&groups);
-        }
+    // Populate variable dropdown with secret global variables
+    // Must be before set_connection so variable selection works
+    {
+        let state_ref = state.borrow();
+        let global_vars = state_ref.settings().global_variables.clone();
+        dialog.set_global_variables(&global_vars);
+    }
 
-        // Set available connections for Jump Host (excluding self)
-        {
-            let state_ref = state.borrow();
-            let connections: Vec<_> = state_ref
-                .list_connections()
-                .into_iter()
-                .filter(|c| c.id != id)
-                .cloned()
-                .collect();
-            dialog.set_connections(&connections);
-            // The outermost bastion tier, so the ProxyJump row can name a
-            // globally configured jump host rather than leaving it invisible
-            // (issue #301).
-            dialog.set_network_settings(state_ref.settings().network.clone());
-        }
+    dialog.set_connection(&conn);
 
-        // Populate variable dropdown with secret global variables
-        // Must be before set_connection so variable selection works
-        {
-            let state_ref = state.borrow();
-            let global_vars = state_ref.settings().global_variables.clone();
-            dialog.set_global_variables(&global_vars);
-        }
-
-        dialog.set_connection(&conn);
-
-        // Check if connection belongs to an Import group → configure read-only synced fields
-        {
-            let state_ref = state.borrow();
-            if let Some(group_id) = conn.group_id {
-                // Walk up to root group to check sync_mode
-                let mut current_id = Some(group_id);
-                while let Some(gid) = current_id {
-                    if let Some(group) = state_ref.get_group(gid) {
-                        if group.parent_id.is_none() {
-                            // Root group found — check sync_mode
-                            if group.sync_mode == SyncMode::Import {
-                                dialog.configure_import_group_mode();
-                            }
-                            break;
+    // Check if connection belongs to an Import group → configure read-only synced fields
+    {
+        let state_ref = state.borrow();
+        if let Some(group_id) = conn.group_id {
+            // Walk up to root group to check sync_mode
+            let mut current_id = Some(group_id);
+            while let Some(gid) = current_id {
+                if let Some(group) = state_ref.get_group(gid) {
+                    if group.parent_id.is_none() {
+                        // Root group found — check sync_mode
+                        if group.sync_mode == SyncMode::Import {
+                            dialog.configure_import_group_mode();
                         }
-                        current_id = group.parent_id;
-                    } else {
                         break;
                     }
+                    current_id = group.parent_id;
+                } else {
+                    break;
                 }
             }
         }
+    }
 
-        // Set up password visibility toggle and source visibility
-        dialog.connect_password_visibility_toggle();
-        dialog.connect_password_source_visibility();
-        dialog.update_password_row_visibility();
+    // Set up password visibility toggle and source visibility
+    dialog.connect_password_visibility_toggle();
+    dialog.connect_password_source_visibility();
+    dialog.update_password_row_visibility();
 
-        // Set up password load button with KeePass settings
-        {
-            let state_ref = state.borrow();
-            let settings = state_ref.settings();
-            let groups: Vec<rustconn_core::models::ConnectionGroup> =
-                state_ref.list_groups().iter().cloned().cloned().collect();
-            dialog.connect_password_load_button_with_groups(
-                settings.secrets.kdbx_enabled,
-                settings.secrets.kdbx_path.clone(),
-                settings.secrets.kdbx_password.as_ref(),
-                settings.secrets.kdbx_key_file.clone(),
-                groups.clone(),
-                settings.secrets.clone(),
-            );
-            dialog.connect_vault_test_button(
-                settings.secrets.kdbx_enabled,
-                settings.secrets.kdbx_path.clone(),
-                settings.secrets.kdbx_password.as_ref(),
-                settings.secrets.kdbx_key_file.clone(),
-                groups,
-                settings.secrets.clone(),
-            );
-        }
+    // Set up password load button with KeePass settings
+    {
+        let state_ref = state.borrow();
+        let settings = state_ref.settings();
+        let groups: Vec<rustconn_core::models::ConnectionGroup> =
+            state_ref.list_groups().iter().cloned().cloned().collect();
+        dialog.connect_password_load_button_with_groups(
+            settings.secrets.kdbx_enabled,
+            settings.secrets.kdbx_path.clone(),
+            settings.secrets.kdbx_password.as_ref(),
+            settings.secrets.kdbx_key_file.clone(),
+            groups.clone(),
+            settings.secrets.clone(),
+        );
+        dialog.connect_vault_test_button(
+            settings.secrets.kdbx_enabled,
+            settings.secrets.kdbx_path.clone(),
+            settings.secrets.kdbx_password.as_ref(),
+            settings.secrets.kdbx_key_file.clone(),
+            groups,
+            settings.secrets.clone(),
+        );
+    }
 
-        let state_clone = state.clone();
-        let sidebar_clone = sidebar.clone();
-        let window_clone = window.clone();
-        // The pre-edit connection, needed to work out whether the edit moved the
-        // credential's vault key.
-        let old_conn = conn.clone();
-        dialog.run(move |result| {
-            if let Some(dialog_result) = result {
-                let updated_conn = dialog_result.connection;
-                let password = dialog_result.password;
+    let state_clone = state.clone();
+    let sidebar_clone = sidebar.clone();
+    let window_clone = window.clone();
+    // The pre-edit connection, needed to work out whether the edit moved the
+    // credential's vault key.
+    let old_conn = conn.clone();
+    dialog.run(move |result| {
+        if let Some(dialog_result) = result {
+            let updated_conn = dialog_result.connection;
+            let password = dialog_result.password;
 
-                if let Ok(mut state_mut) = state_clone.try_borrow_mut() {
-                    // Clone values needed for password saving
-                    let conn_name = updated_conn.name.clone();
-                    let conn_host = updated_conn.host.clone();
-                    let conn_username = updated_conn.username.clone();
-                    let password_source = updated_conn.password_source.clone();
-                    let protocol = updated_conn.protocol;
-                    let new_conn = updated_conn.clone();
+            if let Ok(mut state_mut) = state_clone.try_borrow_mut() {
+                // Clone values needed for password saving
+                let conn_name = updated_conn.name.clone();
+                let conn_host = updated_conn.host.clone();
+                let conn_username = updated_conn.username.clone();
+                let password_source = updated_conn.password_source.clone();
+                let protocol = updated_conn.protocol;
+                let new_conn = updated_conn.clone();
 
-                    match state_mut.update_connection(id, updated_conn) {
-                        Ok(()) => {
-                            // Save password to vault if needed
-                            if password_source == PasswordSource::Vault
-                                && let Some(pwd) = password
-                            {
-                                let settings = state_mut.settings().clone();
-                                let groups: Vec<_> = state_mut.list_groups_owned();
-                                let conn_for_path = state_mut.get_connection(id).cloned();
-                                let username = conn_username.unwrap_or_default();
+                match state_mut.update_connection(id, updated_conn) {
+                    Ok(()) => {
+                        // Save password to vault if needed
+                        if password_source == PasswordSource::Vault
+                            && let Some(pwd) = password
+                        {
+                            let settings = state_mut.settings().clone();
+                            let groups: Vec<_> = state_mut.list_groups_owned();
+                            let conn_for_path = state_mut.get_connection(id).cloned();
+                            let username = conn_username.unwrap_or_default();
 
-                                crate::state::save_password_to_vault(
-                                    &settings,
-                                    &groups,
-                                    conn_for_path.as_ref(),
-                                    &conn_name,
-                                    &conn_host,
-                                    protocol,
-                                    &username,
-                                    &pwd,
-                                    id,
-                                );
+                            crate::state::save_password_to_vault(
+                                &settings,
+                                &groups,
+                                conn_for_path.as_ref(),
+                                &conn_name,
+                                &conn_host,
+                                protocol,
+                                &username,
+                                &pwd,
+                                id,
+                            );
 
-                                // The typed password went to the new key; if the
-                                // edit moved the key, the entry under the previous
-                                // one is now a stale orphan. Safe to run alongside
-                                // the save above precisely because the keys differ.
-                                if crate::state::vault_key_changed_by_edit(
-                                    &settings, &groups, &groups, &old_conn, &new_conn,
-                                ) {
-                                    let settings = settings.clone();
-                                    let groups = groups.clone();
-                                    let old_conn = old_conn.clone();
-                                    crate::utils::spawn_blocking_with_callback(
-                                        move || {
-                                            crate::state::delete_vault_credential(
-                                                &settings, &groups, &old_conn,
-                                            )
-                                        },
-                                        |result: Result<(), String>| {
-                                            if let Err(e) = result {
-                                                tracing::warn!(
-                                                    error = %e,
-                                                    "Failed to remove stale vault entry after edit"
-                                                );
-                                            }
-                                        },
-                                    );
-                                }
-                            } else if password_source == PasswordSource::Vault {
-                                // No new password typed, so the existing entry has
-                                // to follow the connection. The dialog can change
-                                // the name, the group and the protocol in one save,
-                                // and every one of those is part of the vault key
-                                // (issue #263). When a password *was* typed the
-                                // branch above already wrote it under the new key,
-                                // so migrating on top of that would be redundant.
-                                let settings = state_mut.settings().clone();
-                                let groups: Vec<_> = state_mut.list_groups_owned();
+                            // The typed password went to the new key; if the
+                            // edit moved the key, the entry under the previous
+                            // one is now a stale orphan. Safe to run alongside
+                            // the save above precisely because the keys differ.
+                            if crate::state::vault_key_changed_by_edit(
+                                &settings, &groups, &groups, &old_conn, &new_conn,
+                            ) {
+                                let settings = settings.clone();
+                                let groups = groups.clone();
                                 let old_conn = old_conn.clone();
-
                                 crate::utils::spawn_blocking_with_callback(
                                     move || {
-                                        crate::state::migrate_vault_credential_for_edit(
-                                            &settings, &groups, &groups, &old_conn, &new_conn,
+                                        crate::state::delete_vault_credential(
+                                            &settings, &groups, &old_conn,
                                         )
                                     },
                                     |result: Result<(), String>| {
                                         if let Err(e) = result {
                                             tracing::warn!(
                                                 error = %e,
-                                                "Failed to migrate vault entry after edit"
-                                            );
-                                            crate::toast::show_error_toast_on_active_window(
-                                                &i18n_f("Failed to update vault entry: {}", &[&e]),
+                                                "Failed to remove stale vault entry after edit"
                                             );
                                         }
                                     },
                                 );
                             }
+                        } else if password_source == PasswordSource::Vault {
+                            // No new password typed, so the existing entry has
+                            // to follow the connection. The dialog can change
+                            // the name, the group and the protocol in one save,
+                            // and every one of those is part of the vault key
+                            // (issue #263). When a password *was* typed the
+                            // branch above already wrote it under the new key,
+                            // so migrating on top of that would be redundant.
+                            let settings = state_mut.settings().clone();
+                            let groups: Vec<_> = state_mut.list_groups_owned();
+                            let old_conn = old_conn.clone();
 
-                            drop(state_mut);
-                            // Defer sidebar reload to prevent UI freeze
-                            let state = state_clone.clone();
-                            let sidebar = sidebar_clone.clone();
-                            glib::idle_add_local_once(move || {
-                                MainWindow::reload_sidebar_preserving_state(&state, &sidebar);
-                            });
-                        }
-                        Err(e) => {
-                            alert::show_error(
-                                &window_clone,
-                                &i18n("Error Updating Connection"),
-                                &e,
+                            crate::utils::spawn_blocking_with_callback(
+                                move || {
+                                    crate::state::migrate_vault_credential_for_edit(
+                                        &settings, &groups, &groups, &old_conn, &new_conn,
+                                    )
+                                },
+                                |result: Result<(), String>| {
+                                    if let Err(e) = result {
+                                        tracing::warn!(
+                                            error = %e,
+                                            "Failed to migrate vault entry after edit"
+                                        );
+                                        crate::toast::show_error_toast_on_active_window(&i18n_f(
+                                            "Failed to update vault entry: {}",
+                                            &[&e],
+                                        ));
+                                    }
+                                },
                             );
                         }
+
+                        drop(state_mut);
+                        // Defer sidebar reload to prevent UI freeze
+                        let state = state_clone.clone();
+                        let sidebar = sidebar_clone.clone();
+                        glib::idle_add_local_once(move || {
+                            MainWindow::reload_sidebar_preserving_state(&state, &sidebar);
+                        });
+                    }
+                    Err(e) => {
+                        alert::show_error(&window_clone, &i18n("Error Updating Connection"), &e);
                     }
                 }
             }
-        });
-    }
+        }
+    });
 }
 
 /// Renames the selected connection or group with a simple inline dialog

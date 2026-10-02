@@ -1663,9 +1663,14 @@ impl SplitViewAdapter {
     /// When the panel is clicked, the callback is invoked with the panel ID.
     /// This allows the bridge to update focus state and switch tabs.
     ///
-    /// Clicks on interactive child widgets (buttons, VTE terminals) are not
-    /// claimed so those widgets can handle the event themselves — e.g. text
-    /// selection in terminals or button activation.
+    /// The gesture only *observes* the press: it never claims it, so whatever
+    /// was clicked handles the press itself. It runs in the capture phase on the
+    /// panel, ahead of every child, so a claim here takes the press away from
+    /// all of them. It used to claim every press that did not land on a widget
+    /// from a short list (button, VTE, drawing area, web view), and the
+    /// terminal's scrollbar was not on it: its slider could not be dragged in a
+    /// split pane, only scrolled with the wheel (issue #358). The pane header's
+    /// drag source sat outside the list in the same way.
     ///
     /// # Arguments
     ///
@@ -1698,75 +1703,29 @@ impl SplitViewAdapter {
         click.set_propagation_phase(gtk4::PropagationPhase::Capture);
 
         click.connect_pressed(move |gesture, _, x, y| {
-            // Check if the click lands on an interactive child widget (button,
-            // VTE terminal, or DrawingArea/GLArea used by embedded viewers).
-            // If so, fire the focus callback but do NOT claim the event — let
-            // the child handle it (button activation, mouse tracking, RDP input).
-            if let Some(gesture_widget) = gesture.widget()
-                && let Some(target_widget) = gesture_widget.pick(x, y, gtk4::PickFlags::DEFAULT)
-            {
-                let mut current: Option<gtk4::Widget> = Some(target_widget);
-                while let Some(ref widget) = current {
-                    // Let buttons handle their own clicks
-                    if widget.downcast_ref::<Button>().is_some() {
-                        tracing::debug!(
-                            "Panel click handler: click on button in panel {}, not claiming",
-                            panel_id
-                        );
-                        gesture.set_state(gtk4::EventSequenceState::Denied);
-                        return;
-                    }
-                    // Let VTE terminals handle clicks for mouse tracking (mc, vim)
-                    // and text selection. Deny the gesture so VTE receives the
-                    // raw button-press event for mouse tracking escape sequences.
-                    if widget.type_().name() == "VteTerminal" {
-                        tracing::debug!(
-                            "Panel click handler: click on terminal in panel {}, denying gesture",
-                            panel_id
-                        );
-                        callback(panel_id);
-                        gesture.set_state(gtk4::EventSequenceState::Denied);
-                        return;
-                    }
-                    // Let DrawingArea/GLArea (embedded RDP/VNC/SPICE viewers)
-                    // receive mouse events for remote-desktop interaction.
-                    if widget.downcast_ref::<gtk4::DrawingArea>().is_some()
-                        || widget.downcast_ref::<gtk4::GLArea>().is_some()
-                    {
-                        tracing::debug!(
-                            "Panel click handler: click on drawing surface in panel {}, denying gesture",
-                            panel_id
-                        );
-                        callback(panel_id);
-                        gesture.set_state(gtk4::EventSequenceState::Denied);
-                        return;
-                    }
-                    // Let the embedded web view receive clicks: links, form
-                    // fields and text selection are all page-side behaviour, and
-                    // WebKit also takes keyboard focus from the press, which is
-                    // what routes this panel's Ctrl+/-/0 to the right WebView.
-                    // Matched by type name for the same reason VteTerminal is —
-                    // webkit6 is behind a feature flag and this module builds
-                    // without it. `WebKitWebViewBase` is the parent class, in
-                    // case a pick ever lands on it rather than the leaf.
-                    let type_name = widget.type_().name();
-                    if type_name == "WebKitWebView" || type_name == "WebKitWebViewBase" {
-                        tracing::debug!(
-                            "Panel click handler: click on web view in panel {}, denying gesture",
-                            panel_id
-                        );
-                        callback(panel_id);
-                        gesture.set_state(gtk4::EventSequenceState::Denied);
-                        return;
-                    }
-                    current = widget.parent();
-                }
+            // Never claim: deny, so the press continues to whatever was hit —
+            // VTE (mouse tracking for mc/vim, selection), an RDP/VNC drawing
+            // area, a web view, the terminal's scrollbar, the header's drag
+            // source. See the doc comment for what claiming broke (#358).
+            gesture.set_state(gtk4::EventSequenceState::Denied);
+
+            // A button (corner actions, empty-pane placeholder) focuses its
+            // panel through its own callback; focusing here as well would move
+            // keyboard focus into the session before the button acts.
+            let on_button = gesture
+                .widget()
+                .and_then(|panel| panel.pick(x, y, gtk4::PickFlags::DEFAULT))
+                .is_some_and(|target| {
+                    target.downcast_ref::<Button>().is_some()
+                        || target.ancestor(Button::static_type()).is_some()
+                });
+            if on_button {
+                tracing::debug!(%panel_id, "Panel click handler: press on a button");
+                return;
             }
 
-            tracing::debug!("Panel click handler: clicked on panel {}", panel_id);
+            tracing::debug!(%panel_id, "Panel click handler: focusing panel");
             callback(panel_id);
-            // Claim the event on non-interactive areas to prevent unintended propagation
-            gesture.set_state(gtk4::EventSequenceState::Claimed);
         });
 
         widget.add_controller(click);

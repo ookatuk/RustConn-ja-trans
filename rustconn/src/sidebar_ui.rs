@@ -217,6 +217,51 @@ pub enum ContextMenuItem {
     },
     /// A visual separator between groups of actions.
     Separator,
+    /// An item that slides to a page of its own items, like `GtkPopoverMenu`.
+    ///
+    /// The page lives inside the same popover rather than in a second one: the
+    /// focus-loss handler in [`show_popover`] closes the menu as soon as focus
+    /// leaves the popover, which a sibling popover would do on opening.
+    Submenu { label: String, items: Vec<Self> },
+}
+
+/// CSS class marking a button that opens a submenu page.
+const SUBMENU_CLASS: &str = "context-menu-submenu";
+/// CSS class marking a submenu page's back button.
+const BACK_CLASS: &str = "context-menu-back";
+/// Stack page name of the top-level menu page.
+const MAIN_PAGE: &str = "main";
+
+/// Builds the "Copy" items for a connection, given its id.
+type CopyItemsProvider = Box<dyn Fn(&str) -> Vec<ContextMenuItem>>;
+
+thread_local! {
+    /// Supplies the "Copy" submenu of a connection. Set once by the main window,
+    /// which owns the application state the menu needs; the sidebar only knows
+    /// the connection id.
+    static COPY_ITEMS_PROVIDER: RefCell<Option<CopyItemsProvider>> =
+        const { RefCell::new(None) };
+}
+
+/// Installs the function that builds a connection's "Copy" submenu items.
+pub fn set_copy_items_provider(provider: impl Fn(&str) -> Vec<ContextMenuItem> + 'static) {
+    COPY_ITEMS_PROVIDER.with(|cell| *cell.borrow_mut() = Some(Box::new(provider)));
+}
+
+/// The "Copy ▸" submenu for the connection `conn_id`, or `None` when it has
+/// nothing to copy (or no provider is installed).
+#[must_use]
+pub fn copy_submenu(conn_id: &str) -> Option<ContextMenuItem> {
+    let items = COPY_ITEMS_PROVIDER.with(|cell| {
+        cell.borrow()
+            .as_ref()
+            .map(|provider| provider(conn_id))
+            .unwrap_or_default()
+    });
+    (!items.is_empty()).then(|| ContextMenuItem::Submenu {
+        label: i18n("Copy"),
+        items,
+    })
 }
 
 impl ContextMenuItem {
@@ -234,19 +279,6 @@ impl ContextMenuItem {
         Self::Action {
             label: label.to_string(),
             steps: vec![(action.to_string(), Some(target.clone()))],
-            destructive: false,
-        }
-    }
-
-    /// An action that first selects `target` by id, then activates `action` on
-    /// the resulting selection.
-    pub fn action_on_selected(label: &str, id: &glib::Variant, action: &str) -> Self {
-        Self::Action {
-            label: label.to_string(),
-            steps: vec![
-                ("select-item-by-id".to_string(), Some(id.clone())),
-                (action.to_string(), None),
-            ],
             destructive: false,
         }
     }
@@ -275,6 +307,7 @@ pub fn show_context_menu_for_item(
     widget: &impl IsA<gtk4::Widget>,
     x: f64,
     y: f64,
+    conn_id: &str,
     is_group: bool,
     is_ssh: bool,
     is_connected: bool,
@@ -391,14 +424,10 @@ pub fn show_context_menu_for_item(
         }
         // § Utilities (copy, tools, network)
         items.push(ContextMenuItem::Separator);
-        items.push(ContextMenuItem::action(
-            &i18n("Copy Username"),
-            "copy-username",
-        ));
-        items.push(ContextMenuItem::action(
-            &i18n("Copy Password"),
-            "copy-password",
-        ));
+        // Only the fields this connection actually has (issue #357).
+        if let Some(copy) = copy_submenu(conn_id) {
+            items.push(copy);
+        }
         items.push(ContextMenuItem::action(
             &i18n("Run Snippet…"),
             "run-snippet-for-connection",
@@ -527,60 +556,17 @@ pub fn show_popover(
     // menu rows invisible (#181). Styled in assets/style.css.
     popover.add_css_class("context-menu-popover");
 
-    // `accessible-role` is construct-only — use the builder so screen
-    // readers announce the container as a menu.
-    let vbox = GtkBox::builder()
-        .orientation(Orientation::Vertical)
-        .spacing(0)
-        .accessible_role(gtk4::AccessibleRole::Menu)
+    // One stack page per menu level, sliding like `GtkPopoverMenu`. A menu
+    // with no submenu is a single page, so it looks exactly as before.
+    let stack = gtk4::Stack::builder()
+        .transition_type(gtk4::StackTransitionType::SlideLeftRight)
+        .hhomogeneous(false)
+        .vhomogeneous(false)
+        .interpolate_size(true)
         .build();
-    vbox.add_css_class("context-menu");
-
-    for item in items {
-        match item {
-            ContextMenuItem::Action {
-                label,
-                steps,
-                destructive,
-            } => {
-                let button = Button::builder()
-                    .accessible_role(gtk4::AccessibleRole::MenuItem)
-                    .build();
-                button.add_css_class("flat");
-                button.add_css_class("context-menu-item");
-                if *destructive {
-                    button.add_css_class("context-menu-destructive");
-                }
-
-                let lbl = Label::new(Some(label));
-                lbl.set_xalign(0.0);
-                button.set_child(Some(&lbl));
-
-                let window_weak = window.downgrade();
-                let steps = steps.clone();
-                let popover_weak = popover.downgrade();
-                button.connect_clicked(move |_| {
-                    if let Some(p) = popover_weak.upgrade() {
-                        popdown_intentionally(&p);
-                    }
-                    if let Some(w) = window_weak.upgrade() {
-                        for (action_name, target) in &steps {
-                            gtk4::prelude::ActionGroupExt::activate_action(
-                                &w,
-                                action_name,
-                                target.as_ref(),
-                            );
-                        }
-                    }
-                });
-
-                vbox.append(&button);
-            }
-            ContextMenuItem::Separator => {
-                vbox.append(&Separator::new(Orientation::Horizontal));
-            }
-        }
-    }
+    let main_page = build_menu_page(items, window, &popover, &stack, MAIN_PAGE, None);
+    stack.add_named(&main_page, Some(MAIN_PAGE));
+    stack.set_visible_child_name(MAIN_PAGE);
 
     // Cap the menu's height so the popover always has somewhere to go — see
     // [`menu_max_height`] for why an uncapped menu simply failed to open (#298).
@@ -594,7 +580,7 @@ pub fn show_popover(
         .propagate_natural_height(true)
         .propagate_natural_width(true)
         .max_content_height(menu_max_height(window))
-        .child(&vbox)
+        .child(&stack)
         .build();
     popover.set_child(Some(&scroller));
 
@@ -643,11 +629,16 @@ pub fn show_popover(
 
     // Arrow-key navigation between menu items with wrap-around, plus
     // Home/End (standard GNOME menu behavior). The first item is focused
-    // on popup, so the controller receives key events immediately.
-    let vbox_for_nav = vbox.downgrade();
+    // on popup, so the controller receives key events immediately. Right
+    // opens a submenu and Left goes back, as in `GtkPopoverMenu`.
+    let stack_for_nav = stack.downgrade();
     let nav_controller = gtk4::EventControllerKey::new();
     nav_controller.connect_key_pressed(move |_, key, _, _| {
-        let Some(menu_box) = vbox_for_nav.upgrade() else {
+        let Some(menu_box) = stack_for_nav
+            .upgrade()
+            .and_then(|s| s.visible_child())
+            .and_downcast::<GtkBox>()
+        else {
             return gtk4::glib::Propagation::Proceed;
         };
         let items = menu_item_buttons(&menu_box);
@@ -655,6 +646,25 @@ pub fn show_popover(
             return gtk4::glib::Propagation::Proceed;
         }
         let focused = items.iter().position(|b| b.has_focus());
+        match key {
+            gdk::Key::Right => {
+                if let Some(button) = focused.map(|i| &items[i])
+                    && button.has_css_class(SUBMENU_CLASS)
+                {
+                    button.emit_clicked();
+                    return gtk4::glib::Propagation::Stop;
+                }
+                return gtk4::glib::Propagation::Proceed;
+            }
+            gdk::Key::Left | gdk::Key::BackSpace => {
+                if let Some(back) = items.iter().find(|b| b.has_css_class(BACK_CLASS)) {
+                    back.emit_clicked();
+                    return gtk4::glib::Propagation::Stop;
+                }
+                return gtk4::glib::Propagation::Proceed;
+            }
+            _ => {}
+        }
         let target = match key {
             gdk::Key::Down => focused.map_or(0, |i| (i + 1) % items.len()),
             gdk::Key::Up => {
@@ -782,14 +792,176 @@ pub fn show_popover(
     // skip this: moving keyboard focus right after popup is itself a focus
     // change that makes KWin cancel a non-grabbing popup (#157).
     if activation == MenuActivation::Keyboard {
-        let vbox_for_focus = vbox.downgrade();
+        let main_for_focus = main_page.downgrade();
         gtk4::glib::idle_add_local_once(move || {
-            if let Some(menu_box) = vbox_for_focus.upgrade()
+            if let Some(menu_box) = main_for_focus.upgrade()
                 && let Some(first) = menu_item_buttons(&menu_box).first()
             {
                 first.grab_focus();
             }
         });
+    }
+}
+
+/// Builds one page of a context menu: a box of item buttons.
+///
+/// A [`ContextMenuItem::Submenu`] adds a page of its own to `stack`, named
+/// after its position under `page_name`, and a button here that slides to it.
+/// `back_to` is the parent page name and the submenu title for a submenu page,
+/// which then starts with a back button.
+fn build_menu_page(
+    items: &[ContextMenuItem],
+    window: &gtk4::ApplicationWindow,
+    popover: &gtk4::Popover,
+    stack: &gtk4::Stack,
+    page_name: &str,
+    back_to: Option<(&str, &str)>,
+) -> GtkBox {
+    // `accessible-role` is construct-only — use the builder so screen
+    // readers announce the container as a menu.
+    let vbox = GtkBox::builder()
+        .orientation(Orientation::Vertical)
+        .spacing(0)
+        .accessible_role(gtk4::AccessibleRole::Menu)
+        .build();
+    vbox.add_css_class("context-menu");
+
+    if let Some((parent, title)) = back_to {
+        let back = menu_button_with_icon(title, "go-previous-symbolic", true);
+        back.add_css_class(BACK_CLASS);
+        back.update_property(&[gtk4::accessible::Property::Label(&i18n("Back"))]);
+        let stack_weak = stack.downgrade();
+        let parent = parent.to_string();
+        let opener = page_name.to_string();
+        back.connect_clicked(move |_| {
+            if let Some(stack) = stack_weak.upgrade() {
+                show_menu_page(&stack, &parent, Some(&opener));
+            }
+        });
+        vbox.append(&back);
+        vbox.append(&Separator::new(Orientation::Horizontal));
+    }
+
+    for (index, item) in items.iter().enumerate() {
+        match item {
+            ContextMenuItem::Action {
+                label,
+                steps,
+                destructive,
+            } => {
+                let button = Button::builder()
+                    .accessible_role(gtk4::AccessibleRole::MenuItem)
+                    .build();
+                button.add_css_class("flat");
+                button.add_css_class("context-menu-item");
+                if *destructive {
+                    button.add_css_class("context-menu-destructive");
+                }
+
+                let lbl = Label::new(Some(label));
+                lbl.set_xalign(0.0);
+                button.set_child(Some(&lbl));
+
+                let window_weak = window.downgrade();
+                let steps = steps.clone();
+                let popover_weak = popover.downgrade();
+                button.connect_clicked(move |_| {
+                    if let Some(p) = popover_weak.upgrade() {
+                        popdown_intentionally(&p);
+                    }
+                    if let Some(w) = window_weak.upgrade() {
+                        for (action_name, target) in &steps {
+                            gtk4::prelude::ActionGroupExt::activate_action(
+                                &w,
+                                action_name,
+                                target.as_ref(),
+                            );
+                        }
+                    }
+                });
+
+                vbox.append(&button);
+            }
+            ContextMenuItem::Separator => {
+                vbox.append(&Separator::new(Orientation::Horizontal));
+            }
+            ContextMenuItem::Submenu {
+                label,
+                items: sub_items,
+            } => {
+                let sub_name = format!("{page_name}/{index}");
+                let sub_page = build_menu_page(
+                    sub_items,
+                    window,
+                    popover,
+                    stack,
+                    &sub_name,
+                    Some((page_name, label)),
+                );
+                stack.add_named(&sub_page, Some(&sub_name));
+
+                let button = menu_button_with_icon(label, "go-next-symbolic", false);
+                button.add_css_class(SUBMENU_CLASS);
+                // Lets the back button return focus to the item that opened
+                // the page, as `GtkPopoverMenu` does.
+                button.set_widget_name(&sub_name);
+                button.update_property(&[gtk4::accessible::Property::HasPopup(true)]);
+                let stack_weak = stack.downgrade();
+                button.connect_clicked(move |_| {
+                    if let Some(stack) = stack_weak.upgrade() {
+                        show_menu_page(&stack, &sub_name, None);
+                    }
+                });
+                vbox.append(&button);
+            }
+        }
+    }
+    vbox
+}
+
+/// A menu-item button holding a label and an icon: the icon leads for a back
+/// button (`icon_first`) and trails for a submenu opener.
+fn menu_button_with_icon(label: &str, icon: &str, icon_first: bool) -> Button {
+    let button = Button::builder()
+        .accessible_role(gtk4::AccessibleRole::MenuItem)
+        .build();
+    button.add_css_class("flat");
+    button.add_css_class("context-menu-item");
+    let row = GtkBox::new(Orientation::Horizontal, 6);
+    let image = gtk4::Image::from_icon_name(icon);
+    let lbl = Label::new(Some(label));
+    lbl.set_xalign(0.0);
+    lbl.set_hexpand(true);
+    if icon_first {
+        lbl.add_css_class("heading");
+        row.append(&image);
+        row.append(&lbl);
+    } else {
+        row.append(&lbl);
+        row.append(&image);
+    }
+    button.set_child(Some(&row));
+    button
+}
+
+/// Slides `stack` to the page `name` and moves focus into it.
+///
+/// Focus must move with the page: the popover closes itself once focus leaves
+/// it, and a focused button on a page that has slid away no longer counts as
+/// inside. `focus_opener` names the submenu button to focus when going back;
+/// otherwise the first item that is not a back button takes focus.
+fn show_menu_page(stack: &gtk4::Stack, name: &str, focus_opener: Option<&str>) {
+    stack.set_visible_child_name(name);
+    let Some(page) = stack.child_by_name(name).and_downcast::<GtkBox>() else {
+        return;
+    };
+    let buttons = menu_item_buttons(&page);
+    let target = focus_opener
+        .and_then(|opener| buttons.iter().find(|b| b.widget_name() == opener))
+        .or_else(|| buttons.iter().find(|b| !b.has_css_class(BACK_CLASS)))
+        .or_else(|| buttons.first());
+    if let Some(button) = target {
+        button.grab_focus();
     }
 }
 

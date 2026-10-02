@@ -12,12 +12,16 @@ use super::*;
 ///
 /// Bundled rather than passed as a row of booleans so the call site names every
 /// flag it sets.
-#[derive(Debug, Clone, Copy, Default)]
+#[derive(Debug, Clone, Default)]
 #[expect(
     clippy::struct_excessive_bools,
     reason = "seven independent per-tab facts, each gating one menu section"
 )]
 pub struct TabMenuState {
+    /// The saved connection behind the tab and its "Copy" entries, or `None`
+    /// for a tab with no saved connection (Welcome, local shell, quick
+    /// connect). Drives the Edit Connection and Copy sections (issue #357).
+    pub connection: Option<(Uuid, Vec<TabCopyEntry>)>,
     /// Activity or silence monitoring mode of the tab's session, if any.
     pub monitor_mode: Option<MonitorMode>,
     /// The tab belongs to a tab group.
@@ -35,6 +39,14 @@ pub struct TabMenuState {
     /// The tab hosts a split layout, so it can be offered "Remove Split".
     pub hosts_split: bool,
 }
+
+/// One "Copy" entry of the tab menu; built by the window, which owns the
+/// connection data.
+pub(crate) type TabCopyEntry = crate::window::copy_field_actions::CopyMenuEntry;
+
+/// Answers "which saved connection, and what can be copied from it" for a
+/// connection id; `None` when no saved connection has that id.
+pub(crate) type TabConnectionMenuProvider = Rc<dyn Fn(Uuid) -> Option<Vec<TabCopyEntry>>>;
 
 /// Reports whether the detach section is offered for a verdict.
 ///
@@ -71,6 +83,7 @@ impl TerminalNotebook {
         let activity_for_menu = self.activity_coordinator.clone();
         let detach_hooks_for_menu = self.detach_hooks();
         let broadcast_membership_for_menu = self.tab_broadcast_membership.clone();
+        let connection_menu_for_menu = self.tab_connection_menu.clone();
         let disconnected_for_menu = self.disconnected_sessions.clone();
         let menu_for_setup = menu;
         self.tab_view.connect_setup_menu(move |_tab_view, page| {
@@ -107,7 +120,14 @@ impl TerminalNotebook {
                     });
                     let is_disconnected =
                         session_id.is_some_and(|sid| disconnected_for_menu.borrow().contains(&sid));
+                    let connection = session_id
+                        .and_then(|sid| info_ref.get(&sid).map(|i| i.connection_id))
+                        .and_then(|cid| {
+                            let provider = connection_menu_for_menu.borrow().clone()?;
+                            provider(cid).map(|entries| (cid, entries))
+                        });
                     TabMenuState {
+                        connection,
                         monitor_mode: mode,
                         has_group,
                         in_broadcast,
@@ -892,6 +912,50 @@ impl TerminalNotebook {
             // entry (issue #328 follow-up).
             Self::append_monitor_detach_items(&detach_section);
             menu.append_section(None, &detach_section);
+        }
+
+        // Connection section (issue #357) — edit the tab's saved connection and
+        // copy its fields, addressed by connection id so the sidebar selection
+        // does not matter. Properties-like items, so above Close (GNOME HIG).
+        //
+        // Copy is a labelled section, not a submenu: this menu is cleared and
+        // rebuilt on every `setup-menu`, and a rebuilt submenu re-adds its
+        // `GtkStack` page under the same name (see the detach section above).
+        if let Some((connection_id, copy_entries)) = &state.connection {
+            let edit_section = gio::Menu::new();
+            let edit = gio::MenuItem::new(Some(&i18n("Edit Connection…")), None);
+            edit.set_action_and_target_value(
+                Some("win.edit-connection-by-id"),
+                Some(&connection_id.to_string().to_variant()),
+            );
+            edit_section.append_item(&edit);
+            menu.append_section(None, &edit_section);
+
+            let copy_section = gio::Menu::new();
+            let property_section = gio::Menu::new();
+            for entry in copy_entries {
+                let item = gio::MenuItem::new(Some(&entry.label), None);
+                item.set_action_and_target_value(
+                    Some(&format!(
+                        "win.{}",
+                        crate::window::copy_field_actions::COPY_FIELD_ACTION
+                    )),
+                    Some(&entry.target.to_variant()),
+                );
+                if entry.is_property {
+                    property_section.append_item(&item);
+                } else {
+                    copy_section.append_item(&item);
+                }
+            }
+            if copy_section.n_items() > 0 {
+                menu.append_section(Some(&i18n("Copy")), &copy_section);
+            }
+            if property_section.n_items() > 0 {
+                // Under the Copy heading when there are no built-in fields.
+                let heading = (copy_section.n_items() == 0).then(|| i18n("Copy"));
+                menu.append_section(heading.as_deref(), &property_section);
+            }
         }
 
         // Close section — minimal by default, expanded when groups exist

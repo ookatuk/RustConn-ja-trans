@@ -8,6 +8,7 @@ mod clusters;
 mod command_env;
 mod connection_actions;
 mod connection_dialogs;
+pub(crate) mod copy_field_actions;
 mod credentials;
 mod detach_actions;
 mod edit_actions;
@@ -823,6 +824,17 @@ impl MainWindow {
             });
         }
 
+        // "Log In to <provider>" on a Zero Trust session whose cloud
+        // credentials expired: run the CLI login in the tab, then reconnect.
+        {
+            let notebook_for_login = Rc::downgrade(&terminal_notebook);
+            terminal_notebook.set_on_cloud_login(move |session_id, connection_id, login| {
+                if let Some(notebook) = notebook_for_login.upgrade() {
+                    Self::start_cloud_login(&notebook, session_id, connection_id, login);
+                }
+            });
+        }
+
         // TabView/TabBar configuration is handled internally
         // TabView is always visible — content lives inside TabPages
         terminal_notebook.widget().set_vexpand(true);
@@ -861,7 +873,11 @@ impl MainWindow {
         // Create main layout using adw::ToolbarView for proper libadwaita integration
         // This provides better responsive behavior and follows GNOME HIG
         let toolbar_view = adw::ToolbarView::new();
-        toolbar_view.add_top_bar(&header_bar);
+        // The header goes in through the fullscreen chrome, which hides it — and
+        // the tab bar it adopts in fullscreen — as one block (issue #354). It
+        // must stay the first top bar, above the banners.
+        let fullscreen_chrome = fullscreen_header::Chrome::new(&header_bar);
+        toolbar_view.add_top_bar(fullscreen_chrome.widget());
 
         // Persistent banner for config files startup could not read, or found
         // written by a newer RustConn (GNOME HIG: a state that needs attention
@@ -969,9 +985,16 @@ impl MainWindow {
 
         window.set_content(Some(tab_overview));
 
-        // Fullscreen hides the header bar — only the header bar, the banners
-        // stay — and brings it back on a top-edge hover or F10 (issue #354).
-        fullscreen_header::install(&window, &toolbar_view, &header_bar, &menu_button);
+        // Fullscreen hides the header bar and the tab bar together — the
+        // banners stay — and brings them back on a top-edge hover, F10 or a tab
+        // switch (issue #354).
+        fullscreen_header::install(
+            &window,
+            &toolbar_view,
+            fullscreen_chrome,
+            &menu_button,
+            &terminal_notebook,
+        );
 
         // Adaptive layout breakpoints (#204).
         //
@@ -1233,6 +1256,39 @@ impl MainWindow {
         DETACHED_WINDOWS.with(|cell| {
             *cell.borrow_mut() = Some(Rc::clone(&main_window.detached_windows));
         });
+
+        // The sidebar and smart-folder "Copy" submenus (issue #357). Weak, so
+        // the thread-local provider does not keep the application state alive.
+        {
+            let state_weak = Rc::downgrade(&main_window.state);
+            crate::sidebar_ui::set_copy_items_provider(move |conn_id| {
+                let Some(state) = state_weak.upgrade() else {
+                    return Vec::new();
+                };
+                let Ok(id) = Uuid::parse_str(conn_id) else {
+                    return Vec::new();
+                };
+                let Ok(state_ref) = state.try_borrow() else {
+                    return Vec::new();
+                };
+                state_ref
+                    .get_connection(id)
+                    .map(copy_field_actions::sidebar_copy_items)
+                    .unwrap_or_default()
+            });
+
+            // The same entries for the session-tab menu, plus Edit Connection.
+            let state_weak = Rc::downgrade(&main_window.state);
+            main_window
+                .terminal_notebook
+                .set_tab_connection_menu_provider(move |connection_id| {
+                    let state = state_weak.upgrade()?;
+                    let state_ref = state.try_borrow().ok()?;
+                    state_ref
+                        .get_connection(connection_id)
+                        .map(copy_field_actions::copy_menu_entries)
+                });
+        }
 
         // Set up recording checker for sidebar context menu
         {
@@ -1654,7 +1710,8 @@ impl MainWindow {
                 // Switch to the tab if there's a session in this pane
                 if let Some(session_id) = session_to_switch {
                     notebook_clone.switch_to_tab(session_id);
-                    // Grab focus on the terminal (click event is claimed, so we must do this)
+                    // Grab focus on the terminal: a press on the pane header or
+                    // the scrollbar does not focus it by itself.
                     if let Some(terminal) = sv_for_terminal.get_terminal(session_id) {
                         terminal.grab_focus();
                     }

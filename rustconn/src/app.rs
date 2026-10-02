@@ -1617,10 +1617,12 @@ pub fn apply_keybindings(app: &adw::Application, state: &SharedAppState) {
 ///
 /// When passthrough is disabled, all keybindings are restored from settings.
 ///
-/// Note: the F10 primary-menu key is a GTK-internal binding, not an
-/// application accelerator, so it is suspended separately by toggling the
-/// header-bar menu button's `primary` property (see the
-/// `win.toggle-passthrough` action handler).
+/// Note: the F10 primary-menu key and `AdwTabView`'s built-in tab shortcuts
+/// are GTK-internal bindings, not application accelerators, so they are
+/// suspended separately — the header-bar menu button's `primary` property and
+/// `TerminalNotebook::set_keyboard_passthrough` (see the
+/// `win.toggle-passthrough` action handler). Compositor shortcuts (Alt+Tab,
+/// Super) never reach the application at all and are not affected.
 pub fn set_passthrough(app: &adw::Application, state: &SharedAppState, enable: bool) {
     if enable {
         let exceptions = with_state(state, |s| {

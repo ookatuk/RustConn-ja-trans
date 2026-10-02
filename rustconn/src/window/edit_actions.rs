@@ -4,6 +4,55 @@
 
 use super::*;
 
+/// The id of the connection selected in the sidebar, or `None` for a group or
+/// no selection.
+fn selected_connection_id(sidebar: &SharedSidebar) -> Option<Uuid> {
+    let item = sidebar.get_selected_item()?;
+    if item.is_group() {
+        return None;
+    }
+    Uuid::parse_str(&item.id()).ok()
+}
+
+/// Registers `win.<name>`, acting on the connection selected in the sidebar,
+/// and `win.<name>-by-id`, acting on the connection whose id is the string
+/// target.
+///
+/// A menu that is not about the sidebar selection — a smart folder — needs the
+/// second form: selecting the row first and then running the plain action does
+/// not work, because the selection is applied on idle, after the action has
+/// already run against whatever was selected before.
+fn register_selected_and_by_id(
+    window: &adw::ApplicationWindow,
+    sidebar: &SharedSidebar,
+    name: &str,
+    handler: impl Fn(Uuid) + 'static,
+) {
+    let handler = Rc::new(handler);
+
+    let selected_action = gio::SimpleAction::new(name, None);
+    let sidebar_clone = sidebar.clone();
+    let handler_clone = Rc::clone(&handler);
+    selected_action.connect_activate(move |_, _| {
+        if let Some(conn_id) = selected_connection_id(&sidebar_clone) {
+            handler_clone(conn_id);
+        }
+    });
+    window.add_action(&selected_action);
+
+    let by_id_action =
+        gio::SimpleAction::new(&format!("{name}-by-id"), Some(glib::VariantTy::STRING));
+    by_id_action.connect_activate(move |_, param| {
+        if let Some(conn_id) = param
+            .and_then(glib::Variant::get::<String>)
+            .and_then(|s| Uuid::parse_str(&s).ok())
+        {
+            handler(conn_id);
+        }
+    });
+    window.add_action(&by_id_action);
+}
+
 /// Why the external tunnel browser could not be resolved.
 enum TunnelBrowserError {
     /// A command is configured but does not name a Chromium-family browser.
@@ -72,6 +121,28 @@ impl MainWindow {
         });
         window.add_action(&delete_action);
 
+        // The same, addressed by connection id (smart folders).
+        let delete_by_id_action =
+            gio::SimpleAction::new("delete-connection-by-id", Some(glib::VariantTy::STRING));
+        let window_weak = window.downgrade();
+        let state_clone = state.clone();
+        let sidebar_clone = sidebar.clone();
+        delete_by_id_action.connect_activate(move |_, param| {
+            if let Some(conn_id) = param
+                .and_then(glib::Variant::get::<String>)
+                .and_then(|s| Uuid::parse_str(&s).ok())
+                && let Some(win) = window_weak.upgrade()
+            {
+                operations::delete_connection_by_id(
+                    win.upcast_ref(),
+                    &state_clone,
+                    &sidebar_clone,
+                    conn_id,
+                );
+            }
+        });
+        window.add_action(&delete_by_id_action);
+
         // Duplicate connection action
         let duplicate_action = gio::SimpleAction::new("duplicate-connection", None);
         let window_weak = window.downgrade();
@@ -125,35 +196,10 @@ impl MainWindow {
         let window_weak = window.downgrade();
         let toast_clone = self.toast_overlay.clone();
         copy_username_action.connect_activate(move |_, _| {
-            let Some(item) = sidebar_clone.get_selected_item() else {
-                return;
-            };
-            if item.is_group() {
-                return;
-            }
-            let Ok(conn_id) = uuid::Uuid::parse_str(&item.id()) else {
-                return;
-            };
-            let Ok(state_ref) = state_clone.try_borrow() else {
-                return;
-            };
-            if let Some(conn) = state_ref.get_connection(conn_id) {
-                // Try cached credentials first (resolved from vault during connection),
-                // fall back to the username stored directly on the connection model
-                let username = state_ref
-                    .get_cached_credentials(conn_id)
-                    .map(|creds| creds.username.clone())
-                    .filter(|u| !u.is_empty())
-                    .or_else(|| conn.username.clone())
-                    .unwrap_or_default();
-                if username.is_empty() {
-                    toast_clone.show_warning(&crate::i18n::i18n("No username configured"));
-                } else if let Some(win) = window_weak.upgrade() {
-                    gtk4::prelude::WidgetExt::display(&win)
-                        .clipboard()
-                        .set_text(&username);
-                    toast_clone.show_success(&crate::i18n::i18n("Username copied"));
-                }
+            if let Some(conn_id) = selected_connection_id(&sidebar_clone)
+                && let Some(win) = window_weak.upgrade()
+            {
+                super::copy_field_actions::copy_username(&win, &state_clone, &toast_clone, conn_id);
             }
         });
         window.add_action(&copy_username_action);
@@ -165,108 +211,15 @@ impl MainWindow {
         let window_weak = window.downgrade();
         let toast_clone = self.toast_overlay.clone();
         copy_password_action.connect_activate(move |_, _| {
-            use secrecy::ExposeSecret;
-            let Some(item) = sidebar_clone.get_selected_item() else {
-                return;
-            };
-            if item.is_group() {
-                return;
-            }
-            let Ok(conn_id) = uuid::Uuid::parse_str(&item.id()) else {
-                return;
-            };
-            let Ok(state_ref) = state_clone.try_borrow() else {
-                return;
-            };
-            if state_ref.get_connection(conn_id).is_none() {
-                return;
-            }
-
-            // Helper closure to copy password to clipboard with auto-clear
-            let copy_to_clipboard =
-                |pw_owned: zeroize::Zeroizing<String>,
-                 window_weak: &glib::WeakRef<adw::ApplicationWindow>,
-                 toast: &SharedToastOverlay| {
-                    if let Some(win) = window_weak.upgrade() {
-                        let clipboard = gtk4::prelude::WidgetExt::display(&win).clipboard();
-                        clipboard.set_text(&pw_owned);
-                        toast.show_success(&crate::i18n::i18n(
-                            "Password copied (auto-clears in 30s)",
-                        ));
-                        let clipboard_weak = clipboard.downgrade();
-                        glib::timeout_add_seconds_local_once(30, move || {
-                            if let Some(cb) = clipboard_weak.upgrade() {
-                                cb.read_text_async(gio::Cancellable::NONE, move |result| {
-                                    if let Ok(Some(current)) = result
-                                        && current.as_str() == pw_owned.as_str()
-                                        && let Some(cb2) = clipboard_weak.upgrade()
-                                    {
-                                        cb2.set_text("");
-                                    }
-                                });
-                            }
-                        });
-                    }
-                };
-
-            // Try cached credentials first (resolved from vault during connection)
-            if let Some(creds) = state_ref.get_cached_credentials(conn_id) {
-                let pw = creds.password.expose_secret();
-                if pw.is_empty() {
-                    toast_clone.show_warning(&crate::i18n::i18n("Cached password is empty"));
-                } else {
-                    copy_to_clipboard(
-                        zeroize::Zeroizing::new(pw.to_string()),
-                        &window_weak,
-                        &toast_clone,
-                    );
-                }
-                return;
-            }
-
-            // No cached credentials — resolve from vault backend
-            drop(state_ref);
-            let window_weak2 = window_weak.clone();
-            let toast_clone2 = toast_clone.clone();
-            if let Ok(state_ref2) = state_clone.try_borrow() {
-                state_ref2.resolve_credentials_gtk(conn_id, move |result| {
-                    use rustconn_core::sync::CredentialResolutionResult;
-                    match result {
-                        Ok(CredentialResolutionResult::Resolved(creds)) => {
-                            if let Some(ref password) = creds.password {
-                                let pw = password.expose_secret();
-                                if pw.is_empty() {
-                                    toast_clone2
-                                        .show_warning(&crate::i18n::i18n("Password is empty"));
-                                } else {
-                                    copy_to_clipboard(
-                                        zeroize::Zeroizing::new(pw.to_string()),
-                                        &window_weak2,
-                                        &toast_clone2,
-                                    );
-                                }
-                            } else {
-                                toast_clone2.show_warning(&crate::i18n::i18n(
-                                    "No password configured for this connection",
-                                ));
-                            }
-                        }
-                        Ok(_) => {
-                            toast_clone2.show_warning(&crate::i18n::i18n(
-                                "No password configured for this connection",
-                            ));
-                        }
-                        Err(e) => {
-                            tracing::warn!(error = %e, "Failed to resolve credentials for copy");
-                            toast_clone2.show_warning(&crate::i18n::i18n(
-                                "Could not retrieve password from secret backend",
-                            ));
-                        }
-                    }
-                });
+            if let Some(conn_id) = selected_connection_id(&sidebar_clone)
+                && let Some(win) = window_weak.upgrade()
+            {
+                super::copy_field_actions::copy_password(&win, &state_clone, &toast_clone, conn_id);
             }
         });
         window.add_action(&copy_password_action);
+
+        self.setup_copy_field_actions(window, state, sidebar);
 
         // Rename item action (works for both connections and groups)
         let rename_action = gio::SimpleAction::new("rename-item", None);
@@ -462,25 +415,20 @@ impl MainWindow {
         // needs no selection and may not correspond to any saved connection. This
         // action wakes the selected connection and then polls it to connect. Two
         // different jobs that happen to send the same packet.
-        let wol_action = gio::SimpleAction::new("wake-on-lan", None);
+        //
+        // `wake-on-lan-by-id` is the same job addressed by connection id, for
+        // menus that are not about the sidebar selection (a smart folder).
         let state_clone = state.clone();
         let sidebar_clone = sidebar.clone();
         let toast_clone = self.toast_overlay.clone();
         let notebook_clone = self.terminal_notebook.clone();
         let monitoring_clone = self.monitoring.clone();
         let split_view_clone = self.split_view.clone();
-        wol_action.connect_activate(move |_, _| {
-            let Some(item) = sidebar_clone.get_selected_item() else {
+        let wake_connection = move |conn_id: Uuid| {
+            let id_str = conn_id.to_string();
+            let Ok(state_ref) = state_clone.try_borrow() else {
                 return;
             };
-            if item.is_group() {
-                return;
-            }
-            let id_str = item.id();
-            let Ok(conn_id) = Uuid::parse_str(&id_str) else {
-                return;
-            };
-            let state_ref = state_clone.borrow();
             let Some(conn) = state_ref.get_connection(conn_id) else {
                 return;
             };
@@ -587,28 +535,17 @@ impl MainWindow {
                     }
                 },
             );
-        });
-        window.add_action(&wol_action);
+        };
+        register_selected_and_by_id(window, sidebar, "wake-on-lan", wake_connection);
 
         // Check if host is online — TCP probe with polling and optional auto-connect
-        let check_online_action = gio::SimpleAction::new("check-host-online", None);
         let state_clone = state.clone();
         let sidebar_clone = sidebar.clone();
         let toast_clone = self.toast_overlay.clone();
         let notebook_clone_online = self.terminal_notebook.clone();
         let monitoring_clone_online = self.monitoring.clone();
         let split_view_clone_online = self.split_view.clone();
-        check_online_action.connect_activate(move |_, _| {
-            let Some(item) = sidebar_clone.get_selected_item() else {
-                return;
-            };
-            if item.is_group() {
-                return;
-            }
-            let id_str = item.id();
-            let Ok(conn_id) = Uuid::parse_str(&id_str) else {
-                return;
-            };
+        let check_connection_online = move |conn_id: Uuid| {
             let (host, port) = {
                 let Ok(state_ref) = state_clone.try_borrow() else {
                     return;
@@ -688,8 +625,13 @@ impl MainWindow {
                     }
                 },
             );
-        });
-        window.add_action(&check_online_action);
+        };
+        register_selected_and_by_id(
+            window,
+            sidebar,
+            "check-host-online",
+            check_connection_online,
+        );
 
         // Open SFTP action — opens file manager or mc in local shell
         let sftp_action = gio::SimpleAction::new("open-sftp", None);

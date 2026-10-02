@@ -12,7 +12,6 @@ use std::collections::HashMap;
 use std::rc::Rc;
 use std::sync::Arc;
 
-use chrono::Utc;
 use rustconn_core::automation::FolderConnectionTracker;
 use rustconn_core::cluster::ClusterManager;
 use rustconn_core::config::{AppSettings, ConfigManager};
@@ -68,22 +67,15 @@ impl ConnectionClipboard {
     /// Returns a new connection with:
     /// - A new unique ID
     /// - "(Copy)" suffix appended to the name
-    /// - Updated timestamps
+    /// - Updated timestamps, and not a favorite (see `Connection::duplicate_as`)
     ///
     /// # Returns
     /// `Some(Connection)` if there's content in the clipboard, `None` otherwise
     #[must_use]
     pub fn paste(&self) -> Option<Connection> {
-        self.connection.as_ref().map(|conn| {
-            let mut new_conn = conn.clone();
-            new_conn.id = Uuid::new_v4();
-            new_conn.name = format!("{} (Copy)", conn.name);
-            let now = Utc::now();
-            new_conn.created_at = now;
-            new_conn.updated_at = now;
-            new_conn.last_connected = None;
-            new_conn
-        })
+        self.connection
+            .as_ref()
+            .map(|conn| conn.duplicate_as(format!("{} (Copy)", conn.name)))
     }
 
     /// Checks if the clipboard has content

@@ -939,6 +939,7 @@ mod notebook_park_tests {
             tab_group: None,
             tab_color_index: None,
             connected_at: chrono::Utc::now(),
+            reconnected_at: None,
         }
     }
 

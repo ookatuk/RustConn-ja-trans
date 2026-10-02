@@ -187,6 +187,10 @@ pub enum ChildExitHook {
     SessionLog,
 }
 
+/// Shared slot for the reconnect banner's cloud login callback.
+type CloudLoginCallback =
+    Rc<RefCell<Option<Box<dyn Fn(Uuid, Uuid, rustconn_core::protocol::CloudLogin)>>>>;
+
 /// Terminal notebook widget for managing multiple terminal sessions
 /// Now using adw::TabView for modern GNOME HIG compliance
 pub struct TerminalNotebook {
@@ -240,6 +244,9 @@ pub struct TerminalNotebook {
     tab_group_manager: Rc<RefCell<TabGroupManager>>,
     /// Callback for reconnect button clicks (session_id, connection_id)
     on_reconnect: Rc<RefCell<Option<Box<dyn Fn(Uuid, Uuid)>>>>,
+    /// Callback for the reconnect banner's cloud login button
+    /// (session_id, connection_id, login command).
+    on_cloud_login: CloudLoginCallback,
     /// Resolves the split-pane container box a session is displayed in, when it
     /// is a split guest with no `TabPage` of its own (issue #328).
     ///
@@ -255,6 +262,16 @@ pub struct TerminalNotebook {
     /// Reports whether a tab is currently in the broadcast group, so the tab
     /// context menu can label its toggle item. Wired by the window (issue #329).
     tab_broadcast_membership: Rc<RefCell<Option<Rc<dyn Fn(Uuid) -> bool>>>>,
+    /// Supplies the tab menu's Edit Connection and Copy sections for a
+    /// connection id. Wired by the window, which owns the connection data
+    /// (issue #357).
+    tab_connection_menu: Rc<RefCell<Option<tab_menu::TabConnectionMenuProvider>>>,
+    /// Whether keyboard passthrough is on; mirrors `win.toggle-passthrough`.
+    keyboard_passthrough: Rc<std::cell::Cell<bool>>,
+    /// The embedded RDP/VNC viewer that has keyboard focus, if any. Its window
+    /// asks the compositor for the desktop shortcuts while passthrough is on
+    /// (issue #356).
+    focused_viewer: Rc<RefCell<Option<glib::WeakRef<gtk4::Widget>>>>,
     /// Callback fired when terminal focus changes (`true` = focus entered the
     /// VTE, `false` = focus left). Drives focus-based accelerator suspend (#197).
     on_terminal_focus: Rc<RefCell<Option<Box<dyn Fn(bool)>>>>,
@@ -514,9 +531,13 @@ impl TerminalNotebook {
             split_session_colors: Rc::new(RefCell::new(HashMap::new())),
             tab_group_manager: Rc::new(RefCell::new(TabGroupManager::new())),
             on_reconnect: Rc::new(RefCell::new(None)),
+            on_cloud_login: Rc::new(RefCell::new(None)),
             split_pane_box_provider: Rc::new(RefCell::new(None)),
             on_tab_broadcast_toggle: Rc::new(RefCell::new(None)),
             tab_broadcast_membership: Rc::new(RefCell::new(None)),
+            tab_connection_menu: Rc::new(RefCell::new(None)),
+            keyboard_passthrough: Rc::new(std::cell::Cell::new(false)),
+            focused_viewer: Rc::new(RefCell::new(None)),
             on_terminal_focus: Rc::new(RefCell::new(None)),
             reconnect_shown: Rc::new(RefCell::new(HashSet::new())),
             disconnected_sessions: Rc::new(RefCell::new(HashSet::new())),
@@ -2313,6 +2334,82 @@ impl TerminalNotebook {
         &self.tab_view
     }
 
+    /// Returns the TabBar.
+    ///
+    /// Outside fullscreen it is the first child of [`widget`](Self::widget);
+    /// the window's fullscreen chrome moves it under the header bar while the
+    /// window is fullscreen and back again afterwards (issue #354).
+    #[must_use]
+    pub fn tab_bar(&self) -> &adw::TabBar {
+        &self.tab_bar
+    }
+
+    /// Turns the TabView's built-in tab shortcuts off for keyboard passthrough.
+    ///
+    /// `AdwTabView` carries its own shortcut controller (Ctrl+Tab,
+    /// Ctrl+Shift+Tab, Ctrl+Page Up/Down, Ctrl+Home/End,
+    /// Ctrl+Shift+Page Up/Down/Home/End, Alt+0…9) with window-wide scope. It is not a `GApplication`
+    /// accelerator, so clearing the accelerator table in passthrough mode does
+    /// not reach it, and because it runs before the session widget's key
+    /// controller it switched tabs instead of forwarding the chord (issue #356).
+    ///
+    /// Also hands the desktop's own shortcuts (Alt+Tab, Super, Super+number)
+    /// to an embedded RDP or VNC viewer while one has focus; see
+    /// [`Self::attach_shortcut_inhibit`].
+    pub fn set_keyboard_passthrough(&self, enabled: bool) {
+        self.tab_view
+            .set_shortcuts(tab_view_shortcuts_for_passthrough(enabled));
+        self.keyboard_passthrough.set(enabled);
+
+        let focused = self
+            .focused_viewer
+            .borrow()
+            .as_ref()
+            .and_then(glib::WeakRef::upgrade);
+        if let Some(viewer) = focused {
+            set_system_shortcuts_inhibited(&viewer, enabled);
+        } else if !enabled {
+            // The viewer may have gone away while it held the shortcuts.
+            set_system_shortcuts_inhibited(self.container.upcast_ref(), false);
+        }
+    }
+
+    /// Asks the compositor for the desktop shortcuts while `widget` (an
+    /// embedded RDP or VNC viewer) has focus and passthrough is on, and gives
+    /// them back when focus leaves (issue #356).
+    ///
+    /// This is the Wayland keyboard-shortcuts-inhibit request that an external
+    /// FreeRDP window already makes. GNOME asks the user once whether to allow
+    /// it, and Super+Esc always gives the shortcuts back. Terminals are left
+    /// out on purpose: in an SSH tab Alt+Tab is expected to switch windows.
+    fn attach_shortcut_inhibit<W: IsA<gtk4::Widget>>(&self, widget: &W) {
+        let focus_ctrl = gtk4::EventControllerFocus::new();
+        let passthrough = self.keyboard_passthrough.clone();
+        let focused = self.focused_viewer.clone();
+        let viewer = widget.upcast_ref::<gtk4::Widget>().downgrade();
+        focus_ctrl.connect_enter(move |_| {
+            let Some(viewer) = viewer.upgrade() else {
+                return;
+            };
+            *focused.borrow_mut() = Some(viewer.downgrade());
+            if passthrough.get() {
+                set_system_shortcuts_inhibited(&viewer, true);
+            }
+        });
+        let passthrough = self.keyboard_passthrough.clone();
+        let focused = self.focused_viewer.clone();
+        let viewer = widget.upcast_ref::<gtk4::Widget>().downgrade();
+        focus_ctrl.connect_leave(move |_| {
+            *focused.borrow_mut() = None;
+            if passthrough.get()
+                && let Some(viewer) = viewer.upgrade()
+            {
+                set_system_shortcuts_inhibited(&viewer, false);
+            }
+        });
+        widget.add_controller(focus_ctrl);
+    }
+
     /// Returns the global split session colors map (session_id → color_index).
     ///
     /// Used by split view popover to show color indicators for sessions
@@ -3238,6 +3335,66 @@ fn cursor_line_text(terminal: &Terminal) -> Option<String> {
             .find(|l| !l.trim().is_empty())
             .map(str::to_owned)
     })
+}
+
+/// The `AdwTabView` shortcut set for a keyboard-passthrough state.
+///
+/// Passthrough disables every one of them so the chord reaches the session;
+/// leaving it restores the full default set, which is what the TabView is built
+/// with, so toggling twice is a no-op.
+const fn tab_view_shortcuts_for_passthrough(enabled: bool) -> adw::TabViewShortcuts {
+    if enabled {
+        adw::TabViewShortcuts::NONE
+    } else {
+        adw::TabViewShortcuts::ALL_SHORTCUTS
+    }
+}
+
+/// Inhibits or restores the compositor's shortcuts for the window `widget` is
+/// in, so a detached session window asks for its own surface.
+///
+/// On Wayland this is `zwp_keyboard_shortcuts_inhibit_v1`, on X11 a keyboard
+/// grab; GTK picks. It only has effect while that window has keyboard focus.
+fn set_system_shortcuts_inhibited(widget: &gtk4::Widget, inhibit: bool) {
+    let Some(toplevel) = widget
+        .native()
+        .and_then(|native| native.surface())
+        .and_downcast::<gtk4::gdk::Toplevel>()
+    else {
+        return;
+    };
+    tracing::debug!(inhibit, "keyboard passthrough: system shortcuts");
+    if inhibit {
+        toplevel.inhibit_system_shortcuts(None::<&gtk4::gdk::Event>);
+    } else {
+        toplevel.restore_system_shortcuts();
+    }
+}
+
+#[cfg(test)]
+mod passthrough_shortcut_tests {
+    use libadwaita as adw;
+
+    use super::tab_view_shortcuts_for_passthrough;
+
+    /// Issue #356: Ctrl+Shift+Tab and friends switched tabs in passthrough.
+    #[test]
+    fn passthrough_disables_every_tab_view_shortcut() {
+        assert_eq!(
+            tab_view_shortcuts_for_passthrough(true),
+            adw::TabViewShortcuts::NONE
+        );
+    }
+
+    /// Leaving passthrough must give back exactly the set `adw::TabView::new()`
+    /// starts with — Ctrl+Tab, Ctrl+Page Up/Down and Alt+digit keep working.
+    #[test]
+    fn leaving_passthrough_restores_the_default_set() {
+        assert_eq!(
+            tab_view_shortcuts_for_passthrough(false),
+            adw::TabViewShortcuts::ALL_SHORTCUTS
+        );
+    }
 }
 
 /// The output-filter availability gate.
