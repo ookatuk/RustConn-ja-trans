@@ -608,12 +608,12 @@ Right-click a connection in the sidebar or in a smart folder → **Copy ▸**, o
 | **Host** | The host name or address as stored (not resolved to an IP) | The connection has a host |
 | **Port (2222)** | The port number; the label shows it, so routers on different ports can be told apart | The protocol has a port (not Serial, Kubernetes, Zero Trust or Web) |
 | **Address** | `host:port`, with an IPv6 address in brackets (`[2001:db8::1]:22`) | Host and port are both present |
-| **Username** | The username resolved at connect time, otherwise the one stored on the connection | A username is stored, or the password source can supply one (vault, variable, script, group) |
+| **Username** | The username resolved at connect time, otherwise the one stored on the connection, otherwise the one the password source supplies | A username is stored, or the password source can supply one (vault, variable, script, group) |
 | **Password** | The password, from the credential cached at connect time or from the secret backend | The password source is not *None* or *Prompt* |
 | **SSH Command** | `ssh [-p PORT] [-J BASTION] [user@]host`, quoted for the shell, with the bastion resolved from the connection, its group and the global network settings | SSH and SFTP connections |
 | *Custom properties* | The property's value, one entry per property that has a value, under a separator | The connection has custom properties |
 
-- The SSH command contains only what is needed to reach the host. Identity files, `-o` options and the startup command are left out, so pasting it never runs anything on the remote host.
+- The SSH command contains only what is needed to reach the host. Identity files, `-o` options and the startup command are left out, so pasting it never runs anything on the remote host. A bracketed IPv6 host is written without its brackets, which `ssh` does not accept, and a host or username starting with `-` gets `--` in front, so `ssh` cannot read it as an option.
 - The password and **Protected** custom properties are cleared from the clipboard after 30 seconds, only if the clipboard still holds the copied value. Their values never appear in a menu label.
 - In the sidebar the submenu works from the keyboard as well: **Right** opens it, **Left** or **Backspace** goes back.
 - Toast notifications confirm the action or explain why it failed.
@@ -1768,7 +1768,12 @@ aws: [ERROR]: Your session has expired. Please reauthenticate using 'aws login'.
 
 Clicking **Reconnect** would only fail the same way, so when RustConn recognises
 such a message in the last lines of the terminal, the bar under the session reads
-**Sign-in expired** and offers a **Log In to …** button before **Reconnect**:
+**Sign-in expired** and offers a **Log In to …** button before **Reconnect**.
+Only a session that fails within its first minute is checked: after that the
+screen shows the remote host's output, not the CLI's, and a line there that
+happens to mention an expired token must not stop automatic reconnection. If the
+credentials run out during a long session, the next connection attempt fails at
+start-up and is recognised then.
 
 | Provider | Button | Command it runs |
 |----------|--------|-----------------|

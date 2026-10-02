@@ -1208,17 +1208,24 @@ impl MainWindow {
     ///
     /// Reads the session's visible terminal text, so it must run before
     /// `mark_tab_disconnected` resets the VTE state. `None` for any other
-    /// protocol, for an unrecognised failure, and while the state is borrowed.
+    /// protocol, for a session that ran longer than
+    /// [`rustconn_core::protocol::LOGIN_FAILURE_WINDOW_SECS`] (its screen is
+    /// the remote host's output, not the CLI's), for an unrecognised failure,
+    /// and while the state is borrowed.
     fn expired_cloud_login(
         state: &SharedAppState,
         notebook: &SharedNotebook,
         session_id: Uuid,
         connection_id: Uuid,
     ) -> Option<rustconn_core::protocol::CloudLogin> {
-        let is_zero_trust = notebook
-            .get_session_info(session_id)
-            .is_some_and(|info| info.protocol.starts_with("zerotrust"));
-        if !is_zero_trust {
+        let info = notebook.get_session_info(session_id)?;
+        if !info.protocol.starts_with("zerotrust") {
+            return None;
+        }
+        let age_secs = chrono::Utc::now()
+            .signed_duration_since(info.started_at())
+            .num_seconds();
+        if age_secs > rustconn_core::protocol::LOGIN_FAILURE_WINDOW_SECS {
             return None;
         }
         // The screen can hold whatever the session printed, so the copy is
@@ -1316,6 +1323,9 @@ impl MainWindow {
 
         let argv = login.spawn_argv();
         let argv: Vec<&str> = argv.iter().map(String::as_str).collect();
+        // A failed spawn leaves the spawn-failure banner, which names what
+        // could not start; `/bin/sh` failing is a PTY problem, not an expired
+        // sign-in, so the login button is deliberately not put back over it.
         if notebook.spawn_command(session_id, &argv, None, None, None)
             && let Some(terminal) = notebook.get_terminal(session_id)
         {

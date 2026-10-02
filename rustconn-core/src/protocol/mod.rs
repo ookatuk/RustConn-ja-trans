@@ -24,7 +24,7 @@ mod web;
 mod zerotrust;
 
 pub use cli::{format_command_message, format_connection_message};
-pub use cloud_login::{CloudLogin, expired_credentials_login};
+pub use cloud_login::{CloudLogin, LOGIN_FAILURE_WINDOW_SECS, expired_credentials_login};
 pub use detection::{
     ClientDetectionResult, ClientInfo, FREERDP_WAYLAND_FIRST, FREERDP_X11_FIRST,
     ZeroTrustDetectionResult, available_vnc_viewers, detect_aws_cli, detect_azure_cli,

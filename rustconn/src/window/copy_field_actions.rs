@@ -17,6 +17,11 @@ use crate::i18n::{i18n, i18n_f};
 /// enough that it does not linger for the next paste.
 const SECRET_CLIPBOARD_TTL_SECS: u32 = 30;
 
+// "Password copied (auto-clears in 30s)" is an existing, fully translated
+// string shared with the password generator, so it names the number instead
+// of taking it as a placeholder. Changing the TTL means changing that string.
+const _: () = assert!(SECRET_CLIPBOARD_TTL_SECS == 30);
+
 /// Name of the parameterised copy action, without the `win.` prefix.
 pub(crate) const COPY_FIELD_ACTION: &str = "copy-connection-field";
 
@@ -195,33 +200,69 @@ pub(crate) fn copy_connection_field(
 }
 
 /// Copies the user name: the one resolved at connect time when there is one,
-/// otherwise the one stored on the connection.
+/// otherwise the one stored on the connection, otherwise the one the secret
+/// backend (vault, variable, script, parent group) supplies.
 pub(crate) fn copy_username(
     window: &adw::ApplicationWindow,
     state: &SharedAppState,
     toast: &SharedToastOverlay,
     conn_id: Uuid,
 ) {
+    {
+        let Ok(state_ref) = state.try_borrow() else {
+            return;
+        };
+        let Some(conn) = state_ref.get_connection(conn_id) else {
+            return;
+        };
+        let known = state_ref
+            .get_cached_credentials(conn_id)
+            .map(|creds| creds.username.clone())
+            .filter(|u| !u.trim().is_empty())
+            .or_else(|| conn.username.clone().filter(|u| !u.trim().is_empty()));
+        if let Some(username) = known {
+            set_username_clipboard(window, toast, &username);
+            return;
+        }
+    }
+
+    // Nothing cached or stored: the field was offered because the password
+    // source can supply a user name too, so ask it. The borrow above is
+    // released first, because the resolver re-borrows the state.
+    let window_weak = window.downgrade();
+    let toast = toast.clone();
     let Ok(state_ref) = state.try_borrow() else {
         return;
     };
-    let Some(conn) = state_ref.get_connection(conn_id) else {
-        return;
-    };
-    let username = state_ref
-        .get_cached_credentials(conn_id)
-        .map(|creds| creds.username.clone())
-        .filter(|u| !u.is_empty())
-        .or_else(|| conn.username.clone())
-        .unwrap_or_default();
-    if username.is_empty() {
-        toast.show_warning(&i18n("No username configured"));
-    } else {
-        gtk4::prelude::WidgetExt::display(window)
-            .clipboard()
-            .set_text(&username);
-        toast.show_success(&i18n("Username copied"));
-    }
+    state_ref.resolve_credentials_gtk(conn_id, move |result| {
+        use rustconn_core::sync::CredentialResolutionResult;
+        let resolved = match result {
+            Ok(CredentialResolutionResult::Resolved(creds)) => {
+                creds.username.filter(|u| !u.trim().is_empty())
+            }
+            Ok(_) => None,
+            Err(e) => {
+                tracing::warn!(error = %e, "Failed to resolve credentials for username copy");
+                None
+            }
+        };
+        match (resolved, window_weak.upgrade()) {
+            (Some(username), Some(win)) => set_username_clipboard(&win, &toast, &username),
+            _ => toast.show_warning(&i18n("No username configured")),
+        }
+    });
+}
+
+/// Puts a user name on the clipboard and confirms with a toast.
+fn set_username_clipboard(
+    window: &adw::ApplicationWindow,
+    toast: &SharedToastOverlay,
+    username: &str,
+) {
+    gtk4::prelude::WidgetExt::display(window)
+        .clipboard()
+        .set_text(username);
+    toast.show_success(&i18n("Username copied"));
 }
 
 /// Copies the password, clearing it from the clipboard after

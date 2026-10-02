@@ -283,19 +283,6 @@ impl ContextMenuItem {
         }
     }
 
-    /// An action that first selects `target` by id, then activates `action` on
-    /// the resulting selection.
-    pub fn action_on_selected(label: &str, id: &glib::Variant, action: &str) -> Self {
-        Self::Action {
-            label: label.to_string(),
-            steps: vec![
-                ("select-item-by-id".to_string(), Some(id.clone())),
-                (action.to_string(), None),
-            ],
-            destructive: false,
-        }
-    }
-
     /// Marks the item as destructive, so it is styled apart from the rest.
     #[must_use]
     pub fn destructive(mut self) -> Self {

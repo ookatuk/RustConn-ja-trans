@@ -8,6 +8,20 @@
 //! lines and builds the login command from the connection's configuration.
 
 use crate::models::{ZeroTrustConfig, ZeroTrustProviderConfig};
+use crate::ssh_tunnel::format_argv_for_display;
+
+/// Longest a Zero Trust session may have run, in seconds, for its failure to
+/// be read as an expired sign-in.
+///
+/// A CLI refusing an expired token does so while it starts — before any remote
+/// shell exists. A session that fails later ends with the remote host's output
+/// on screen, and ordinary remote text (`docker push` saying "not logged in", a
+/// gRPC `Unauthenticated`, a log line about an expired JWT) would otherwise
+/// turn a dropped network into "Sign-in expired" and switch off automatic
+/// reconnection. Sixty seconds leaves room for a slow token refresh and an
+/// MFA prompt. If credentials do expire mid-session, the automatic reconnect
+/// then fails at start-up and is recognised there.
+pub const LOGIN_FAILURE_WINDOW_SECS: i64 = 60;
 
 /// Number of trailing terminal lines inspected for an expiry message.
 ///
@@ -106,12 +120,15 @@ impl CloudLogin {
     }
 
     /// Returns the command line for display, e.g. `"aws sso login --profile dev"`.
+    ///
+    /// Arguments a shell would split or interpret are single-quoted, so the
+    /// echoed line shows the argv that actually runs.
     #[must_use]
     pub fn command_line(&self) -> String {
-        std::iter::once(self.program)
-            .chain(self.args.iter().map(String::as_str))
-            .collect::<Vec<_>>()
-            .join(" ")
+        let argv: Vec<String> = std::iter::once(self.program.to_string())
+            .chain(self.args.iter().cloned())
+            .collect();
+        format_argv_for_display(&argv)
     }
 
     /// Returns an argv that runs the login through `/bin/sh` without shell parsing.
@@ -154,10 +171,9 @@ pub fn expired_credentials_login(config: &ZeroTrustConfig, output: &str) -> Opti
             } else {
                 vec!["login".to_string()]
             };
-            let profile = if cfg.profile == "default" {
-                custom_profile(&config.custom_args)
-            } else {
-                Some(cfg.profile.as_str())
+            let profile = match cfg.profile.trim() {
+                "" | "default" => custom_profile(&config.custom_args),
+                profile => Some(profile),
             };
             if let Some(profile) = profile {
                 args.push("--profile".to_string());
@@ -192,7 +208,12 @@ pub fn expired_credentials_login(config: &ZeroTrustConfig, output: &str) -> Opti
         ZeroTrustProviderConfig::Teleport(cfg) => seen(TELEPORT_MARKERS).then(|| {
             let mut args = vec!["login".to_string()];
             // `tsh login [<cluster>]`: the proxy comes from the current tsh profile.
-            if let Some(cluster) = cfg.cluster.as_deref().filter(|c| !c.is_empty()) {
+            // A value starting with `-` would be read as a tsh flag, not a cluster.
+            if let Some(cluster) = cfg
+                .cluster
+                .as_deref()
+                .filter(|c| !c.is_empty() && !c.starts_with('-'))
+            {
                 args.push(cluster.to_string());
             }
             login("Teleport", "tsh", args)
@@ -411,6 +432,60 @@ mod tests {
             None
         );
         assert_eq!(expired_credentials_login(&generic, AWS_LOGIN_EXPIRED), None);
+    }
+
+    #[test]
+    fn an_empty_aws_profile_is_not_passed_as_an_empty_value() {
+        let login = expired_credentials_login(&aws(""), AWS_LOGIN_EXPIRED).unwrap();
+        assert_eq!(login.command_line(), "aws login");
+        assert!(!login.args().iter().any(|a| a == "--profile"));
+    }
+
+    #[test]
+    fn oci_expired_session_offers_session_authenticate() {
+        let cfg = config(
+            ZeroTrustProvider::OciBastion,
+            ZeroTrustProviderConfig::OciBastion(crate::models::OciBastionConfig::default()),
+        );
+        let output = "ERROR: This CLI session has expired, so it cannot currently be used to \
+                      run commands. Refresh with: oci session refresh";
+        let login = expired_credentials_login(&cfg, output).unwrap();
+        assert_eq!(login.command_line(), "oci session authenticate");
+    }
+
+    #[test]
+    fn hoop_expired_token_offers_hoop_login() {
+        let cfg = config(
+            ZeroTrustProvider::HoopDev,
+            ZeroTrustProviderConfig::HoopDev(crate::models::HoopDevConfig {
+                connection_name: "db".into(),
+                gateway_url: None,
+                grpc_url: None,
+            }),
+        );
+        let login =
+            expired_credentials_login(&cfg, "error: token expired, run hoop login").unwrap();
+        assert_eq!(login.command_line(), "hoop login");
+    }
+
+    #[test]
+    fn a_teleport_cluster_that_looks_like_a_flag_is_left_out() {
+        let cfg = config(
+            ZeroTrustProvider::Teleport,
+            ZeroTrustProviderConfig::Teleport(TeleportConfig {
+                host: "node".into(),
+                username: None,
+                cluster: Some("--proxy=evil.example.com".into()),
+            }),
+        );
+        let login = expired_credentials_login(&cfg, "ERROR: ssh: cert has expired").unwrap();
+        assert_eq!(login.command_line(), "tsh login");
+    }
+
+    #[test]
+    fn the_displayed_command_line_quotes_what_a_shell_would_split() {
+        let login = expired_credentials_login(&aws("x; rm -rf ~"), AWS_LOGIN_EXPIRED).unwrap();
+        assert_eq!(login.command_line(), "aws login --profile 'x; rm -rf ~'");
     }
 
     #[test]

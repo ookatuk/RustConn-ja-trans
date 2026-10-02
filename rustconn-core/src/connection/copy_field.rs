@@ -184,10 +184,22 @@ fn ssh_command(connection: &Connection, host: &str, proxy_jump: Option<&str>) ->
         argv.push("-J".to_string());
         argv.push(jump.to_string());
     }
+    // OpenSSH does not strip brackets from a plain destination, so `[::1]`
+    // (which `format_address` accepts as stored) would not resolve.
+    let host = host
+        .strip_prefix('[')
+        .and_then(|h| h.strip_suffix(']'))
+        .unwrap_or(host);
     let destination = match connection.username.as_deref().map(str::trim) {
         Some(user) if !user.is_empty() => format!("{user}@{host}"),
         _ => host.to_string(),
     };
+    // Shell quoting does not stop ssh's getopt from reading a leading `-` as
+    // an option: a host or user of `-oProxyCommand=…` would run a local
+    // command on paste. `--` makes it a destination, which then just fails.
+    if destination.starts_with('-') {
+        argv.push("--".to_string());
+    }
     argv.push(destination);
     format_argv_for_display(&argv)
 }
@@ -357,6 +369,40 @@ mod tests {
         assert_eq!(
             copy_text(&conn, &CopyField::SshCommand, None).as_deref(),
             Some("ssh 'o'\\''brien@host'")
+        );
+    }
+
+    #[test]
+    fn a_leading_dash_in_the_destination_cannot_become_an_ssh_option() {
+        let host_first = ssh("-oProxyCommand=touch /tmp/x", 22);
+        assert_eq!(
+            copy_text(&host_first, &CopyField::SshCommand, None).as_deref(),
+            Some("ssh -- '-oProxyCommand=touch /tmp/x'")
+        );
+        let mut user_first = ssh("host", 22);
+        user_first.username = Some("-oProxyCommand=id".to_string());
+        assert_eq!(
+            copy_text(&user_first, &CopyField::SshCommand, None).as_deref(),
+            Some("ssh -- -oProxyCommand=id@host")
+        );
+    }
+
+    #[test]
+    fn the_ssh_command_unbrackets_an_ipv6_host_and_keeps_a_zone_id() {
+        let mut bracketed = ssh("[2001:db8::1]", 2222);
+        bracketed.username = Some("admin".to_string());
+        assert_eq!(
+            copy_text(&bracketed, &CopyField::SshCommand, None).as_deref(),
+            Some("ssh -p 2222 admin@2001:db8::1")
+        );
+        let zoned = ssh("fe80::1%eth0", 22);
+        assert_eq!(
+            copy_text(&zoned, &CopyField::SshCommand, None).as_deref(),
+            Some("ssh fe80::1%eth0")
+        );
+        assert_eq!(
+            copy_text(&zoned, &CopyField::Address, None).as_deref(),
+            Some("[fe80::1%eth0]:22")
         );
     }
 

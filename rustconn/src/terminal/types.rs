@@ -44,9 +44,20 @@ pub struct TerminalSession {
     pub tab_color_index: Option<usize>,
     /// Timestamp when the session was created/connected
     pub connected_at: chrono::DateTime<chrono::Utc>,
+    /// When the session was last reconnected in place, if it ever was.
+    ///
+    /// Kept apart from `connected_at`, which the duration display and the
+    /// rapid-crash check read as the tab's start.
+    pub reconnected_at: Option<chrono::DateTime<chrono::Utc>>,
 }
 
 impl TerminalSession {
+    /// When the process now running in the session was started: the last
+    /// in-place reconnect, or the session's creation.
+    pub fn started_at(&self) -> chrono::DateTime<chrono::Utc> {
+        self.reconnected_at.unwrap_or(self.connected_at)
+    }
+
     /// Formats the session duration as a human-readable string.
     pub fn format_duration(&self) -> String {
         let elapsed = chrono::Utc::now()

@@ -35,9 +35,43 @@ pub fn delete_selected_connection(
     let Ok(id) = Uuid::parse_str(&id_str) else {
         return;
     };
-    let name = conn_item.name();
-    let is_group = conn_item.is_group();
+    confirm_and_delete(
+        window,
+        state,
+        sidebar,
+        id,
+        conn_item.name(),
+        conn_item.is_group(),
+    );
+}
 
+/// Deletes the connection with `id` after confirmation, whatever is selected
+/// in the sidebar. Does nothing when no connection has that id.
+pub fn delete_connection_by_id(
+    window: &gtk4::Window,
+    state: &SharedAppState,
+    sidebar: &SharedSidebar,
+    id: Uuid,
+) {
+    let Some(name) = state
+        .try_borrow()
+        .ok()
+        .and_then(|s| s.get_connection(id).map(|c| c.name.clone()))
+    else {
+        return;
+    };
+    confirm_and_delete(window, state, sidebar, id, name, false);
+}
+
+/// Asks for confirmation, then deletes the connection or group `id`.
+fn confirm_and_delete(
+    window: &gtk4::Window,
+    state: &SharedAppState,
+    sidebar: &SharedSidebar,
+    id: Uuid,
+    name: String,
+    is_group: bool,
+) {
     // Show confirmation dialog with connection count for groups
     let item_type = if is_group {
         i18n("group")

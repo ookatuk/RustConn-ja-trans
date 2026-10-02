@@ -14,6 +14,45 @@ fn selected_connection_id(sidebar: &SharedSidebar) -> Option<Uuid> {
     Uuid::parse_str(&item.id()).ok()
 }
 
+/// Registers `win.<name>`, acting on the connection selected in the sidebar,
+/// and `win.<name>-by-id`, acting on the connection whose id is the string
+/// target.
+///
+/// A menu that is not about the sidebar selection — a smart folder — needs the
+/// second form: selecting the row first and then running the plain action does
+/// not work, because the selection is applied on idle, after the action has
+/// already run against whatever was selected before.
+fn register_selected_and_by_id(
+    window: &adw::ApplicationWindow,
+    sidebar: &SharedSidebar,
+    name: &str,
+    handler: impl Fn(Uuid) + 'static,
+) {
+    let handler = Rc::new(handler);
+
+    let selected_action = gio::SimpleAction::new(name, None);
+    let sidebar_clone = sidebar.clone();
+    let handler_clone = Rc::clone(&handler);
+    selected_action.connect_activate(move |_, _| {
+        if let Some(conn_id) = selected_connection_id(&sidebar_clone) {
+            handler_clone(conn_id);
+        }
+    });
+    window.add_action(&selected_action);
+
+    let by_id_action =
+        gio::SimpleAction::new(&format!("{name}-by-id"), Some(glib::VariantTy::STRING));
+    by_id_action.connect_activate(move |_, param| {
+        if let Some(conn_id) = param
+            .and_then(glib::Variant::get::<String>)
+            .and_then(|s| Uuid::parse_str(&s).ok())
+        {
+            handler(conn_id);
+        }
+    });
+    window.add_action(&by_id_action);
+}
+
 /// Why the external tunnel browser could not be resolved.
 enum TunnelBrowserError {
     /// A command is configured but does not name a Chromium-family browser.
@@ -81,6 +120,28 @@ impl MainWindow {
             }
         });
         window.add_action(&delete_action);
+
+        // The same, addressed by connection id (smart folders).
+        let delete_by_id_action =
+            gio::SimpleAction::new("delete-connection-by-id", Some(glib::VariantTy::STRING));
+        let window_weak = window.downgrade();
+        let state_clone = state.clone();
+        let sidebar_clone = sidebar.clone();
+        delete_by_id_action.connect_activate(move |_, param| {
+            if let Some(conn_id) = param
+                .and_then(glib::Variant::get::<String>)
+                .and_then(|s| Uuid::parse_str(&s).ok())
+                && let Some(win) = window_weak.upgrade()
+            {
+                operations::delete_connection_by_id(
+                    win.upcast_ref(),
+                    &state_clone,
+                    &sidebar_clone,
+                    conn_id,
+                );
+            }
+        });
+        window.add_action(&delete_by_id_action);
 
         // Duplicate connection action
         let duplicate_action = gio::SimpleAction::new("duplicate-connection", None);
@@ -354,25 +415,20 @@ impl MainWindow {
         // needs no selection and may not correspond to any saved connection. This
         // action wakes the selected connection and then polls it to connect. Two
         // different jobs that happen to send the same packet.
-        let wol_action = gio::SimpleAction::new("wake-on-lan", None);
+        //
+        // `wake-on-lan-by-id` is the same job addressed by connection id, for
+        // menus that are not about the sidebar selection (a smart folder).
         let state_clone = state.clone();
         let sidebar_clone = sidebar.clone();
         let toast_clone = self.toast_overlay.clone();
         let notebook_clone = self.terminal_notebook.clone();
         let monitoring_clone = self.monitoring.clone();
         let split_view_clone = self.split_view.clone();
-        wol_action.connect_activate(move |_, _| {
-            let Some(item) = sidebar_clone.get_selected_item() else {
+        let wake_connection = move |conn_id: Uuid| {
+            let id_str = conn_id.to_string();
+            let Ok(state_ref) = state_clone.try_borrow() else {
                 return;
             };
-            if item.is_group() {
-                return;
-            }
-            let id_str = item.id();
-            let Ok(conn_id) = Uuid::parse_str(&id_str) else {
-                return;
-            };
-            let state_ref = state_clone.borrow();
             let Some(conn) = state_ref.get_connection(conn_id) else {
                 return;
             };
@@ -479,28 +535,17 @@ impl MainWindow {
                     }
                 },
             );
-        });
-        window.add_action(&wol_action);
+        };
+        register_selected_and_by_id(window, sidebar, "wake-on-lan", wake_connection);
 
         // Check if host is online — TCP probe with polling and optional auto-connect
-        let check_online_action = gio::SimpleAction::new("check-host-online", None);
         let state_clone = state.clone();
         let sidebar_clone = sidebar.clone();
         let toast_clone = self.toast_overlay.clone();
         let notebook_clone_online = self.terminal_notebook.clone();
         let monitoring_clone_online = self.monitoring.clone();
         let split_view_clone_online = self.split_view.clone();
-        check_online_action.connect_activate(move |_, _| {
-            let Some(item) = sidebar_clone.get_selected_item() else {
-                return;
-            };
-            if item.is_group() {
-                return;
-            }
-            let id_str = item.id();
-            let Ok(conn_id) = Uuid::parse_str(&id_str) else {
-                return;
-            };
+        let check_connection_online = move |conn_id: Uuid| {
             let (host, port) = {
                 let Ok(state_ref) = state_clone.try_borrow() else {
                     return;
@@ -580,8 +625,13 @@ impl MainWindow {
                     }
                 },
             );
-        });
-        window.add_action(&check_online_action);
+        };
+        register_selected_and_by_id(
+            window,
+            sidebar,
+            "check-host-online",
+            check_connection_online,
+        );
 
         // Open SFTP action — opens file manager or mc in local shell
         let sftp_action = gio::SimpleAction::new("open-sftp", None);

@@ -172,6 +172,25 @@ pub(super) fn install(
             }
         });
     }
+    {
+        // Leaving the window — onto a monitor above, say — sends no further
+        // motion, so the last height would stay at the top edge and keep the
+        // chrome up. Count the pointer as below it instead, like a fresh start.
+        // An open menu is a surface of its own, so moving into it is a leave
+        // too; `in_use` keeps the chrome up meanwhile, and `enter` restores
+        // the real height when the pointer comes back.
+        let state = Rc::clone(&state);
+        motion.connect_leave(move |_| {
+            state.last_pointer_y.set(f64::INFINITY);
+            if state.is_fullscreen() && state.revealer.reveals_child() {
+                state.schedule_hide_if_idle();
+            }
+        });
+    }
+    {
+        let state = Rc::clone(&state);
+        motion.connect_enter(move |_, _x, y| state.last_pointer_y.set(y));
+    }
     window.add_controller(motion);
 
     // F10 with the chrome hidden: show it at once and let the key carry on to

@@ -94,6 +94,12 @@ impl TerminalNotebook {
         // double-click once more (issue #242).
         self.disconnected_sessions.borrow_mut().remove(&session_id);
 
+        // A new process starts in this session now; the expired-sign-in check
+        // measures its age from here, not from when the tab was opened.
+        if let Some(info) = self.session_info.borrow_mut().get_mut(&session_id) {
+            info.reconnected_at = Some(chrono::Utc::now());
+        }
+
         // Remove stale automation session (will be re-created by the caller)
         self.automation_sessions.borrow_mut().remove(&session_id);
 
@@ -547,6 +553,14 @@ impl TerminalNotebook {
         let Some(banner) = self.reconnect_banner(session_id) else {
             return;
         };
+        // A doubled `child-exited` reaches here twice for one banner.
+        let mut child = banner.first_child();
+        while let Some(widget) = child {
+            if widget.widget_name() == "cloud-login" {
+                return;
+            }
+            child = widget.next_sibling();
+        }
         let Some(connection_id) = self
             .session_info
             .borrow()
@@ -569,8 +583,8 @@ impl TerminalNotebook {
             reconnect.remove_css_class("suggested-action");
         }
 
-        let provider = i18n(login.provider_name());
-        let button = gtk4::Button::with_label(&i18n_f("Log In to {}", &[&provider]));
+        // Provider names are brand names and stay untranslated.
+        let button = gtk4::Button::with_label(&i18n_f("Log In to {}", &[login.provider_name()]));
         button.add_css_class("suggested-action");
         button.set_widget_name("cloud-login");
         button.set_tooltip_text(Some(&i18n_f(

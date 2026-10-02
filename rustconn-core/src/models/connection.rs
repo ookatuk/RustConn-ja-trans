@@ -1205,6 +1205,10 @@ impl Connection {
     /// are a per-connection choice, so a duplicate of a favorite landing in
     /// Favorites on its own was wrong. Duplicate, paste and the CLI's
     /// `duplicate` all go through here so they cannot drift apart again.
+    ///
+    /// The copy is also never dynamic (`is_dynamic`): a dynamic folder's
+    /// refresh deletes every dynamic connection under it, so a duplicate made
+    /// to customise a generated entry would vanish on the next refresh.
     #[must_use]
     pub fn duplicate_as(&self, name: String) -> Self {
         let now = Utc::now();
@@ -1216,6 +1220,7 @@ impl Connection {
             last_connected: None,
             is_pinned: false,
             pin_order: 0,
+            is_dynamic: false,
             ..self.clone()
         }
     }
@@ -1269,6 +1274,18 @@ mod tests {
         assert_eq!(copy.group_id, original.group_id);
         assert_eq!(copy.tags, original.tags);
         assert_eq!(copy.protocol_config, original.protocol_config);
+    }
+
+    /// A duplicate of a dynamic-folder entry survives the folder's refresh.
+    #[test]
+    fn duplicate_of_a_dynamic_connection_is_not_dynamic() {
+        let mut original = create_test_connection();
+        original.is_dynamic = true;
+
+        let copy = original.duplicate_as("Copy".to_string());
+
+        assert!(!copy.is_dynamic);
+        assert!(original.is_dynamic);
     }
 
     /// Returns the SSH config of a test connection for mutation.

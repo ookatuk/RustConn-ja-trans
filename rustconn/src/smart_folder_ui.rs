@@ -443,10 +443,14 @@ fn show_connection_context_menu_in_smart_folder(
     }
     items.extend([
         ContextMenuItem::Separator,
-        ContextMenuItem::action_on_selected(&i18n("Wake On LAN"), &id, "wake-on-lan"),
-        ContextMenuItem::action_on_selected(&i18n("Check if Online"), &id, "check-host-online"),
+        ContextMenuItem::action_with_target(&i18n("Wake On LAN"), "wake-on-lan-by-id", &id),
+        ContextMenuItem::action_with_target(
+            &i18n("Check if Online"),
+            "check-host-online-by-id",
+            &id,
+        ),
         ContextMenuItem::Separator,
-        ContextMenuItem::action_on_selected(&i18n("Delete"), &id, "delete-connection")
+        ContextMenuItem::action_with_target(&i18n("Delete"), "delete-connection-by-id", &id)
             .destructive(),
     ]);
 
