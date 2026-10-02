@@ -2326,6 +2326,16 @@ impl TerminalNotebook {
         &self.tab_view
     }
 
+    /// Returns the TabBar.
+    ///
+    /// Outside fullscreen it is the first child of [`widget`](Self::widget);
+    /// the window's fullscreen chrome moves it under the header bar while the
+    /// window is fullscreen and back again afterwards (issue #354).
+    #[must_use]
+    pub fn tab_bar(&self) -> &adw::TabBar {
+        &self.tab_bar
+    }
+
     /// Turns the TabView's built-in tab shortcuts off for keyboard passthrough.
     ///
     /// `AdwTabView` carries its own shortcut controller (Ctrl+Tab,

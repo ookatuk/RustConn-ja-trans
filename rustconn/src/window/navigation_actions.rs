@@ -98,21 +98,35 @@ impl MainWindow {
         });
         window.add_action(&switch_tab_action);
 
-        // Toggle fullscreen action (stateful per GNOME HIG — menu shows checkmark)
-        let toggle_fullscreen_action =
-            gio::SimpleAction::new_stateful("toggle-fullscreen", None, &false.to_variant());
+        // Toggle fullscreen action (stateful per GNOME HIG — menu shows checkmark).
+        //
+        // The state follows the window's `fullscreened` property, not the
+        // action: F11 runs this action, but the window manager can fullscreen
+        // or restore the window without it, and the checkmark used to stay
+        // wrong after that until the action ran twice. The property also only
+        // changes once the compositor has agreed, so the checkmark never shows
+        // a fullscreen that was refused.
+        let toggle_fullscreen_action = gio::SimpleAction::new_stateful(
+            "toggle-fullscreen",
+            None,
+            &window.is_fullscreen().to_variant(),
+        );
         let window_weak = window.downgrade();
-        toggle_fullscreen_action.connect_activate(move |action, _| {
+        toggle_fullscreen_action.connect_activate(move |_, _| {
             if let Some(win) = window_weak.upgrade() {
-                let is_fullscreen = win.is_fullscreen();
-                if is_fullscreen {
+                if win.is_fullscreen() {
                     win.unfullscreen();
                 } else {
                     win.fullscreen();
                 }
-                action.set_state(&(!is_fullscreen).to_variant());
             }
         });
+        {
+            let action = toggle_fullscreen_action.clone();
+            window.connect_fullscreened_notify(move |win| {
+                action.set_state(&win.is_fullscreen().to_variant());
+            });
+        }
         window.add_action(&toggle_fullscreen_action);
 
         // Toggle compact interface (stateful per GNOME HIG — menu shows a

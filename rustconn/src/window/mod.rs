@@ -862,7 +862,11 @@ impl MainWindow {
         // Create main layout using adw::ToolbarView for proper libadwaita integration
         // This provides better responsive behavior and follows GNOME HIG
         let toolbar_view = adw::ToolbarView::new();
-        toolbar_view.add_top_bar(&header_bar);
+        // The header goes in through the fullscreen chrome, which hides it — and
+        // the tab bar it adopts in fullscreen — as one block (issue #354). It
+        // must stay the first top bar, above the banners.
+        let fullscreen_chrome = fullscreen_header::Chrome::new(&header_bar);
+        toolbar_view.add_top_bar(fullscreen_chrome.widget());
 
         // Persistent banner for config files startup could not read, or found
         // written by a newer RustConn (GNOME HIG: a state that needs attention
@@ -970,9 +974,16 @@ impl MainWindow {
 
         window.set_content(Some(tab_overview));
 
-        // Fullscreen hides the header bar — only the header bar, the banners
-        // stay — and brings it back on a top-edge hover or F10 (issue #354).
-        fullscreen_header::install(&window, &toolbar_view, &header_bar, &menu_button);
+        // Fullscreen hides the header bar and the tab bar together — the
+        // banners stay — and brings them back on a top-edge hover, F10 or a tab
+        // switch (issue #354).
+        fullscreen_header::install(
+            &window,
+            &toolbar_view,
+            fullscreen_chrome,
+            &menu_button,
+            &terminal_notebook,
+        );
 
         // Adaptive layout breakpoints (#204).
         //
