@@ -2017,6 +2017,23 @@ mod tests {
         assert_eq!(settings.renderer, RendererPreference::Auto);
     }
 
+    /// Split-pane labels are on by default (issue #355), including for a config
+    /// that omits the key. A config that stores `false` keeps it: every version
+    /// since the setting was added (0.20.1) writes the key, so `false` there may
+    /// be a deliberate choice, and loading must never overwrite it.
+    #[test]
+    fn split_pane_labels_default_on_and_explicit_false_is_kept() {
+        assert!(UiSettings::default().show_split_pane_labels);
+
+        let without_key: UiSettings = toml::from_str(r#"color_scheme = "system""#)
+            .expect("a config without the key must parse");
+        assert!(without_key.show_split_pane_labels);
+
+        let explicit_off: UiSettings = toml::from_str("show_split_pane_labels = false")
+            .expect("a config with the key must parse");
+        assert!(!explicit_off.show_split_pane_labels);
+    }
+
     /// The persisted spelling is part of the config format: renaming a variant
     /// would silently reset the preference of everyone who set it.
     #[test]
