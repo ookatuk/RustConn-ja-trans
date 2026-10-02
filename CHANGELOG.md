@@ -20,6 +20,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Documentation
 - **User Guide synced with the 0.22.14 split-view and fullscreen behavior (issues [#355](https://github.com/totoshko88/RustConn/issues/355), [#354](https://github.com/totoshko88/RustConn/issues/354))** — "Connection name labels" now says the headers are on by default for new installations and that an existing configuration keeps its value. "Move between splits" documents dragging a pane by its header, and what to switch on if there is no header. The fullscreen notes say that the header bar is hidden for every session, how to bring it back with the top edge or F10, and that the tab bar, sidebar and attention banners stay. The Interface → Window settings list, which omitted it, now includes the "Show connection name in split panes" switch. Four secret-backend lists that had fallen behind the full set of backends now point to the "Choosing a Secret Backend" section instead.
 
+### Dependencies
+- **Updated (Flatpak)**: fast_float 8.2.10 → 8.3.0 — the header-only number-parsing library the bundled VTE is built against, bumped in the local Flatpak and Flathub manifests together with its `sha256`.
+- **Held back**: picky-krb stays at 0.12.4. 0.12.5 adds a `GssApiMessageError` variant that the pinned `sspi` 0.21.3 (an IronRDP dependency) does not match exhaustively, so it fails to compile until IronRDP moves to a newer `sspi`.
+- **Unchanged, checked**: `cargo deny check advisories` is clean. The CLI download catalogue is current on every entry, with all version endpoints reachable (TigerVNC stays 1.16.2). The other bundled Flatpak sources are current — FreeRDP 3.32.1, cJSON 1.7.19, openh264 2.6.0, VTE 0.80.5, waypipe 0.11.2, mc 4.8.33 — on GNOME runtime 50. Snap stays on `core24` with the `gnome-46-2404` extension (issue #174).
+
 ## [0.22.13] - 2026-10-02
 
 ### Added
