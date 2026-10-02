@@ -220,12 +220,9 @@ pub fn duplicate_selected_connection(
     // UUID, so copying the credential needs both sides of the pair.
     let original = conn.clone();
 
-    // Create duplicate with new ID and name
-    let mut duplicate = conn;
-    duplicate.id = Uuid::new_v4();
-    duplicate.name = new_name;
-    duplicate.created_at = chrono::Utc::now();
-    duplicate.updated_at = chrono::Utc::now();
+    // New id and name; a duplicate of a favorite is not a favorite itself
+    // (see `Connection::duplicate_as`).
+    let duplicate = conn.duplicate_as(new_name);
 
     let duplicate_for_vault = duplicate.clone();
 

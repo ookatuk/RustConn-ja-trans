@@ -1196,6 +1196,29 @@ impl Connection {
         self.pin_order = order;
         self.touch();
     }
+
+    /// Returns a copy of this connection under a new id and `name`.
+    ///
+    /// The copy keeps every setting, but not what belongs to the original as an
+    /// entry the user chose or used: it is not a favorite (`is_pinned`,
+    /// `pin_order`) and has never been connected (`last_connected`). Favorites
+    /// are a per-connection choice, so a duplicate of a favorite landing in
+    /// Favorites on its own was wrong. Duplicate, paste and the CLI's
+    /// `duplicate` all go through here so they cannot drift apart again.
+    #[must_use]
+    pub fn duplicate_as(&self, name: String) -> Self {
+        let now = Utc::now();
+        Self {
+            id: Uuid::new_v4(),
+            name,
+            created_at: now,
+            updated_at: now,
+            last_connected: None,
+            is_pinned: false,
+            pin_order: 0,
+            ..self.clone()
+        }
+    }
 }
 
 /// Helper for serde defaults.
@@ -1210,6 +1233,42 @@ mod tests {
 
     fn create_test_connection() -> Connection {
         Connection::new_ssh("Test Server".to_string(), "example.com".to_string(), 22)
+    }
+
+    /// A duplicate of a favorite must not be a favorite itself.
+    #[test]
+    fn duplicate_is_not_a_favorite_and_never_connected() {
+        let mut original = create_test_connection();
+        original.set_pinned(true, 3);
+        original.last_connected = Some(Utc::now());
+
+        let copy = original.duplicate_as("Test Server (copy)".to_string());
+
+        assert!(!copy.is_pinned, "a copy of a favorite must not be pinned");
+        assert_eq!(copy.pin_order, 0);
+        assert_eq!(copy.last_connected, None);
+        assert!(original.is_pinned, "the original stays a favorite");
+        assert_eq!(original.pin_order, 3);
+    }
+
+    /// The copy keeps the settings and gets an identity of its own.
+    #[test]
+    fn duplicate_keeps_settings_under_a_new_identity() {
+        let mut original = create_test_connection();
+        original.group_id = Some(Uuid::new_v4());
+        original.username = Some("admin".to_string());
+        original.tags = vec!["prod".to_string()];
+
+        let copy = original.duplicate_as("Copy".to_string());
+
+        assert_ne!(copy.id, original.id);
+        assert_eq!(copy.name, "Copy");
+        assert_eq!(copy.host, original.host);
+        assert_eq!(copy.port, original.port);
+        assert_eq!(copy.username, original.username);
+        assert_eq!(copy.group_id, original.group_id);
+        assert_eq!(copy.tags, original.tags);
+        assert_eq!(copy.protocol_config, original.protocol_config);
     }
 
     /// Returns the SSH config of a test connection for mutation.

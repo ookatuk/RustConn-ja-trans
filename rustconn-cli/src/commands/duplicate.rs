@@ -25,14 +25,11 @@ pub(super) fn cmd_duplicate(
 
     let source = find_connection(&connections, name)?;
 
-    let mut duplicate = source.clone();
-    duplicate.id = uuid::Uuid::new_v4();
-    duplicate.name = new_name
-        .map(String::from)
-        .unwrap_or_else(|| format!("{} (copy)", source.name));
-    duplicate.created_at = chrono::Utc::now();
-    duplicate.updated_at = chrono::Utc::now();
-    duplicate.last_connected = None;
+    let duplicate = source.duplicate_as(
+        new_name
+            .map(String::from)
+            .unwrap_or_else(|| format!("{} (copy)", source.name)),
+    );
 
     let id = duplicate.id;
     let dup_name = duplicate.name.clone();
