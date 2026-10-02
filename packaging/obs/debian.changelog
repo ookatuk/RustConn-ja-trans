@@ -1,3 +1,22 @@
+rustconn (0.22.14-1) unstable; urgency=medium
+
+  * Version bump to 0.22.14
+  * Added: in fullscreen the header bar comes back over the session when the
+    pointer touches the top edge of the screen, or with F10 (issue #354)
+  * Fixed: split-view panes can now be dragged to another panel or tab by their
+    connection-name header, which shows a grab cursor and the full connection
+    name (issue #355)
+  * Changed: fullscreen hides the header bar for every session, not only
+    embedded RDP/VNC; attention banners such as group broadcast and the
+    hardware-key touch request stay visible (issue #354)
+  * Changed: split-view panes show their connection-name header by default on
+    new installations; an existing configuration keeps its stored value
+    (issue #355)
+  * Dependencies: Flatpak fast_float 8.2.10 -> 8.3.0; picky-krb held at 0.12.4
+    (0.12.5 breaks pinned sspi)
+
+ -- Anton Isaiev <totoshko88@gmail.com>  Fri, 02 Oct 2026 00:00:00 +0000
+
 rustconn (0.22.13-1) unstable; urgency=medium
 
   * Version bump to 0.22.13

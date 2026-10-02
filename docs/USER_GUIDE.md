@@ -1,6 +1,6 @@
 # RustConn User Guide
 
-**Version 0.22.13** | GTK4/libadwaita Connection Manager for Linux
+**Version 0.22.14** | GTK4/libadwaita Connection Manager for Linux
 
 RustConn is a modern connection manager designed for Linux with Wayland-first approach. It supports SSH, RDP, VNC, SPICE, MOSH, SFTP, Telnet, Serial, Kubernetes, Web protocols and Zero Trust integrations through a native GTK4/libadwaita interface.
 
@@ -200,7 +200,7 @@ The full editor provides access to all connection options:**Basic Tab:**
 - Username
 - Password source selection:
   - **Prompt** — Ask for password on each connection
-  - **Vault** — Store/retrieve from configured secret backend (KeePassXC, libsecret, Bitwarden, 1Password, Passbolt)
+  - **Vault** — Store/retrieve from the configured secret backend (see [Choosing a Secret Backend](#choosing-a-secret-backend))
   - **Variable** — Read credentials from a named secret global variable
   - **Inherit** — Use credentials from parent group
   - **Script** — Resolve password from an external command (see [Script Credentials](#script-credentials))
@@ -1931,7 +1931,7 @@ The **Display Mode** setting in the connection dialog (Advanced tab → Window M
 3. For External Window mode, enable **Remember Position** to save window geometry between sessions (RDP only)
 
 **Notes:**
-- Fullscreen mode maximizes the RustConn window, not the remote desktop. Use F11 to toggle true fullscreen of the entire application.
+- Fullscreen mode maximizes the RustConn window, not the remote desktop. Use F11 to toggle true fullscreen of the entire application. In fullscreen the application header bar is hidden, for every kind of session, so the session gets the space it took; it reappears when you leave fullscreen, however you entered it — the F11 shortcut, the menu toggle, or a window-manager fullscreen. To reach the header without leaving fullscreen, move the pointer to the very top edge of the screen (it hides again once the pointer moves back down, unless one of its menus is open) or press F10 to open the main menu. The tab bar and the sidebar stay as they are — hide the sidebar with F9 for more room. Banners that need your attention, such as an active group broadcast or a request to touch your hardware key, remain visible in fullscreen. On a touch screen without a keyboard there is no hover, so leaving fullscreen needs F11.
 - External Window mode for VNC requires an external VNC viewer installed (TigerVNC, vncviewer, gvncviewer, or similar). If no viewer is found, a toast notification shows the install hint.
 - External Window mode for RDP uses FreeRDP. The Flatpak bundles the SDL3 client and the snap the X11 client (`xfreerdp3`) — no separate installation needed. On native installs, RustConn auto-detects the installed FreeRDP clients in priority order: on a Wayland session `sdl-freerdp3` > `sdl-freerdp` > `wlfreerdp3` > `wlfreerdp` > `xfreerdp3` > `xfreerdp`, on an X11 session the `xfreerdp*` clients first. `rustconn-cli connect` uses the same order and the connection's pinned client.
 - The VNC protocol tab also has its own **Client Mode** (Embedded/External) setting. When Display Mode is set to External Window, it takes precedence over the protocol-level Client Mode.
@@ -1958,7 +1958,7 @@ Sessions shown through an external viewer (xfreerdp, vncviewer, or an external S
 - **Close Pane** — Ctrl+Shift+X closes the focused pane; if only one pane remains, the split is dissolved and the session returns to normal tab mode
 - **Focus Next Pane** — Ctrl+` cycles focus between panes
 - **Select Tab** — click the "Select Tab..." button in an empty pane to pick which session to display; sessions already in other split views show a colored indicator
-- **Move between splits** — a session can be moved from one split to another via "Select Tab"; the original split keeps a placeholder in the vacated panel, and the session's own tab shows a "Displayed in Split View" page with a "Go to Split View" button
+- **Move between splits** — a session can be moved from one split to another via "Select Tab"; the original split keeps a placeholder in the vacated panel, and the session's own tab shows a "Displayed in Split View" page with a "Go to Split View" button. You can also **drag a pane by its connection-name header** onto another panel or tab to move it there (the pointer turns into a grab hand over the header, and its tooltip shows the full connection name and a "Drag to move…" hint). Because the drag handle is the header, this needs the connection-name labels to be visible. They are on by default for new installations; a configuration saved by an earlier version keeps the setting it had, which was off, so if your panes show no header, turn on **Settings ▸ Interface ▸ Window ▸ Show connection name in split panes**.
 - **Tab Overview** — split-view tabs render correctly in Tab Overview (Ctrl+Shift+O) with live thumbnails showing the split layout
 - **Divider ratio is remembered** — when a split layout is saved in a [workspace profile](#workspace-profiles), the position of the divider (for example a 30/70 split) is saved with it and restored, not reset to an even 50/50. Multi-panel grids restore their shape; the balanced sub-panels open evenly.
 
@@ -1968,7 +1968,7 @@ Each occupied panel has a small arrow indicator (◂) at the top-right corner. H
 
 A session whose **Session Toolbar** / **Navigation Toolbar** is switched off still shows the split-view panel corner buttons (detach/close) — those are part of the split infrastructure, not the session toolbar. Right-clicking the panel also offers **Remove from Split**, **Remove Split** and **Close Connection**.
 
-**Connection name labels** — enable **Settings ▸ Interface ▸ Window ▸ Show connection name in split panes** to display a compact colored header at the top of each pane showing the connection name and protocol. This makes it easy to identify which pane belongs to which connection at a glance, especially useful with 3 or more panes side by side. The header color matches the panel's indicator color. In compact mode, the header shrinks automatically.
+**Connection name labels** — each split pane shows a compact colored header at the top with the connection name and protocol, making it easy to identify which pane belongs to which connection at a glance — especially useful with 3 or more panes side by side. This is **on by default** for new installations and is switched with **Settings ▸ Interface ▸ Window ▸ Show connection name in split panes**; an existing configuration keeps the value it already stores. The header color matches the panel's indicator color, and in compact mode it shrinks automatically. The header also doubles as the drag handle for moving a pane (see **Move between splits** above).
 
 ### Detached Session Windows
 
@@ -2301,7 +2301,7 @@ Groups can store default credentials (Username, Password, Domain) that are inher
 2. Expand the **Default Credentials** section (toggle the switch to enable)
 2. Select **Password Source**:
    - **Prompt** — Ask for password on each connection
-   - **Vault** — Store in the configured secret backend (KeePass, Keyring, Bitwarden, 1Password, Passbolt); click the **folder icon** to load an existing password from the vault
+   - **Vault** — Store in the configured secret backend (see [Choosing a Secret Backend](#choosing-a-secret-backend)); click the **folder icon** to load an existing password from the vault
    - **Variable** — Use a named secret global variable (dropdown shows only variables marked as secret in Tools → Variables)
    - **Inherit** — Inherit from parent group
    - **None** — No password
@@ -3231,7 +3231,7 @@ The settings dialog uses `adw::PreferencesDialog` with built-in search. Settings
 
 **Rendering** chooses which GTK renderer draws the interface. Leave it on **Automatic** unless the interface is sluggish: RustConn then uses the GPU renderer, except where it is known to behave worse than software rasterisation — X11 sessions whose compositor paints menus blank until you hover them, and macOS running inside a virtual machine, where the virtual GPU offers no accelerated OpenGL and the GPU path becomes both slow and CPU-hungry. **Software (Cairo)** forces software rasterisation everywhere; pick it if the interface lags, scrolls in steps, or responds late to typing in an environment the automatic choice does not recognise. **Hardware (GPU)** forces the GPU renderer, which is the setting for an X11 session with a driver that works fine. A `GSK_RENDERER` environment variable, if you set one, overrides all three. The choice applies on the next start, because GTK reads it while it opens the first window.
 
-**Window group:** Remember size (restore window geometry on startup), Show connection in window title (appends the active connection name so time-tracking tools can attribute usage; off by default for privacy).
+**Window group:** Remember size (restore window geometry on startup), Show connection in window title (appends the active connection name so time-tracking tools can attribute usage; off by default for privacy), Show connection name in split panes (compact per-pane header; on by default for new installations, while an existing configuration keeps its stored value — also serves as the pane drag handle).
 
 **Connections group:** Open a new session on every double-click — off by default, so a double-click on a connection that is already running focuses that session instead of duplicating it (hold Shift or Ctrl, or use right-click → Open new session, to force a second one). Turn it on if you routinely keep several concurrent sessions on the same host: every double-click then starts another session, and the modifier is no longer needed.
 
@@ -3755,7 +3755,7 @@ The inheritance chain walks from the connection's immediate group up to the root
 
 When connecting to a synced connection that references an unconfigured variable or secret backend, RustConn shows an interactive dialog instead of silently failing:
 
-- **Variable Not Configured** — an `AdwAlertDialog` prompts you to enter the variable value and select a storage backend (LibSecret, KeePassXC, Bitwarden, 1Password). Click "Save & Connect" to store the value and proceed, or "Cancel" to abort.
+- **Variable Not Configured** — an `AdwAlertDialog` prompts you to enter the variable value and select a storage backend (see [Choosing a Secret Backend](#choosing-a-secret-backend)). Click "Save & Connect" to store the value and proceed, or "Cancel" to abort.
 - **Secret Backend Not Configured** — shown when the connection's password source references a vault that isn't set up on this device. Choose "Enter Password Manually" to proceed with a one-time password prompt, or "Open Settings" to configure the backend first.
 - **Vault Entry Missing** — if the vault is configured but the specific credential entry doesn't exist, a warning toast is shown ("Vault entry not found for '…'") and the connection proceeds without stored credentials; the protocol handler prompts for a password (RDP/VNC password dialog, SSH terminal prompt).
 
@@ -3795,7 +3795,7 @@ Instead of storing passwords directly per-connection, you can use **Global Varia
 
 3. **First-time connection on a new device** — if the variable has not been configured on this device yet, RustConn shows a **"Variable Not Configured"** dialog:
    - Enter the password value
-   - Select a storage backend (LibSecret, KeePassXC, Bitwarden, 1Password)
+   - Select a storage backend (see [Choosing a Secret Backend](#choosing-a-secret-backend))
    - Click "Save & Connect" to store the value and proceed immediately
 
    This dialog only appears once per device. After saving, subsequent connections use the stored value automatically.

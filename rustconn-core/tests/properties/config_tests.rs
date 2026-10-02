@@ -571,7 +571,7 @@ fn arb_full_settings() -> impl Strategy<Value = AppSettings> {
                         open_tunnelled_browser_in_embedded: true,
                         tunnel_browser_start_url: "https://www.google.com".to_string(),
                         tunnel_browser_command: String::new(),
-                        show_split_pane_labels: false,
+                        show_split_pane_labels: true,
                         keyboard_passthrough: false,
                     },
                     connection: rustconn_core::ConnectionSettings::default(),

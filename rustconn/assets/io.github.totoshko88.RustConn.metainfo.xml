@@ -140,6 +140,17 @@
     <control>touch</control>
   </supports>
   <releases>
+    <release version="0.22.14" date="2026-10-02">
+      <description>
+        <p>Version 0.22.14 - Fullscreen header bar and split-view pane dragging:</p>
+        <ul>
+          <li>Added: in fullscreen the header bar comes back over the session when the pointer touches the top edge of the screen, or with F10 (issue #354)</li>
+          <li>Fixed: split-view panes can now be dragged to another panel or tab by their connection-name header, which shows a grab cursor and the full connection name (issue #355)</li>
+          <li>Changed: fullscreen hides the header bar for every session, not only embedded RDP/VNC; attention banners such as group broadcast and the hardware-key touch request stay visible (issue #354)</li>
+          <li>Changed: split-view panes show their connection-name header by default on new installations; an existing configuration keeps its stored value (issue #355)</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.22.13" date="2026-10-02">
       <description>
         <p>Version 0.22.13 - Kerberos KDC Address, clearer RDP sign-in errors, per-connection monitoring fixes and fewer hardware-key touches:</p>

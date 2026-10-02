@@ -36,6 +36,17 @@ pub type SelectTabCallback = Rc<dyn Fn(PanelId, &Button)>;
 /// "Select Tab" button also needs the clicked widget for popover parenting.
 pub type PanelActionCallback = Rc<dyn Fn(PanelId)>;
 
+/// CSS class marking a pane header that carries the pane's drag source.
+const DRAG_HANDLE_CSS_CLASS: &str = "split-pane-drag-handle";
+
+/// The hint shown on a pane header that can be dragged (issue #355).
+///
+/// A function rather than a constant so the literal stays inside `i18n()`,
+/// where `po/update-pot.sh` can extract it.
+fn drag_hint() -> String {
+    i18n("Drag to move this session to another panel or tab")
+}
+
 /// Adapts `SplitLayoutModel` to GTK widgets.
 ///
 /// This struct bridges the core data model with GTK4 widgets, maintaining
@@ -827,8 +838,9 @@ impl SplitViewAdapter {
     /// Creates the compact header widget for a split pane (issue #277).
     ///
     /// The header shows the connection name on a colored background matching
-    /// the panel's color. It starts hidden and is shown when the user enables
-    /// "Show connection name in split panes" in settings.
+    /// the panel's color. Its visibility follows "Show connection name in split
+    /// panes" in settings (on by default since #355), and on an occupied panel
+    /// it is also the drag handle.
     fn create_pane_header(&self) -> GtkBox {
         let header = GtkBox::new(Orientation::Horizontal, 4);
         header.add_css_class("split-pane-header");
@@ -874,6 +886,15 @@ impl SplitViewAdapter {
                 {
                     proto_label.set_label(protocol.unwrap_or(""));
                 }
+                // The name label ellipsizes in a narrow pane, so the tooltip
+                // carries the full name; on a drag handle the drag hint follows
+                // it (issue #355).
+                let tooltip = if header.has_css_class(DRAG_HANDLE_CSS_CLASS) {
+                    format!("{name}\n{}", drag_hint())
+                } else {
+                    name.to_owned()
+                };
+                header.set_tooltip_text(Some(&tooltip));
                 // Show header only if labels are globally enabled
                 header.set_visible(self.show_labels.get());
             } else {
@@ -1262,9 +1283,12 @@ impl SplitViewAdapter {
         }
 
         // Prepend a compact connection name header (issue #277).
-        // Hidden by default; toggled via set_labels_visible / show_labels flag.
+        // Visibility follows the show_labels flag (set_labels_visible).
         let header = self.create_pane_header();
         container.append(&header);
+        // Keep a clone to use as the drag handle below before the header is
+        // moved into panel_headers (issue #355).
+        let header_for_drag = header.clone();
         self.panel_headers.borrow_mut().insert(panel_id, header);
 
         // Set up drop target for drag-and-drop operations
@@ -1273,9 +1297,15 @@ impl SplitViewAdapter {
 
         // Handle both empty and occupied panel states
         if let Some(session_id) = self.model.borrow().get_panel_session(panel_id) {
-            // Set up drag source for occupied panels
-            // Occupied_Panel can be dragged from Split_Container
-            self.setup_drag_source(panel_id, session_id, &container);
+            // Set up drag source for occupied panels. The drag source lives on
+            // the pane HEADER, not the whole container: the session widget
+            // inside the container (a VTE terminal, or an RDP/VNC DrawingArea)
+            // grabs button-press in the default bubble phase, so a drag source
+            // on the container never saw the gesture start and "Drag to move"
+            // did nothing (issue #355). The header is a plain label box with no
+            // competing input and is visible by default (#355), so it works as
+            // a dedicated drag handle.
+            self.setup_drag_source(panel_id, session_id, &container, &header_for_drag);
 
             // Set up context menu for occupied panels
             // Right-click context menu with Close/Move options
@@ -1291,19 +1321,31 @@ impl SplitViewAdapter {
         container
     }
 
-    /// Sets up a drag source on an occupied panel widget.
+    /// Sets up a drag source on an occupied panel's header handle.
     ///
-    /// This method configures a `gtk4::DragSource` on the given panel widget to:
+    /// This method configures a `gtk4::DragSource` on the pane HEADER to:
     /// - Provide the session ID as drag data (serialized as string)
-    /// - Add visual feedback during drag (CSS class `dragging`)
+    /// - Add visual feedback during drag (CSS class `dragging`) on the panel
     /// - Handle removal from source after successful drop
+    ///
+    /// The drag source is attached to `handle` (the pane header) rather than
+    /// `widget` (the panel container) because the session widget inside the
+    /// container claims button-press in the default bubble phase, which stopped
+    /// the container-level drag source from ever starting a drag (issue #355).
     ///
     /// # Arguments
     ///
     /// * `panel_id` - The ID of the panel being dragged
     /// * `session_id` - The session ID in the panel
-    /// * `widget` - The GTK widget (panel container) to attach the drag source to
-    fn setup_drag_source(&self, panel_id: PanelId, session_id: SessionId, widget: &GtkBox) {
+    /// * `widget` - The panel container (receives the `dragging` CSS feedback)
+    /// * `handle` - The pane header that acts as the drag handle
+    fn setup_drag_source(
+        &self,
+        panel_id: PanelId,
+        session_id: SessionId,
+        widget: &GtkBox,
+        handle: &GtkBox,
+    ) {
         let drag_source = gtk4::DragSource::new();
         drag_source.set_actions(gdk::DragAction::MOVE);
 
@@ -1345,12 +1387,22 @@ impl SplitViewAdapter {
             }
         });
 
-        // Set tooltip to indicate draggability
-        widget.set_tooltip_text(Some(&i18n(
-            "Drag to move this session to another panel or tab",
-        )));
+        // A cancelled drag is the third outcome next to begin and end, and the
+        // only one that would otherwise leave no trace when a drag "does
+        // nothing" (issue #355).
+        drag_source.connect_drag_cancel(move |_source, _drag, reason| {
+            tracing::debug!(%panel_id, %session_id, ?reason, "Split pane drag cancelled");
+            false
+        });
 
-        widget.add_controller(drag_source);
+        // Mark the header as a handle: the tooltip set by `set_panel_label`
+        // appends the drag hint only to headers carrying this class, and the
+        // grab cursor shows that the header can be picked up.
+        handle.add_css_class(DRAG_HANDLE_CSS_CLASS);
+        handle.set_cursor_from_name(Some("grab"));
+        handle.set_tooltip_text(Some(&drag_hint()));
+
+        handle.add_controller(drag_source);
     }
 
     /// Sets up a right-click context menu on an occupied panel widget.

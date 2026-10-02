@@ -5,6 +5,26 @@ All notable changes to RustConn will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.22.14] - 2026-10-02
+
+### Added
+- **The header bar can be brought back without leaving fullscreen (issue [#354](https://github.com/totoshko88/RustConn/issues/354))** — with the header hidden in fullscreen (see Changed), moving the pointer to the very top edge of the screen shows it over the session, and it hides again once the pointer moves back below it, unless one of its menus is open. F10 shows it too and opens the main menu, except while keyboard passthrough is on, where F10 still goes to the remote session. The header overlays the session instead of pushing it down, so an embedded RDP session is not resized each time the header appears. There is no hover on a touch screen, so a touch-only user still leaves fullscreen with F11.
+
+### Fixed
+- **Split-view panes can now be dragged to another panel or tab (issue [#355](https://github.com/totoshko88/RustConn/issues/355))** — the "Drag to move this session to another panel or tab" tooltip was shown over the whole pane, but dragging never started, with or without Ctrl, Alt or Shift: the terminal or remote desktop inside the pane takes the mouse press for itself. The pane is now dragged by its connection-name header, which shows a grab cursor and a tooltip with the full connection name followed by the drag hint. The header only exists while **Settings ▸ Interface ▸ Window ▸ Show connection name in split panes** is on, which is now the default for new installations but not for existing ones (see Changed) — if your panes show no header, turn that switch on.
+
+### Changed
+- **Fullscreen hides the header bar for every session (issue [#354](https://github.com/totoshko88/RustConn/issues/354))** — an embedded RDP or VNC session used to keep the application header strip across the top in fullscreen. Now the header bar is hidden whenever the main window is fullscreen, whatever the session type (SSH and other terminals included) and however fullscreen was entered — F11, the menu, or the window manager — and it returns when fullscreen ends. Only the header bar is hidden: banners that need attention, such as an active group broadcast or a request to touch your hardware key, stay visible over the session. The tab bar and the sidebar are unchanged; F9 hides the sidebar.
+- **Split-view panes show their connection-name header by default (issue [#355](https://github.com/totoshko88/RustConn/issues/355))** — a fresh installation now has **Show connection name in split panes** on, so panes can be told apart by name, not only by color, and have the header they are dragged by. An existing configuration is not changed: every version since 0.20.1, where the setting was added, writes its value to the configuration file, so a stored "off" is kept as the user's choice, and anyone upgrading who wants the headers turns the switch on once.
+
+### Documentation
+- **User Guide synced with the 0.22.14 split-view and fullscreen behavior (issues [#355](https://github.com/totoshko88/RustConn/issues/355), [#354](https://github.com/totoshko88/RustConn/issues/354))** — "Connection name labels" now says the headers are on by default for new installations and that an existing configuration keeps its value. "Move between splits" documents dragging a pane by its header, and what to switch on if there is no header. The fullscreen notes say that the header bar is hidden for every session, how to bring it back with the top edge or F10, and that the tab bar, sidebar and attention banners stay. The Interface → Window settings list, which omitted it, now includes the "Show connection name in split panes" switch. Four secret-backend lists that had fallen behind the full set of backends now point to the "Choosing a Secret Backend" section instead.
+
+### Dependencies
+- **Updated (Flatpak)**: fast_float 8.2.10 → 8.3.0 — the header-only number-parsing library the bundled VTE is built against, bumped in the local Flatpak and Flathub manifests together with its `sha256`.
+- **Held back**: picky-krb stays at 0.12.4. 0.12.5 adds a `GssApiMessageError` variant that the pinned `sspi` 0.21.3 (an IronRDP dependency) does not match exhaustively, so it fails to compile until IronRDP moves to a newer `sspi`.
+- **Unchanged, checked**: `cargo deny check advisories` is clean. The CLI download catalogue is current on every entry, with all version endpoints reachable (TigerVNC stays 1.16.2). The other bundled Flatpak sources are current — FreeRDP 3.32.1, cJSON 1.7.19, openh264 2.6.0, VTE 0.80.5, waypipe 0.11.2, mc 4.8.33 — on GNOME runtime 50. Snap stays on `core24` with the `gnome-46-2404` extension (issue #174).
+
 ## [0.22.13] - 2026-10-02
 
 ### Added

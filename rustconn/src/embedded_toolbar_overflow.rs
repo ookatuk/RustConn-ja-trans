@@ -557,7 +557,11 @@ fn ensure_touch_targets(widget: &Widget) {
     }
 }
 
-fn contains_active_menu(widget: &Widget) -> bool {
+/// Whether `widget` or any descendant is a [`MenuButton`] with its menu open.
+///
+/// Shared with the fullscreen header in `window`, which has the same question
+/// to answer before hiding itself.
+pub(crate) fn contains_active_menu(widget: &Widget) -> bool {
     if widget
         .downcast_ref::<MenuButton>()
         .is_some_and(MenuButton::is_active)

@@ -6,7 +6,7 @@
 #
 
 Name:           rustconn
-Version:        0.22.13
+Version:        0.22.14
 Release:        0
 # rpmlint caps Summary at 79 characters (summary-too-long, badness 200); the
 # protocol list belongs in %description, which has room for all of it. Kept in
@@ -392,6 +392,14 @@ done
 %{_datadir}/icons/hicolor/*/apps/io.github.totoshko88.RustConn.*
 
 %changelog
+* Fri Oct 02 2026 Anton Isaiev <totoshko88@gmail.com> - 0.22.14-0
+- Version bump to 0.22.14
+- Added: in fullscreen the header bar comes back over the session when the pointer touches the top edge of the screen, or with F10 (issue #354)
+- Fixed: split-view panes can now be dragged to another panel or tab by their connection-name header, which shows a grab cursor and the full connection name (issue #355)
+- Changed: fullscreen hides the header bar for every session, not only embedded RDP/VNC; attention banners such as group broadcast and the hardware-key touch request stay visible (issue #354)
+- Changed: split-view panes show their connection-name header by default on new installations; an existing configuration keeps its stored value (issue #355)
+- Dependencies: Flatpak fast_float 8.2.10 -> 8.3.0; picky-krb held at 0.12.4 (0.12.5 breaks pinned sspi)
+
 * Fri Oct 02 2026 Anton Isaiev <totoshko88@gmail.com> - 0.22.13-0
 - Version bump to 0.22.13
 - Added: the RDP connection editor gains a KDC Address row for Kerberos sign-in; an empty row falls back to the realm's DNS name (issue #351)

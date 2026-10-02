@@ -13,6 +13,7 @@ mod detach_actions;
 mod edit_actions;
 mod edit_dialogs;
 mod edit_group;
+mod fullscreen_header;
 mod group_broadcast;
 mod groups;
 mod history_actions;
@@ -967,6 +968,10 @@ impl MainWindow {
         tab_overview.set_overflow(gtk4::Overflow::Hidden);
 
         window.set_content(Some(tab_overview));
+
+        // Fullscreen hides the header bar — only the header bar, the banners
+        // stay — and brings it back on a top-edge hover or F10 (issue #354).
+        fullscreen_header::install(&window, &toolbar_view, &header_bar, &menu_button);
 
         // Adaptive layout breakpoints (#204).
         //
