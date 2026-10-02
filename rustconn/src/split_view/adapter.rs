@@ -36,6 +36,17 @@ pub type SelectTabCallback = Rc<dyn Fn(PanelId, &Button)>;
 /// "Select Tab" button also needs the clicked widget for popover parenting.
 pub type PanelActionCallback = Rc<dyn Fn(PanelId)>;
 
+/// CSS class marking a pane header that carries the pane's drag source.
+const DRAG_HANDLE_CSS_CLASS: &str = "split-pane-drag-handle";
+
+/// The hint shown on a pane header that can be dragged (issue #355).
+///
+/// A function rather than a constant so the literal stays inside `i18n()`,
+/// where `po/update-pot.sh` can extract it.
+fn drag_hint() -> String {
+    i18n("Drag to move this session to another panel or tab")
+}
+
 /// Adapts `SplitLayoutModel` to GTK widgets.
 ///
 /// This struct bridges the core data model with GTK4 widgets, maintaining
@@ -827,8 +838,9 @@ impl SplitViewAdapter {
     /// Creates the compact header widget for a split pane (issue #277).
     ///
     /// The header shows the connection name on a colored background matching
-    /// the panel's color. It starts hidden and is shown when the user enables
-    /// "Show connection name in split panes" in settings.
+    /// the panel's color. Its visibility follows "Show connection name in split
+    /// panes" in settings (on by default since #355), and on an occupied panel
+    /// it is also the drag handle.
     fn create_pane_header(&self) -> GtkBox {
         let header = GtkBox::new(Orientation::Horizontal, 4);
         header.add_css_class("split-pane-header");
@@ -874,6 +886,15 @@ impl SplitViewAdapter {
                 {
                     proto_label.set_label(protocol.unwrap_or(""));
                 }
+                // The name label ellipsizes in a narrow pane, so the tooltip
+                // carries the full name; on a drag handle the drag hint follows
+                // it (issue #355).
+                let tooltip = if header.has_css_class(DRAG_HANDLE_CSS_CLASS) {
+                    format!("{name}\n{}", drag_hint())
+                } else {
+                    name.to_owned()
+                };
+                header.set_tooltip_text(Some(&tooltip));
                 // Show header only if labels are globally enabled
                 header.set_visible(self.show_labels.get());
             } else {
@@ -1262,7 +1283,7 @@ impl SplitViewAdapter {
         }
 
         // Prepend a compact connection name header (issue #277).
-        // Hidden by default; toggled via set_labels_visible / show_labels flag.
+        // Visibility follows the show_labels flag (set_labels_visible).
         let header = self.create_pane_header();
         container.append(&header);
         // Keep a clone to use as the drag handle below before the header is
@@ -1366,10 +1387,20 @@ impl SplitViewAdapter {
             }
         });
 
-        // Set tooltip on the handle to indicate draggability
-        handle.set_tooltip_text(Some(&i18n(
-            "Drag to move this session to another panel or tab",
-        )));
+        // A cancelled drag is the third outcome next to begin and end, and the
+        // only one that would otherwise leave no trace when a drag "does
+        // nothing" (issue #355).
+        drag_source.connect_drag_cancel(move |_source, _drag, reason| {
+            tracing::debug!(%panel_id, %session_id, ?reason, "Split pane drag cancelled");
+            false
+        });
+
+        // Mark the header as a handle: the tooltip set by `set_panel_label`
+        // appends the drag hint only to headers carrying this class, and the
+        // grab cursor shows that the header can be picked up.
+        handle.add_css_class(DRAG_HANDLE_CSS_CLASS);
+        handle.set_cursor_from_name(Some("grab"));
+        handle.set_tooltip_text(Some(&drag_hint()));
 
         handle.add_controller(drag_source);
     }
