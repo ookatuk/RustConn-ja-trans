@@ -411,7 +411,7 @@ fn show_smart_folder_context_menu(
 
 /// Shows a context menu for a connection row inside a smart folder.
 ///
-/// Provides the most common actions: Connect, Edit, Copy Username/Password,
+/// Provides the most common actions: Connect, Edit, the Copy submenu,
 /// Wake On LAN, Check if Online, and Delete. Actions that require sidebar
 /// selection first select the connection in the main sidebar via
 /// `select-item-by-id` action, then activate the standard window action.
@@ -427,20 +427,28 @@ fn show_connection_context_menu_in_smart_folder(
     };
 
     let id = conn_id.to_variant();
-    let items = vec![
+    let mut items = vec![
         ContextMenuItem::action_with_target(&i18n("Connect"), "connect-to", &id),
         ContextMenuItem::Separator,
-        ContextMenuItem::action_on_selected(&i18n("Edit"), &id, "edit-connection"),
-        ContextMenuItem::Separator,
-        ContextMenuItem::action_on_selected(&i18n("Copy Username"), &id, "copy-username"),
-        ContextMenuItem::action_on_selected(&i18n("Copy Password"), &id, "copy-password"),
+        // By id, not "select, then act on the selection": the selection step
+        // is deferred to idle, so the second step used to act on whatever was
+        // selected before.
+        ContextMenuItem::action_with_target(&i18n("Edit"), "edit-connection-by-id", &id),
+    ];
+    // Addressed by connection id too, so it copies from this connection
+    // whatever the sidebar has selected (issue #357).
+    if let Some(copy) = crate::sidebar_ui::copy_submenu(conn_id) {
+        items.push(ContextMenuItem::Separator);
+        items.push(copy);
+    }
+    items.extend([
         ContextMenuItem::Separator,
         ContextMenuItem::action_on_selected(&i18n("Wake On LAN"), &id, "wake-on-lan"),
         ContextMenuItem::action_on_selected(&i18n("Check if Online"), &id, "check-host-online"),
         ContextMenuItem::Separator,
         ContextMenuItem::action_on_selected(&i18n("Delete"), &id, "delete-connection")
             .destructive(),
-    ];
+    ]);
 
     show_popover(
         widget,

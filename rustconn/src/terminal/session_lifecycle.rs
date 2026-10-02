@@ -561,6 +561,16 @@ impl TerminalNotebook {
         *self.tab_broadcast_membership.borrow_mut() = Some(Rc::new(provider));
     }
 
+    /// Wires the query behind the tab menu's Edit Connection and Copy
+    /// sections: the "Copy" entries of a saved connection, or `None` when no
+    /// saved connection has that id (issue #357).
+    pub(crate) fn set_tab_connection_menu_provider<F>(&self, provider: F)
+    where
+        F: Fn(Uuid) -> Option<Vec<super::tab_menu::TabCopyEntry>> + 'static,
+    {
+        *self.tab_connection_menu.borrow_mut() = Some(Rc::new(provider));
+    }
+
     /// Returns a clone of the reconnect callback reference for use in auto-reconnect polling
     #[must_use]
     pub fn reconnect_callback(&self) -> Rc<RefCell<Option<Box<dyn Fn(Uuid, Uuid)>>>> {

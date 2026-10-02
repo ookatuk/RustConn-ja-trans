@@ -4,6 +4,16 @@
 
 use super::*;
 
+/// The id of the connection selected in the sidebar, or `None` for a group or
+/// no selection.
+fn selected_connection_id(sidebar: &SharedSidebar) -> Option<Uuid> {
+    let item = sidebar.get_selected_item()?;
+    if item.is_group() {
+        return None;
+    }
+    Uuid::parse_str(&item.id()).ok()
+}
+
 /// Why the external tunnel browser could not be resolved.
 enum TunnelBrowserError {
     /// A command is configured but does not name a Chromium-family browser.
@@ -125,35 +135,10 @@ impl MainWindow {
         let window_weak = window.downgrade();
         let toast_clone = self.toast_overlay.clone();
         copy_username_action.connect_activate(move |_, _| {
-            let Some(item) = sidebar_clone.get_selected_item() else {
-                return;
-            };
-            if item.is_group() {
-                return;
-            }
-            let Ok(conn_id) = uuid::Uuid::parse_str(&item.id()) else {
-                return;
-            };
-            let Ok(state_ref) = state_clone.try_borrow() else {
-                return;
-            };
-            if let Some(conn) = state_ref.get_connection(conn_id) {
-                // Try cached credentials first (resolved from vault during connection),
-                // fall back to the username stored directly on the connection model
-                let username = state_ref
-                    .get_cached_credentials(conn_id)
-                    .map(|creds| creds.username.clone())
-                    .filter(|u| !u.is_empty())
-                    .or_else(|| conn.username.clone())
-                    .unwrap_or_default();
-                if username.is_empty() {
-                    toast_clone.show_warning(&crate::i18n::i18n("No username configured"));
-                } else if let Some(win) = window_weak.upgrade() {
-                    gtk4::prelude::WidgetExt::display(&win)
-                        .clipboard()
-                        .set_text(&username);
-                    toast_clone.show_success(&crate::i18n::i18n("Username copied"));
-                }
+            if let Some(conn_id) = selected_connection_id(&sidebar_clone)
+                && let Some(win) = window_weak.upgrade()
+            {
+                super::copy_field_actions::copy_username(&win, &state_clone, &toast_clone, conn_id);
             }
         });
         window.add_action(&copy_username_action);
@@ -165,108 +150,15 @@ impl MainWindow {
         let window_weak = window.downgrade();
         let toast_clone = self.toast_overlay.clone();
         copy_password_action.connect_activate(move |_, _| {
-            use secrecy::ExposeSecret;
-            let Some(item) = sidebar_clone.get_selected_item() else {
-                return;
-            };
-            if item.is_group() {
-                return;
-            }
-            let Ok(conn_id) = uuid::Uuid::parse_str(&item.id()) else {
-                return;
-            };
-            let Ok(state_ref) = state_clone.try_borrow() else {
-                return;
-            };
-            if state_ref.get_connection(conn_id).is_none() {
-                return;
-            }
-
-            // Helper closure to copy password to clipboard with auto-clear
-            let copy_to_clipboard =
-                |pw_owned: zeroize::Zeroizing<String>,
-                 window_weak: &glib::WeakRef<adw::ApplicationWindow>,
-                 toast: &SharedToastOverlay| {
-                    if let Some(win) = window_weak.upgrade() {
-                        let clipboard = gtk4::prelude::WidgetExt::display(&win).clipboard();
-                        clipboard.set_text(&pw_owned);
-                        toast.show_success(&crate::i18n::i18n(
-                            "Password copied (auto-clears in 30s)",
-                        ));
-                        let clipboard_weak = clipboard.downgrade();
-                        glib::timeout_add_seconds_local_once(30, move || {
-                            if let Some(cb) = clipboard_weak.upgrade() {
-                                cb.read_text_async(gio::Cancellable::NONE, move |result| {
-                                    if let Ok(Some(current)) = result
-                                        && current.as_str() == pw_owned.as_str()
-                                        && let Some(cb2) = clipboard_weak.upgrade()
-                                    {
-                                        cb2.set_text("");
-                                    }
-                                });
-                            }
-                        });
-                    }
-                };
-
-            // Try cached credentials first (resolved from vault during connection)
-            if let Some(creds) = state_ref.get_cached_credentials(conn_id) {
-                let pw = creds.password.expose_secret();
-                if pw.is_empty() {
-                    toast_clone.show_warning(&crate::i18n::i18n("Cached password is empty"));
-                } else {
-                    copy_to_clipboard(
-                        zeroize::Zeroizing::new(pw.to_string()),
-                        &window_weak,
-                        &toast_clone,
-                    );
-                }
-                return;
-            }
-
-            // No cached credentials — resolve from vault backend
-            drop(state_ref);
-            let window_weak2 = window_weak.clone();
-            let toast_clone2 = toast_clone.clone();
-            if let Ok(state_ref2) = state_clone.try_borrow() {
-                state_ref2.resolve_credentials_gtk(conn_id, move |result| {
-                    use rustconn_core::sync::CredentialResolutionResult;
-                    match result {
-                        Ok(CredentialResolutionResult::Resolved(creds)) => {
-                            if let Some(ref password) = creds.password {
-                                let pw = password.expose_secret();
-                                if pw.is_empty() {
-                                    toast_clone2
-                                        .show_warning(&crate::i18n::i18n("Password is empty"));
-                                } else {
-                                    copy_to_clipboard(
-                                        zeroize::Zeroizing::new(pw.to_string()),
-                                        &window_weak2,
-                                        &toast_clone2,
-                                    );
-                                }
-                            } else {
-                                toast_clone2.show_warning(&crate::i18n::i18n(
-                                    "No password configured for this connection",
-                                ));
-                            }
-                        }
-                        Ok(_) => {
-                            toast_clone2.show_warning(&crate::i18n::i18n(
-                                "No password configured for this connection",
-                            ));
-                        }
-                        Err(e) => {
-                            tracing::warn!(error = %e, "Failed to resolve credentials for copy");
-                            toast_clone2.show_warning(&crate::i18n::i18n(
-                                "Could not retrieve password from secret backend",
-                            ));
-                        }
-                    }
-                });
+            if let Some(conn_id) = selected_connection_id(&sidebar_clone)
+                && let Some(win) = window_weak.upgrade()
+            {
+                super::copy_field_actions::copy_password(&win, &state_clone, &toast_clone, conn_id);
             }
         });
         window.add_action(&copy_password_action);
+
+        self.setup_copy_field_actions(window, state, sidebar);
 
         // Rename item action (works for both connections and groups)
         let rename_action = gio::SimpleAction::new("rename-item", None);

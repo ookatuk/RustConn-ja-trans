@@ -8,6 +8,7 @@ mod clusters;
 mod command_env;
 mod connection_actions;
 mod connection_dialogs;
+pub(crate) mod copy_field_actions;
 mod credentials;
 mod detach_actions;
 mod edit_actions;
@@ -1233,6 +1234,39 @@ impl MainWindow {
         DETACHED_WINDOWS.with(|cell| {
             *cell.borrow_mut() = Some(Rc::clone(&main_window.detached_windows));
         });
+
+        // The sidebar and smart-folder "Copy" submenus (issue #357). Weak, so
+        // the thread-local provider does not keep the application state alive.
+        {
+            let state_weak = Rc::downgrade(&main_window.state);
+            crate::sidebar_ui::set_copy_items_provider(move |conn_id| {
+                let Some(state) = state_weak.upgrade() else {
+                    return Vec::new();
+                };
+                let Ok(id) = Uuid::parse_str(conn_id) else {
+                    return Vec::new();
+                };
+                let Ok(state_ref) = state.try_borrow() else {
+                    return Vec::new();
+                };
+                state_ref
+                    .get_connection(id)
+                    .map(copy_field_actions::sidebar_copy_items)
+                    .unwrap_or_default()
+            });
+
+            // The same entries for the session-tab menu, plus Edit Connection.
+            let state_weak = Rc::downgrade(&main_window.state);
+            main_window
+                .terminal_notebook
+                .set_tab_connection_menu_provider(move |connection_id| {
+                    let state = state_weak.upgrade()?;
+                    let state_ref = state.try_borrow().ok()?;
+                    state_ref
+                        .get_connection(connection_id)
+                        .map(copy_field_actions::copy_menu_entries)
+                });
+        }
 
         // Set up recording checker for sidebar context menu
         {

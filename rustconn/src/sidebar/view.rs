@@ -145,6 +145,7 @@ pub fn show_context_menu_for_connection_item(
         widget,
         x,
         y,
+        &conn_id,
         is_group,
         is_ssh,
         is_connected,

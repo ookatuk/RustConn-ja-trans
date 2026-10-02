@@ -599,14 +599,24 @@ For RDP, VNC, and SPICE connections, RustConn performs a fast TCP port check bef
 - Configurable globally in Settings → Connection page
 - Per-connection "Skip port check" option for special cases (firewalls, port knocking, VPN)
 
-### Copy Username / Copy Password
+### Copy Menu
 
-Right-click a connection in the sidebar → **Copy Username** or **Copy Password**.
+Right-click a connection in the sidebar or in a smart folder → **Copy ▸**, or right-click its session tab and use the **Copy** section. The menu lists only what this connection actually has (0.22.15+):
 
-- **Copy Username** copies the username from cached credentials (resolved during a previous connection) or falls back to the username stored on the connection model
-- **Copy Password** copies the password from cached credentials; you must connect at least once so credentials are resolved and cached
-- Password is auto-cleared from clipboard after 30 seconds (only if the clipboard still contains the copied password)
-- Toast notifications confirm the action or explain why it failed
+| Entry | Copies | Shown when |
+|-------|--------|------------|
+| **Host** | The host name or address as stored (not resolved to an IP) | The connection has a host |
+| **Port (2222)** | The port number; the label shows it, so routers on different ports can be told apart | The protocol has a port (not Serial, Kubernetes, Zero Trust or Web) |
+| **Address** | `host:port`, with an IPv6 address in brackets (`[2001:db8::1]:22`) | Host and port are both present |
+| **Username** | The username resolved at connect time, otherwise the one stored on the connection | A username is stored, or the password source can supply one (vault, variable, script, group) |
+| **Password** | The password, from the credential cached at connect time or from the secret backend | The password source is not *None* or *Prompt* |
+| **SSH Command** | `ssh [-p PORT] [-J BASTION] [user@]host`, quoted for the shell, with the bastion resolved from the connection, its group and the global network settings | SSH and SFTP connections |
+| *Custom properties* | The property's value, one entry per property that has a value, under a separator | The connection has custom properties |
+
+- The SSH command contains only what is needed to reach the host. Identity files, `-o` options and the startup command are left out, so pasting it never runs anything on the remote host.
+- The password and **Protected** custom properties are cleared from the clipboard after 30 seconds, only if the clipboard still holds the copied value. Their values never appear in a menu label.
+- In the sidebar the submenu works from the keyboard as well: **Right** opens it, **Left** or **Backspace** goes back.
+- Toast notifications confirm the action or explain why it failed.
 
 ### Check if Online
 
@@ -1874,7 +1884,7 @@ Available via the "⋯" menu → "Open in System Browser" — opens the current 
 - Not available in the snap package: the core24 GNOME platform provides no WebKitGTK 6.0, and bundling it is still pending (issue [#244](https://github.com/totoshko88/RustConn/issues/244)). Web connections there use System or Custom mode; a connection saved with Embedded mode falls back to the system browser.
 
 **Context menu actions:**
-- **Copy Username** / **Copy Password** — copies stored credentials to clipboard (auto-clears after 30 seconds)
+- **Copy ▸ Host / Username / Password** — copies the URL or stored credentials to the clipboard; the password auto-clears after 30 seconds (see [Copy Menu](#copy-menu))
 
 **CLI:**
 ```bash
@@ -1945,6 +1955,8 @@ The **Display Mode** setting in the connection dialog (Advanced tab → Window M
 - **Reorder** — Drag tabs
 - **Tab Overview** — Click the grid icon (▦) at the right end of the tab bar, or press **Ctrl+Shift+O**, to open a full-screen grid view of all open tabs. Useful when you have many tabs open and need to visually locate a session. Click any thumbnail to switch to it.
 - **Tab Switcher** — Press **Ctrl+%** (or open Command Palette with **Ctrl+P** and type `%`) to fuzzy-search across all open tabs by name. Results show protocol type and tab group. Select and press Enter to switch instantly.
+- **Edit Connection** — Right-click a tab → **Edit Connection…** opens the editor for that tab's saved connection, whatever is selected in the sidebar (0.22.15+). Tabs with no saved connection behind them — the Welcome tab, a local shell, a quick connection — do not show it.
+- **Copy** — The same tab menu has a **Copy** section with the fields described under [Copy Menu](#copy-menu): host, port, address, username, password, SSH command and custom properties.
 - **Pin Tab** — Right-click a tab → **Pin Tab**. Pinned tabs stay at the left edge of the tab bar and are never scrolled out of view. Useful for long-running sessions you need constant access to. Right-click again → **Unpin Tab** to restore normal behavior.
 
 ### Split View
@@ -3299,7 +3311,13 @@ When working in remote sessions with TUI applications (nvim, tmux, htop, mc), Ru
 - A toast notification confirms the mode change
 - The menu item shows a checkmark when active
 
-**What passthrough cannot capture:** shortcuts owned by the desktop itself — Alt+Tab, the Super key, Super+number, workspace switching — are handled by the compositor (GNOME Shell, KWin) before RustConn sees the key, so they still act on your local desktop. The same applies to an RDP, VNC or SPICE session opened in an external viewer window: passthrough only affects RustConn's own window.
+**Desktop shortcuts in an embedded RDP or VNC session (0.22.15+):** shortcuts owned by the desktop itself — Alt+Tab, the Super key, Super+number, workspace switching — are handled by the compositor (GNOME Shell, KWin) before any application sees the key. While passthrough is on and an embedded RDP or VNC session has keyboard focus, RustConn asks the desktop to hand these keys to the session, the same request an external FreeRDP window makes:
+- GNOME asks once whether to allow RustConn to inhibit shortcuts. If you deny it, the desktop keeps them.
+- **Super+Esc** always gives the shortcuts back to the desktop, in case you are stuck.
+- Clicking outside the session (sidebar, tab bar, another window) or turning passthrough off returns them too.
+- SSH and other terminal tabs are left alone on purpose, so Alt+Tab keeps switching windows there.
+
+A session in an external viewer window is not affected by RustConn's passthrough at all; external FreeRDP clients ask the desktop for these keys on their own.
 
 **Customization:** The list of shortcuts that remain active in passthrough mode can be configured in `config.toml` under `[keybindings] passthrough_exceptions`.
 
