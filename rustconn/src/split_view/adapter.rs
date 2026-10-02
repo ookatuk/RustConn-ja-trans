@@ -1265,6 +1265,9 @@ impl SplitViewAdapter {
         // Hidden by default; toggled via set_labels_visible / show_labels flag.
         let header = self.create_pane_header();
         container.append(&header);
+        // Keep a clone to use as the drag handle below before the header is
+        // moved into panel_headers (issue #355).
+        let header_for_drag = header.clone();
         self.panel_headers.borrow_mut().insert(panel_id, header);
 
         // Set up drop target for drag-and-drop operations
@@ -1273,9 +1276,15 @@ impl SplitViewAdapter {
 
         // Handle both empty and occupied panel states
         if let Some(session_id) = self.model.borrow().get_panel_session(panel_id) {
-            // Set up drag source for occupied panels
-            // Occupied_Panel can be dragged from Split_Container
-            self.setup_drag_source(panel_id, session_id, &container);
+            // Set up drag source for occupied panels. The drag source lives on
+            // the pane HEADER, not the whole container: the session widget
+            // inside the container (a VTE terminal, or an RDP/VNC DrawingArea)
+            // grabs button-press in the default bubble phase, so a drag source
+            // on the container never saw the gesture start and "Drag to move"
+            // did nothing (issue #355). The header is a plain label box with no
+            // competing input and is visible by default (#355), so it works as
+            // a dedicated drag handle.
+            self.setup_drag_source(panel_id, session_id, &container, &header_for_drag);
 
             // Set up context menu for occupied panels
             // Right-click context menu with Close/Move options
@@ -1291,19 +1300,31 @@ impl SplitViewAdapter {
         container
     }
 
-    /// Sets up a drag source on an occupied panel widget.
+    /// Sets up a drag source on an occupied panel's header handle.
     ///
-    /// This method configures a `gtk4::DragSource` on the given panel widget to:
+    /// This method configures a `gtk4::DragSource` on the pane HEADER to:
     /// - Provide the session ID as drag data (serialized as string)
-    /// - Add visual feedback during drag (CSS class `dragging`)
+    /// - Add visual feedback during drag (CSS class `dragging`) on the panel
     /// - Handle removal from source after successful drop
+    ///
+    /// The drag source is attached to `handle` (the pane header) rather than
+    /// `widget` (the panel container) because the session widget inside the
+    /// container claims button-press in the default bubble phase, which stopped
+    /// the container-level drag source from ever starting a drag (issue #355).
     ///
     /// # Arguments
     ///
     /// * `panel_id` - The ID of the panel being dragged
     /// * `session_id` - The session ID in the panel
-    /// * `widget` - The GTK widget (panel container) to attach the drag source to
-    fn setup_drag_source(&self, panel_id: PanelId, session_id: SessionId, widget: &GtkBox) {
+    /// * `widget` - The panel container (receives the `dragging` CSS feedback)
+    /// * `handle` - The pane header that acts as the drag handle
+    fn setup_drag_source(
+        &self,
+        panel_id: PanelId,
+        session_id: SessionId,
+        widget: &GtkBox,
+        handle: &GtkBox,
+    ) {
         let drag_source = gtk4::DragSource::new();
         drag_source.set_actions(gdk::DragAction::MOVE);
 
@@ -1345,12 +1366,12 @@ impl SplitViewAdapter {
             }
         });
 
-        // Set tooltip to indicate draggability
-        widget.set_tooltip_text(Some(&i18n(
+        // Set tooltip on the handle to indicate draggability
+        handle.set_tooltip_text(Some(&i18n(
             "Drag to move this session to another panel or tab",
         )));
 
-        widget.add_controller(drag_source);
+        handle.add_controller(drag_source);
     }
 
     /// Sets up a right-click context menu on an occupied panel widget.
