@@ -1,21 +1,18 @@
 # Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
 # This file is distributed under the same license as the rustconn package.
 #
-# SPDX-FileCopyrightText: 2026 ookatuk <okatuhumi@gmail.com>
 msgid ""
 msgstr ""
 "Project-Id-Version: rustconn 0.22.15\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-03 09:09+0900\n"
-"PO-Revision-Date: 2026-10-03 09:44+0900\n"
-"Last-Translator: ookatuk <okatuhumi@gmail.com>\n"
-"Language-Team: Japanese <>\n"
-"Language: ja\n"
+"POT-Creation-Date: 2026-10-03 09:46+0900\n"
+"PO-Revision-Date: 2026-10-03 09:47+0900\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"Language: \n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=1; plural=0;\n"
-"X-Generator: Lokalize 26.08.1\n"
 
 #: rustconn/src/alert.rs:15 rustconn/src/alert.rs:54 rustconn/src/alert.rs:64
 #: rustconn/src/app.rs:1843 rustconn/src/toast.rs:246
@@ -685,7 +682,7 @@ msgstr ""
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:821
 msgid "Use global setting"
-msgstr "グローバル設定を利用する"
+msgstr ""
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:822
 #: rustconn/src/dialogs/connection/dialog/rows.rs:447
@@ -697,7 +694,7 @@ msgstr ""
 #: rustconn/src/dialogs/connection/advanced_tab.rs:823
 #: rustconn/src/dialogs/settings/secrets_tab/mod.rs:3176
 msgid "Disabled"
-msgstr "無効化済み"
+msgstr ""
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:913
 #: rustconn/src/dialogs/connection/advanced_tab.rs:915
@@ -1988,16 +1985,16 @@ msgstr ""
 
 #: rustconn/src/dialogs/connection/general_tab.rs:537
 msgid "Well-Known"
-msgstr "ウェルノン"
+msgstr ""
 
 #: rustconn/src/dialogs/connection/general_tab.rs:539
 msgid "Registered"
-msgstr "登録済み"
+msgstr ""
 
 #: rustconn/src/dialogs/connection/general_tab.rs:541
 #: rustconn/src/window/edit_group.rs:1504
 msgid "Dynamic"
-msgstr "ダイナミック"
+msgstr ""
 
 #: rustconn/src/dialogs/connection/kubernetes.rs:47
 #: rustconn/src/dialogs/connection_wizard/connection_page.rs:182
@@ -2469,7 +2466,7 @@ msgstr ""
 
 #: rustconn/src/dialogs/connection/rdp.rs:481
 msgid "Kerberos Authentication"
-msgstr "Kerberos認証"
+msgstr ""
 
 #: rustconn/src/dialogs/connection/rdp.rs:483
 msgid ""
@@ -2480,7 +2477,7 @@ msgstr ""
 
 #: rustconn/src/dialogs/connection/rdp.rs:493
 msgid "KDC Address"
-msgstr "MACアドレス"
+msgstr ""
 
 #: rustconn/src/dialogs/connection/rdp.rs:495
 msgid ""
@@ -6208,7 +6205,7 @@ msgstr ""
 
 #: rustconn/src/dialogs/settings/mod.rs:909
 msgid "Reset Per-Connection Overrides?"
-msgstr "接続ごとの上書きをリセットしますか？"
+msgstr ""
 
 #: rustconn/src/dialogs/settings/mod.rs:911
 msgid ""
@@ -6291,7 +6288,7 @@ msgstr ""
 
 #: rustconn/src/dialogs/settings/monitoring_tab.rs:83
 msgid "Reset Per-Connection Overrides"
-msgstr "接続でグローバル設定を上書きされた設定をリセット"
+msgstr ""
 
 #: rustconn/src/dialogs/settings/monitoring_tab.rs:85
 msgid ""
@@ -6301,7 +6298,7 @@ msgstr ""
 
 #: rustconn/src/dialogs/settings/monitoring_tab.rs:89
 msgid "Reset…"
-msgstr "リセット…"
+msgstr ""
 
 #: rustconn/src/dialogs/settings/monitoring_tab.rs:100
 msgid "Visible Metrics"
@@ -10739,7 +10736,7 @@ msgstr ""
 
 #: rustconn/src/terminal/session_lifecycle.rs:587
 msgid "Log In to {}"
-msgstr "{}へログインしました"
+msgstr ""
 
 #: rustconn/src/terminal/session_lifecycle.rs:591
 msgid "Run “{}” to sign in again in the browser"
@@ -10823,7 +10820,7 @@ msgstr ""
 
 #: rustconn/src/terminal/tab_menu.rs:926
 msgid "Edit Connection…"
-msgstr "接続を編集…"
+msgstr ""
 
 #: rustconn/src/terminal/tab_menu.rs:964
 msgid "Close Others"
@@ -11199,7 +11196,7 @@ msgstr ""
 
 #: rustconn/src/window/copy_field_actions.rs:80
 msgid "Port ({})"
-msgstr "ポート ({})"
+msgstr ""
 
 #: rustconn/src/window/copy_field_actions.rs:190
 msgid "Copied (auto-clears in {}s)"
@@ -11546,7 +11543,7 @@ msgstr ""
 #: rustconn/src/window/edit_group.rs:818 rustconn/src/window/edit_group.rs:831
 #: rustconn/src/window/edit_group.rs:847
 msgid "Inherited from a parent group: {}"
-msgstr "親グループから継承: {}"
+msgstr ""
 
 #: rustconn/src/window/edit_group.rs:691
 msgid "SSH Key Path"
@@ -11558,7 +11555,7 @@ msgstr ""
 
 #: rustconn/src/window/edit_group.rs:817
 msgid "(unknown connection)"
-msgstr "(不明な接続)"
+msgstr ""
 
 #: rustconn/src/window/edit_group.rs:825
 msgid "SSH Proxy Jump"
