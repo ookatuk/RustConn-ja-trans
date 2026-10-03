@@ -8,7 +8,7 @@ msgstr ""
 "Project-Id-Version: rustconn 0.22.8\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-10-03 09:09+0900\n"
-"PO-Revision-Date: 2026-10-03 09:47+0900\n"
+"PO-Revision-Date: 2026-10-03 10:02+0900\n"
 "Last-Translator: ookatuk <okatuhumi@gmail.com>\n"
 "Language-Team: Japanese <>\n"
 "Language: ja\n"
@@ -21,7 +21,7 @@ msgstr ""
 #: rustconn/src/alert.rs:15 rustconn/src/alert.rs:54 rustconn/src/alert.rs:64
 #: rustconn/src/app.rs:1843 rustconn/src/toast.rs:246
 msgid "OK"
-msgstr "了承test"
+msgstr "了承"
 
 #: rustconn/src/alert.rs:33 rustconn/src/alert.rs:94
 #: rustconn/src/dialogs/ask_prompt.rs:101 rustconn/src/dialogs/cluster.rs:689
