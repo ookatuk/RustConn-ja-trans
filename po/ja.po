@@ -1,22 +1,22 @@
 # Georgian translation for rustconn.
 # Copyright (C) 2026 rustconn's authors
 # This file is distributed under the same license as the rustconn package.
-# ookatu <okatuhumi@gmail.com>, 2026.
+# SPDX-FileCopyrightText: 2026 ookatu <okatuhumi@gmail.com>
 #
 msgid ""
 msgstr ""
 "Project-Id-Version: rustconn 0.22.8\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-10-03 09:46+0900\n"
-"PO-Revision-Date: 2026-10-01 16:01+0900\n"
-"Last-Translator: ookatu <okatuhumi@gmail.com>\n"
-"Language-Team: Japanese\n"
+"PO-Revision-Date: 2026-10-03 10:28+0900\n"
+"Last-Translator: ookatuk <okatuhumi@gmail.com>\n"
+"Language-Team: Japanese <>\n"
 "Language: ja\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=1; plural=0;\n"
-"X-Generator: Gtranslator 50.0\n"
+"X-Generator: Lokalize 26.08.1\n"
 
 #: rustconn/src/alert.rs:15 rustconn/src/alert.rs:54 rustconn/src/alert.rs:64
 #: rustconn/src/app.rs:1843 rustconn/src/toast.rs:246
@@ -938,8 +938,7 @@ msgstr "最後の接続のみ"
 #: rustconn/src/dialogs/connection/automation_tab.rs:411
 msgid ""
 "Only run when closing the last connection in a folder (useful for cleanup)"
-msgstr ""
-"フォルダー内の最後の接続を閉じる際にのみ実行する (クリーンアップに便利)"
+msgstr "フォルダー内の最後の接続を閉じる際にのみ実行する (クリーンアップに便利)"
 
 #: rustconn/src/dialogs/connection/automation_tab.rs:456
 msgid "Output Filter"
@@ -1056,8 +1055,7 @@ msgstr "Azure VMの名前とリソースグループは必須です"
 
 #: rustconn/src/dialogs/connection/builders.rs:486
 msgid "OCI bastion OCID, target OCID, and target private IP are required"
-msgstr ""
-"OCI BastionのOCID, ターゲットOCID, ターゲットのプライベートIpは必須です"
+msgstr "OCI BastionのOCID, ターゲットOCID, ターゲットのプライベートIpは必須です"
 
 #: rustconn/src/dialogs/connection/builders.rs:492
 msgid "Cloudflare Access hostname is required"
@@ -1174,8 +1172,7 @@ msgstr "ホストが設定されていません"
 
 #: rustconn/src/dialogs/connection/dialog/build.rs:443
 msgid "Enter the host address first, then detect its MAC."
-msgstr ""
-"ホストアドレスを最初に入力してください・MACアドレスは自動検出されます。"
+msgstr "ホストアドレスを最初に入力してください・MACアドレスは自動検出されます。"
 
 #: rustconn/src/dialogs/connection/dialog/build.rs:461
 msgid "MAC address may be temporary"
@@ -1552,8 +1549,7 @@ msgstr "親グループから継承"
 #: rustconn/src/dialogs/connection/dialog/populate.rs:1147
 #: rustconn/src/dialogs/connection/ssh.rs:332
 msgid "Default tries ~/.ssh/id_rsa, id_ed25519, id_ecdsa automatically"
-msgstr ""
-"デフォルトでは、自動的に~/.ssh/id_rsa, id_ed25519, id_ecdsaが試行されます。"
+msgstr "デフォルトでは、自動的に~/.ssh/id_rsa, id_ed25519, id_ecdsaが試行されます。"
 
 #: rustconn/src/dialogs/connection/dialog/populate.rs:1213
 #: rustconn/src/dialogs/connection/dialog/populate.rs:1230
@@ -2564,18 +2560,15 @@ msgid "Kerberos Authentication"
 msgstr "Kerberos認証"
 
 #: rustconn/src/dialogs/connection/rdp.rs:483
-#, fuzzy
 msgid ""
 "Use Kerberos for NLA instead of NTLM (Embedded client). Required for AD "
 "\"Protected Users\". Signs in with the saved password; Host must be the "
 "server's DNS name"
 msgstr ""
-"NLAにNTLMではなくKerberosを使用します (組み込みクライアント向け)。ADの\"保護"
-"されたユーザー\"機能を使用する場合に必須であり、有効なKerberosチケット(kinit)"
-"が必要です。"
+"NLAにNTLMではなくKerberosを使用します (組み込みクライアント向け)。ADの\"保護されたユーザー\"機能を使用する場合に必須であり、保存され"
+"たパスワードを使用してサインインします。ホスト名にはサーバーのDNS名を指定する必要があります。"
 
 #: rustconn/src/dialogs/connection/rdp.rs:493
-#, fuzzy
 msgid "KDC Address"
 msgstr "MACアドレス"
 
@@ -2626,8 +2619,7 @@ msgstr "証明書を受け入れる"
 
 #: rustconn/src/dialogs/connection/rdp.rs:584
 msgid "Accept changed/self-signed certificates (removes stored fingerprint)"
-msgstr ""
-"自己署名や変更された証明書を許可する (保存済みのフィンガープリントを削除)"
+msgstr "自己署名や変更された証明書を許可する (保存済みのフィンガープリントを削除)"
 
 #: rustconn/src/dialogs/connection/rdp.rs:593
 msgid "gateway.example.com"
@@ -3205,8 +3197,7 @@ msgstr "権限の昇格"
 #: rustconn/src/dialogs/connection/ssh.rs:184
 msgid ""
 "Answer sudo, su and doas password prompts with this connection's password"
-msgstr ""
-"sudo, su, doasのパスワード要求に対し、接続に使用したパスワードを自動送信する"
+msgstr "sudo, su, doasのパスワード要求に対し、接続に使用したパスワードを自動送信する"
 
 #: rustconn/src/dialogs/connection/ssh.rs:189
 msgid "Inject Password at Escalation Prompts"
@@ -3244,8 +3235,7 @@ msgstr "カスタムプロンプトパターン"
 
 #: rustconn/src/dialogs/connection/ssh.rs:233
 msgid "One regex per line; empty means the built-in patterns"
-msgstr ""
-"1行につき1つの正規表現を記述します。空行はデフォルトのパターンを意味します。"
+msgstr "1行につき1つの正規表現を記述します。空行はデフォルトのパターンを意味します。"
 
 #: rustconn/src/dialogs/connection/ssh.rs:299
 #: rustconn/src/dialogs/connection_wizard/auth_page.rs:107
@@ -3471,8 +3461,7 @@ msgstr "トラブルシューティング用にSSHのデバッグ出力を表示
 
 #: rustconn/src/dialogs/connection/ssh.rs:689
 msgid "Use multiple network paths for mobility and aggregation (mptcpize run)"
-msgstr ""
-"モビリティと帯域のために複数のネットワークパスを使用する（mptcpize run）"
+msgstr "モビリティと帯域のために複数のネットワークパスを使用する（mptcpize run）"
 
 #: rustconn/src/dialogs/connection/ssh.rs:692
 msgid ""
@@ -3747,8 +3736,7 @@ msgstr "カスタムブラウザー"
 
 #: rustconn/src/dialogs/connection/web.rs:65
 msgid "Specify a browser command when Custom mode is selected."
-msgstr ""
-"カスタムモードが選択されている場合に使用する、ブラウザーのコマンドの設定"
+msgstr "カスタムモードが選択されている場合に使用する、ブラウザーのコマンドの設定"
 
 #: rustconn/src/dialogs/connection/web.rs:69
 msgid "Browser Command"
@@ -4441,8 +4429,7 @@ msgstr "…および他{}件。完全なリストはアプリケーションロ�
 msgid ""
 "These arrived, but the destination has nowhere to keep part of what they "
 "held:"
-msgstr ""
-"これらは送信できましたが、一部の内容を保管する場所が届け先にはありません: "
+msgstr "これらは送信できましたが、一部の内容を保管する場所が届け先にはありません: "
 
 #: rustconn/src/dialogs/credential_transfer.rs:718
 msgid "Some Passwords Were Not Copied"
@@ -4948,8 +4935,7 @@ msgstr "インポート完了"
 
 #: rustconn/src/dialogs/import/mod.rs:339
 msgid "Import failed with {} error(s). No connections were imported."
-msgstr ""
-"インポートが{}件のエラーで失敗しました。接続はインポートできませんでした。"
+msgstr "インポートが{}件のエラーで失敗しました。接続はインポートできませんでした。"
 
 #: rustconn/src/dialogs/import/mod.rs:351
 msgid "Nothing was imported. See the {} warning(s) below."
@@ -5002,8 +4988,7 @@ msgstr ""
 
 #: rustconn/src/dialogs/import/mod.rs:408
 msgid "Connection '{}': ignored unusable Port '{}', using port {}"
-msgstr ""
-"接続 '{}': 使用不可能なポート '{}'は無視されました。ポート{}が使用されます"
+msgstr "接続 '{}': 使用不可能なポート '{}'は無視されました。ポート{}が使用されます"
 
 #: rustconn/src/dialogs/import/mod.rs:412
 msgid ""
@@ -5026,8 +5011,7 @@ msgstr ""
 
 #: rustconn/src/dialogs/import/mod.rs:423
 msgid "{} variable(s) skipped (not supported in batch import)"
-msgstr ""
-"{}件の変数がスキップされました (一括インポートではサポートされていません。)"
+msgstr "{}件の変数がスキップされました (一括インポートではサポートされていません。)"
 
 #: rustconn/src/dialogs/import/mod.rs:437
 msgid "Imported connections:"
@@ -6422,9 +6406,8 @@ msgid "Every connection already follows the global monitoring switch."
 msgstr ""
 
 #: rustconn/src/dialogs/settings/mod.rs:909
-#, fuzzy
 msgid "Reset Per-Connection Overrides?"
-msgstr "接続情報を入力してください"
+msgstr "接続で設定した上書きをリセットしますか？"
 
 #: rustconn/src/dialogs/settings/mod.rs:911
 msgid ""
@@ -6506,9 +6489,8 @@ msgid "Seconds between metric updates"
 msgstr ""
 
 #: rustconn/src/dialogs/settings/monitoring_tab.rs:83
-#, fuzzy
 msgid "Reset Per-Connection Overrides"
-msgstr "接続情報を入力してください"
+msgstr "接続で設定した上書きをリセット"
 
 #: rustconn/src/dialogs/settings/monitoring_tab.rs:85
 msgid ""
@@ -6517,9 +6499,8 @@ msgid ""
 msgstr ""
 
 #: rustconn/src/dialogs/settings/monitoring_tab.rs:89
-#, fuzzy
 msgid "Reset…"
-msgstr "リセット"
+msgstr "リセット…"
 
 #: rustconn/src/dialogs/settings/monitoring_tab.rs:100
 msgid "Visible Metrics"
@@ -10956,9 +10937,8 @@ msgid "Sign-in expired"
 msgstr ""
 
 #: rustconn/src/terminal/session_lifecycle.rs:587
-#, fuzzy
 msgid "Log In to {}"
-msgstr "入力をログに保存"
+msgstr "{}へログイン"
 
 #: rustconn/src/terminal/session_lifecycle.rs:591
 msgid "Run “{}” to sign in again in the browser"
@@ -11041,9 +11021,8 @@ msgid "Move to New Window"
 msgstr ""
 
 #: rustconn/src/terminal/tab_menu.rs:926
-#, fuzzy
 msgid "Edit Connection…"
-msgstr "接続を編集"
+msgstr "接続を編集…"
 
 #: rustconn/src/terminal/tab_menu.rs:964
 msgid "Close Others"
@@ -11418,14 +11397,12 @@ msgid "Imported {} connections to '{}' group"
 msgstr ""
 
 #: rustconn/src/window/copy_field_actions.rs:80
-#, fuzzy
 msgid "Port ({})"
-msgstr "エラー ({}): "
+msgstr "ポート ({})"
 
 #: rustconn/src/window/copy_field_actions.rs:190
-#, fuzzy
 msgid "Copied (auto-clears in {}s)"
-msgstr "パスワードをコピーしました (30秒でクリップボードから自動消去されます)"
+msgstr "パスワードをコピーしました ({}秒でクリップボードから自動消去されます)"
 
 #: rustconn/src/window/copy_field_actions.rs:251
 msgid "No username configured"
@@ -11767,9 +11744,8 @@ msgstr ""
 #: rustconn/src/window/edit_group.rs:685 rustconn/src/window/edit_group.rs:710
 #: rustconn/src/window/edit_group.rs:818 rustconn/src/window/edit_group.rs:831
 #: rustconn/src/window/edit_group.rs:847
-#, fuzzy
 msgid "Inherited from a parent group: {}"
-msgstr "親グループから継承"
+msgstr "親グループから継承: {}"
 
 #: rustconn/src/window/edit_group.rs:691
 msgid "SSH Key Path"
@@ -11780,9 +11756,8 @@ msgid "Select SSH key file"
 msgstr ""
 
 #: rustconn/src/window/edit_group.rs:817
-#, fuzzy
 msgid "(unknown connection)"
-msgstr "接続数: {}"
+msgstr "(不明な接続)"
 
 #: rustconn/src/window/edit_group.rs:825
 msgid "SSH Proxy Jump"
@@ -12847,5 +12822,9 @@ msgid "RustConn"
 msgstr "RustConn"
 
 #: rustconn/assets/io.github.totoshko88.RustConn.desktop:15
-msgid "ssh;rdp;vnc;spice;mosh;telnet;zerotrust;connection;terminal;remote;kubernetes;k8s;serial;sftp;"
-msgstr "ssh;rdp;vnc;spice;mosh;telnet;zerotrust;connection;terminal;remote;kubernetes;k8s;serial;sftp;"
+msgid ""
+"ssh;rdp;vnc;spice;mosh;telnet;zerotrust;connection;terminal;remote;kubernetes;"
+"k8s;serial;sftp;"
+msgstr ""
+"ssh;rdp;vnc;spice;mosh;telnet;zerotrust;connection;terminal;remote;kubernetes;"
+"k8s;serial;sftp;"
