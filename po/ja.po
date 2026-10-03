@@ -8,7 +8,7 @@ msgstr ""
 "Project-Id-Version: rustconn 0.22.8\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-10-03 09:46+0900\n"
-"PO-Revision-Date: 2026-10-03 10:28+0900\n"
+"PO-Revision-Date: 2026-10-03 12:22+0900\n"
 "Last-Translator: ookatuk <okatuhumi@gmail.com>\n"
 "Language-Team: Japanese <>\n"
 "Language: ja\n"
@@ -263,7 +263,7 @@ msgstr "少なくとも1つの接続を選択してください"
 #: rustconn/src/dialogs/settings/ui_tab.rs:353
 #: rustconn/src/dialogs/shortcuts.rs:148
 msgid "Connections"
-msgstr "接続一覧"
+msgstr "接続"
 
 #: rustconn/src/dialogs/cluster.rs:198
 msgid "Select connections to include in this cluster"
@@ -706,7 +706,7 @@ msgstr "起動するまでの待機時間"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:821
 msgid "Use global setting"
-msgstr ""
+msgstr "グローバル設定を使用"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:822
 #: rustconn/src/dialogs/connection/dialog/rows.rs:447
@@ -718,7 +718,7 @@ msgstr "有効"
 #: rustconn/src/dialogs/connection/advanced_tab.rs:823
 #: rustconn/src/dialogs/settings/secrets_tab/mod.rs:3176
 msgid "Disabled"
-msgstr ""
+msgstr "無効化"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:913
 #: rustconn/src/dialogs/connection/advanced_tab.rs:915
@@ -1021,6 +1021,8 @@ msgid ""
 "The KDC address is not valid. Enter a host name, host:port, or a tcp://, "
 "udp://, http:// or https:// address."
 msgstr ""
+"KDCアドレスが無効です。ホスト名, ホスト名:ポート、または tcp://, udp://, http://, https:// から始まるアドレスを入力"
+"してください"
 
 #: rustconn/src/dialogs/connection/builders.rs:413
 msgid "MAC address is required when WOL is enabled"
@@ -2577,6 +2579,8 @@ msgid ""
 "Optional. A domain controller name or IP address, a tcp:// or udp:// "
 "address, or an https:// KDC proxy URL. Leave empty to find it automatically."
 msgstr ""
+"任意。ドメインコントローラーの名前またはIPアドレス, tcp://またはudp://から始まるアドレス, "
+"またはhttps://のKDCプロキシURLを指定してください。自動検出させる場合は、空欄にしてください。"
 
 #: rustconn/src/dialogs/connection/rdp.rs:510
 msgid "Disable NLA"
@@ -5522,9 +5526,7 @@ msgstr "読み込み中…"
 #: rustconn/src/dialogs/log_viewer.rs:368
 msgid ""
 "Could not read the log file: {}. The file may have been moved or deleted."
-msgstr ""
-"ログファイルを読み込めませんでした: {}。ファイルが移動されたか削除されている"
-"可能性があります。"
+msgstr "ログファイルを読み込めませんでした: {}。ファイルが移動されたか削除されている可能性があります。"
 
 #: rustconn/src/dialogs/mod.rs:14
 msgid "Do not play"
@@ -5781,17 +5783,15 @@ msgstr ""
 msgid ""
 "Copied {} credentials. {} could not be read and were left in the machine-"
 "bound file:"
-msgstr ""
-"{}件の資格情報をコピーしました。{}件の資格情報は読み取れなかったため、マシン"
-"固有のファイルに残されました:"
+msgstr "{}件の資格情報をコピーしました。{}件の資格情報は読み取れなかったため、マシン固有のファイルに残されました:"
 
 #: rustconn/src/dialogs/portable_migration.rs:201
 msgid ""
 "These connections still work on this computer. To use them on another "
 "device, open each one and save its password again."
 msgstr ""
-"{}件の資格情報をコピーしました。{}件の資格情報は読み取れなかったため、マシン"
-"固有のファイルに残されました:これらの接続は、このコンピューター上では引き続き"
+"{}件の資格情報をコピーしました。{}件の資格情報は読み取れなかったため、マシン固有のファイルに残されました:これらの接続は、このコンピューター上では引き続"
+"き"
 "利用可能です。他のデバイスで使用するには、それぞれの接続を開き、パスワードを"
 "再保存してください。"
 
@@ -6073,85 +6073,85 @@ msgstr "チェック中…"
 
 #: rustconn/src/dialogs/settings/clients_tab.rs:186
 msgid "Using embedded {} (external not found)"
-msgstr ""
+msgstr "埋め込みクライアントを使用します {} (外部クライアントが見つかりません)"
 
 #: rustconn/src/dialogs/settings/clients_tab.rs:213
 msgid "Using embedded client"
-msgstr ""
+msgstr "埋め込みクライアントを使用します"
 
 #: rustconn/src/dialogs/settings/clients_tab.rs:218
 msgid "Not found"
-msgstr ""
+msgstr "見つかりません"
 
 #: rustconn/src/dialogs/settings/clients_tab.rs:243
 msgid "Embedded"
-msgstr ""
+msgstr "埋め込み"
 
 #: rustconn/src/dialogs/settings/cloud_sync_tab.rs:44
 msgid "Setup"
-msgstr ""
+msgstr "セットアップ"
 
 #: rustconn/src/dialogs/settings/cloud_sync_tab.rs:48
 msgid "Sync Directory"
-msgstr ""
+msgstr "ディレクトリを同期"
 
 #: rustconn/src/dialogs/settings/cloud_sync_tab.rs:55
 #: rustconn/src/dialogs/settings/cloud_sync_tab.rs:57
 msgid "Choose sync directory"
-msgstr ""
+msgstr "同期ディレクトリを選択してください"
 
 #: rustconn/src/dialogs/settings/cloud_sync_tab.rs:69
 #: rustconn/src/window/edit_group.rs:1956
 msgid "Select Sync Directory"
-msgstr ""
+msgstr "同期ディレクトリを選択"
 
 #: rustconn/src/dialogs/settings/cloud_sync_tab.rs:110
 msgid "Device Name"
-msgstr ""
+msgstr "デバイス名"
 
 #: rustconn/src/dialogs/settings/cloud_sync_tab.rs:119
 msgid "Synced Groups"
-msgstr ""
+msgstr "同期されたグループ"
 
 #: rustconn/src/dialogs/settings/cloud_sync_tab.rs:125
 msgid "Available in Cloud"
-msgstr ""
+msgstr "クラウドで利用可能"
 
 #: rustconn/src/dialogs/settings/cloud_sync_tab.rs:126
 msgid "Files in sync directory not yet imported"
-msgstr ""
+msgstr "同期ディレクトリ内のファイルはまだインポートされていません"
 
 #: rustconn/src/dialogs/settings/cloud_sync_tab.rs:132
 msgid "Simple Sync"
-msgstr ""
+msgstr "シンプル同期"
 
 #: rustconn/src/dialogs/settings/cloud_sync_tab.rs:136
 msgid "Sync everything between your devices"
-msgstr ""
+msgstr "すべてのデバイスで同期"
 
 #: rustconn/src/dialogs/settings/cloud_sync_tab.rs:158
 msgid "Master · synced"
-msgstr ""
+msgstr "マスター · 同期済み"
 
 #: rustconn/src/dialogs/settings/cloud_sync_tab.rs:159
 msgid "Import · synced"
-msgstr ""
+msgstr "インポート · 同期済み"
 
 #: rustconn/src/dialogs/settings/cloud_sync_tab.rs:160
 msgid "Sync error"
-msgstr ""
+msgstr "同期エラー"
 
 #: rustconn/src/dialogs/settings/cloud_sync_tab.rs:180
 msgid "Available for import"
-msgstr ""
+msgstr "インポート可能です"
 
 #: rustconn/src/dialogs/settings/cloud_sync_tab.rs:187
 msgid "Import this file as a new group"
-msgstr ""
+msgstr "新しいグループとしてファイルをインポートする"
 
 #: rustconn/src/dialogs/settings/cloud_sync_tab.rs:188
 msgid "Import sync file"
-msgstr ""
+msgstr "同期ファイルをインポートする"
 
 #: rustconn/src/dialogs/settings/cloud_sync_tab.rs:230
 msgid ""
@@ -6165,80 +6165,88 @@ msgid ""
 "Adjust the path if needed to match the actual location on your filesystem. "
 "Then restart RustConn and set the sync directory again."
 msgstr ""
+"Flatpakのサンドボックスは、このディレクトリに直接アクセスできません。ドキュメントポータル経由ではファイル監視機能が動作しない可能性があります。\n"
+"\n"
+"アクセスを許可するには、ターミナルで以下のコマンドを実行して下さい:\n"
+"\n"
+"flatpak override --user --filesystem={} {}\n"
+"\n"
+"必要に応じて、パスを実際のファイルシステムの場所に合わせて調整して下さい。 "
+"その後、RustConnを再起動し、同期ディレクトリを再度設定し直して下さい。"
 
 #: rustconn/src/dialogs/settings/cloud_sync_tab.rs:235
 msgid "Flatpak: filesystem access required"
-msgstr ""
+msgstr "Flatpak: ファイルシステムへのアクセスが必要です"
 
 #: rustconn/src/dialogs/settings/cloud_sync_tab.rs:243
 msgid "Copy Command"
-msgstr ""
+msgstr "コマンドをコピー"
 
 #: rustconn/src/dialogs/settings/keybindings_tab.rs:45
 msgid "Keybindings"
-msgstr ""
+msgstr "キーバインド"
 
 #: rustconn/src/dialogs/settings/keybindings_tab.rs:58
 #: rustconn/src/dialogs/shortcuts.rs:155 rustconn/src/dialogs/shortcuts.rs:303
 #: rustconn/src/split_view/bridge.rs:1992
 msgid "Keyboard Shortcuts"
-msgstr ""
+msgstr "キーボードショートカット"
 
 #: rustconn/src/dialogs/settings/keybindings_tab.rs:97
 msgid "Record"
-msgstr ""
+msgstr "記録"
 
 #: rustconn/src/dialogs/settings/keybindings_tab.rs:99
 msgid "Press a key combination to set a new shortcut"
-msgstr ""
+msgstr "新しく設定するショートカットキーを押してください"
 
 #: rustconn/src/dialogs/settings/keybindings_tab.rs:106
 msgid "Reset to default"
-msgstr ""
+msgstr "デフォルトにリセット"
 
 #: rustconn/src/dialogs/settings/keybindings_tab.rs:110
 msgid "Reset keybinding to default"
-msgstr ""
+msgstr "キーバインドをデフォルトにリセット"
 
 #: rustconn/src/dialogs/settings/keybindings_tab.rs:158
 msgid "Reset All to Defaults"
-msgstr ""
+msgstr "すべてリセット"
 
 #: rustconn/src/dialogs/settings/keybindings_tab.rs:169
 msgid "Reset all shortcuts?"
-msgstr ""
+msgstr "ショートカットをすべてリセットしますか？"
 
 #: rustconn/src/dialogs/settings/keybindings_tab.rs:171
 msgid "All keyboard shortcuts will be restored to their defaults."
-msgstr ""
+msgstr "すべてのキーボードショートカットがリセットされます。"
 
 #: rustconn/src/dialogs/settings/keybindings_tab.rs:175
 msgid "Reset All"
-msgstr ""
+msgstr "すべてリセット"
 
 #: rustconn/src/dialogs/settings/keybindings_tab.rs:230
 msgid "Set Shortcut"
-msgstr ""
+msgstr "ショートカットを設定"
 
 #: rustconn/src/dialogs/settings/keybindings_tab.rs:239
 msgid "Press the new shortcut"
-msgstr ""
+msgstr "設定するショートカットキーを押してください"
 
 #: rustconn/src/dialogs/settings/keybindings_tab.rs:240
 msgid "Press Backspace to reset, or Escape to cancel"
-msgstr ""
+msgstr "リセットするには Backspace キーを、キャンセルするには Escape キーを押してください"
 
 #: rustconn/src/dialogs/settings/keybindings_tab.rs:296
 msgid "Conflicts with: {}"
-msgstr ""
+msgstr "競合: {}"
 
 #: rustconn/src/dialogs/settings/logging_tab.rs:33
 msgid "Persist logs"
-msgstr ""
+msgstr "ログを永続化"
 
 #: rustconn/src/dialogs/settings/logging_tab.rs:34
 msgid "Save session logs to disk"
-msgstr ""
+msgstr "セッションログをディスクに保存"
 
 #: rustconn/src/dialogs/settings/logging_tab.rs:40
 msgid "Relative to config dir or absolute path"
