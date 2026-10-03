@@ -1,22 +1,22 @@
 # Georgian translation for rustconn.
 # Copyright (C) 2026 rustconn's authors
 # This file is distributed under the same license as the rustconn package.
-# SPDX-FileCopyrightText: 2026 ookatu <okatuhumi@gmail.com>
+# ookatu <okatuhumi@gmail.com>, 2026.
 #
 msgid ""
 msgstr ""
 "Project-Id-Version: rustconn 0.22.8\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-03 09:09+0900\n"
-"PO-Revision-Date: 2026-10-03 10:02+0900\n"
-"Last-Translator: ookatuk <okatuhumi@gmail.com>\n"
-"Language-Team: Japanese <>\n"
+"POT-Creation-Date: 2026-10-03 09:46+0900\n"
+"PO-Revision-Date: 2026-10-01 16:01+0900\n"
+"Last-Translator: ookatu <okatuhumi@gmail.com>\n"
+"Language-Team: Japanese\n"
 "Language: ja\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=1; plural=0;\n"
-"X-Generator: Lokalize 26.08.1\n"
+"X-Generator: Gtranslator 50.0\n"
 
 #: rustconn/src/alert.rs:15 rustconn/src/alert.rs:54 rustconn/src/alert.rs:64
 #: rustconn/src/app.rs:1843 rustconn/src/toast.rs:246
@@ -456,11 +456,11 @@ msgstr "SSHを使用しCPU、RAM、ディスク、ネットワークのメトリ
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:325
 msgid "Session Recording"
-msgstr "セッションの記録"
+msgstr "セッションの録画"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:329
 msgid "Record Session"
-msgstr "セッションを記録"
+msgstr "セッションを録画"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:330
 msgid "Save terminal output to file"
@@ -706,7 +706,7 @@ msgstr "起動するまでの待機時間"
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:821
 msgid "Use global setting"
-msgstr "グローバル設定を利用する"
+msgstr ""
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:822
 #: rustconn/src/dialogs/connection/dialog/rows.rs:447
@@ -718,7 +718,7 @@ msgstr "有効"
 #: rustconn/src/dialogs/connection/advanced_tab.rs:823
 #: rustconn/src/dialogs/settings/secrets_tab/mod.rs:3176
 msgid "Disabled"
-msgstr "無効化済み"
+msgstr ""
 
 #: rustconn/src/dialogs/connection/advanced_tab.rs:913
 #: rustconn/src/dialogs/connection/advanced_tab.rs:915
@@ -938,7 +938,8 @@ msgstr "最後の接続のみ"
 #: rustconn/src/dialogs/connection/automation_tab.rs:411
 msgid ""
 "Only run when closing the last connection in a folder (useful for cleanup)"
-msgstr "フォルダー内の最後の接続を閉じる際にのみ実行する (クリーンアップに便利)"
+msgstr ""
+"フォルダー内の最後の接続を閉じる際にのみ実行する (クリーンアップに便利)"
 
 #: rustconn/src/dialogs/connection/automation_tab.rs:456
 msgid "Output Filter"
@@ -1055,7 +1056,8 @@ msgstr "Azure VMの名前とリソースグループは必須です"
 
 #: rustconn/src/dialogs/connection/builders.rs:486
 msgid "OCI bastion OCID, target OCID, and target private IP are required"
-msgstr "OCI BastionのOCID, ターゲットOCID, ターゲットのプライベートIpは必須です"
+msgstr ""
+"OCI BastionのOCID, ターゲットOCID, ターゲットのプライベートIpは必須です"
 
 #: rustconn/src/dialogs/connection/builders.rs:492
 msgid "Cloudflare Access hostname is required"
@@ -1172,7 +1174,8 @@ msgstr "ホストが設定されていません"
 
 #: rustconn/src/dialogs/connection/dialog/build.rs:443
 msgid "Enter the host address first, then detect its MAC."
-msgstr "ホストアドレスを最初に入力してください・MACアドレスは自動検出されます。"
+msgstr ""
+"ホストアドレスを最初に入力してください・MACアドレスは自動検出されます。"
 
 #: rustconn/src/dialogs/connection/dialog/build.rs:461
 msgid "MAC address may be temporary"
@@ -1549,7 +1552,8 @@ msgstr "親グループから継承"
 #: rustconn/src/dialogs/connection/dialog/populate.rs:1147
 #: rustconn/src/dialogs/connection/ssh.rs:332
 msgid "Default tries ~/.ssh/id_rsa, id_ed25519, id_ecdsa automatically"
-msgstr "デフォルトでは、自動的に~/.ssh/id_rsa, id_ed25519, id_ecdsaが試行されます。"
+msgstr ""
+"デフォルトでは、自動的に~/.ssh/id_rsa, id_ed25519, id_ecdsaが試行されます。"
 
 #: rustconn/src/dialogs/connection/dialog/populate.rs:1213
 #: rustconn/src/dialogs/connection/dialog/populate.rs:1230
@@ -1845,7 +1849,7 @@ msgstr "接続"
 
 #: rustconn/src/dialogs/connection/general_tab.rs:169
 msgid "SSH, Well-Known"
-msgstr "SSH, Well-Known"
+msgstr "SSH, ウェルノウンポート"
 
 #: rustconn/src/dialogs/connection/general_tab.rs:176
 #: rustconn/src/dialogs/connection_wizard/auth_page.rs:78
@@ -2058,16 +2062,16 @@ msgstr "説明"
 
 #: rustconn/src/dialogs/connection/general_tab.rs:537
 msgid "Well-Known"
-msgstr "ウェルノン"
+msgstr "ウェルノウンポート"
 
 #: rustconn/src/dialogs/connection/general_tab.rs:539
 msgid "Registered"
-msgstr "登録済み"
+msgstr "登録済みポート "
 
 #: rustconn/src/dialogs/connection/general_tab.rs:541
 #: rustconn/src/window/edit_group.rs:1504
 msgid "Dynamic"
-msgstr "ダイナミック"
+msgstr "ダイナミックポート"
 
 #: rustconn/src/dialogs/connection/kubernetes.rs:47
 #: rustconn/src/dialogs/connection_wizard/connection_page.rs:182
@@ -2137,7 +2141,7 @@ msgstr "一時的なPod"
 
 #: rustconn/src/dialogs/connection/kubernetes.rs:97
 msgid "Run a temporary pod instead of exec into existing"
-msgstr "既存のポッドでexecする代わりに、一時的なポッドで実行"
+msgstr "既存のポッドで実行する代わりに、一時的なポッドで実行"
 
 #: rustconn/src/dialogs/connection/kubernetes.rs:102
 msgid "Busybox Mode"
@@ -2560,13 +2564,18 @@ msgid "Kerberos Authentication"
 msgstr "Kerberos認証"
 
 #: rustconn/src/dialogs/connection/rdp.rs:483
+#, fuzzy
 msgid ""
 "Use Kerberos for NLA instead of NTLM (Embedded client). Required for AD "
 "\"Protected Users\". Signs in with the saved password; Host must be the "
 "server's DNS name"
 msgstr ""
+"NLAにNTLMではなくKerberosを使用します (組み込みクライアント向け)。ADの\"保護"
+"されたユーザー\"機能を使用する場合に必須であり、有効なKerberosチケット(kinit)"
+"が必要です。"
 
 #: rustconn/src/dialogs/connection/rdp.rs:493
+#, fuzzy
 msgid "KDC Address"
 msgstr "MACアドレス"
 
@@ -2617,7 +2626,8 @@ msgstr "証明書を受け入れる"
 
 #: rustconn/src/dialogs/connection/rdp.rs:584
 msgid "Accept changed/self-signed certificates (removes stored fingerprint)"
-msgstr "自己署名や変更された証明書を許可する (保存済みのフィンガープリントを削除)"
+msgstr ""
+"自己署名や変更された証明書を許可する (保存済みのフィンガープリントを削除)"
 
 #: rustconn/src/dialogs/connection/rdp.rs:593
 msgid "gateway.example.com"
@@ -2910,7 +2920,7 @@ msgstr "RDPサーバーに送信されるキーボード配列(自動の場合�
 #: rustconn/src/dialogs/connection/zerotrust.rs:194
 #: rustconn/src/dialogs/template.rs:944 rustconn/src/dialogs/template.rs:1459
 msgid "Additional command-line arguments"
-msgstr "追加のコマンドライン引数"
+msgstr "追加の引数"
 
 #: rustconn/src/dialogs/connection/rdp.rs:863
 #: rustconn/src/dialogs/template.rs:950
@@ -3195,7 +3205,8 @@ msgstr "権限の昇格"
 #: rustconn/src/dialogs/connection/ssh.rs:184
 msgid ""
 "Answer sudo, su and doas password prompts with this connection's password"
-msgstr "sudo, su, doasのパスワード要求に対し、接続に使用したパスワードを自動送信する"
+msgstr ""
+"sudo, su, doasのパスワード要求に対し、接続に使用したパスワードを自動送信する"
 
 #: rustconn/src/dialogs/connection/ssh.rs:189
 msgid "Inject Password at Escalation Prompts"
@@ -3233,7 +3244,8 @@ msgstr "カスタムプロンプトパターン"
 
 #: rustconn/src/dialogs/connection/ssh.rs:233
 msgid "One regex per line; empty means the built-in patterns"
-msgstr "1行につき1つの正規表現を記述します。空行はデフォルトのパターンを意味します。"
+msgstr ""
+"1行につき1つの正規表現を記述します。空行はデフォルトのパターンを意味します。"
 
 #: rustconn/src/dialogs/connection/ssh.rs:299
 #: rustconn/src/dialogs/connection_wizard/auth_page.rs:107
@@ -3459,7 +3471,8 @@ msgstr "トラブルシューティング用にSSHのデバッグ出力を表示
 
 #: rustconn/src/dialogs/connection/ssh.rs:689
 msgid "Use multiple network paths for mobility and aggregation (mptcpize run)"
-msgstr "モビリティと帯域のために複数のネットワークパスを使用する（mptcpize run）"
+msgstr ""
+"モビリティと帯域のために複数のネットワークパスを使用する（mptcpize run）"
 
 #: rustconn/src/dialogs/connection/ssh.rs:692
 msgid ""
@@ -3659,261 +3672,265 @@ msgstr "外部のビューアーの実行ファイル。利用可能なものか
 #: rustconn/src/dialogs/connection/vnc.rs:146
 #: rustconn/src/dialogs/template.rs:1041 rustconn/src/dialogs/template.rs:1052
 msgid "Encoding"
-msgstr ""
+msgstr "エンコード"
 
 #: rustconn/src/dialogs/connection/vnc.rs:148
 msgid "Preferred encoding method (overrides Performance Mode)"
-msgstr ""
+msgstr "優先エンコード方式 (パフォーマンスモードの設定を上書きします)"
 
 #: rustconn/src/dialogs/connection/vnc.rs:167
 msgid "Override HiDPI scaling for embedded viewer"
-msgstr ""
+msgstr "埋め込みビューアーのHiDPIスケーリングを上書き"
 
 #: rustconn/src/dialogs/connection/vnc.rs:184
 #: rustconn/src/dialogs/connection/vnc.rs:213
 msgid "Quality"
-msgstr ""
+msgstr "クオリティ"
 
 #: rustconn/src/dialogs/connection/vnc.rs:198
 msgid "0 (none) to 9 (maximum)"
-msgstr ""
+msgstr "0 (なし) ~ 9 (最大)"
 
 #: rustconn/src/dialogs/connection/vnc.rs:214
 msgid "0 (lowest) to 9 (highest)"
-msgstr ""
+msgstr "0 (最も悪い) ~ 9 (最も良い)"
 
 #: rustconn/src/dialogs/connection/vnc.rs:241
 msgid "View-Only Mode"
-msgstr ""
+msgstr "閲覧専用モード"
 
 #: rustconn/src/dialogs/connection/vnc.rs:242
 #: rustconn/src/dialogs/template.rs:1100
 msgid "Disable keyboard and mouse input"
-msgstr ""
+msgstr "キーボードとマウスの入力を無効にする"
 
 #: rustconn/src/dialogs/connection/vnc.rs:249
 #: rustconn/src/dialogs/template.rs:1031
 msgid "Scale Display"
-msgstr ""
+msgstr "スケール表示"
 
 #: rustconn/src/dialogs/connection/vnc.rs:250
 msgid "Fit remote desktop to window size"
-msgstr ""
+msgstr "リモートデスクトップをウィンドウサイズに合わせる"
 
 #: rustconn/src/dialogs/connection/vnc.rs:286
 msgid "Accept self-signed or untrusted TLS certificates from VNC server"
-msgstr ""
+msgstr "VNCサーバーからの自己署名または信頼されていないTLS証明書を受け入れる"
 
 #: rustconn/src/dialogs/connection/vnc.rs:308
 msgid "VNC uses the connection password for authentication"
-msgstr ""
+msgstr "VNCは認証に接続パスワードを使用します"
 
 #: rustconn/src/dialogs/connection/vnc.rs:323
 msgid "Additional arguments for external client"
-msgstr ""
+msgstr "外部クライアントの追加引数"
 
 #: rustconn/src/dialogs/connection/vnc.rs:329
 msgid "Extra command-line options for vncviewer"
-msgstr ""
+msgstr "vncviewer用の追加引数"
 
 #: rustconn/src/dialogs/connection/vnc.rs:352
 msgid "Tunnel VNC through an SSH connection"
-msgstr ""
+msgstr "SSH接続経由でVNCをトンネルする"
 
 #: rustconn/src/dialogs/connection/web.rs:52
 msgid "Browser Mode"
-msgstr ""
+msgstr "ブラウザーモード"
 
 #: rustconn/src/dialogs/connection/web.rs:53
 msgid "Choose how the URL is opened"
-msgstr ""
+msgstr "URLを開く方法を選択"
 
 #: rustconn/src/dialogs/connection/web.rs:63
 msgid "Custom Browser"
-msgstr ""
+msgstr "カスタムブラウザー"
 
 #: rustconn/src/dialogs/connection/web.rs:65
 msgid "Specify a browser command when Custom mode is selected."
 msgstr ""
+"カスタムモードが選択されている場合に使用する、ブラウザーのコマンドの設定"
 
 #: rustconn/src/dialogs/connection/web.rs:69
 msgid "Browser Command"
-msgstr ""
+msgstr "ブラウザーコマンド"
 
 #: rustconn/src/dialogs/connection/web.rs:71
 msgid "Command or path to browser binary (e.g. firefox, chromium)"
-msgstr ""
+msgstr "ブラウザの実行ファイルへのコマンドまたはパス (例: firefox, chromium)"
 
 #: rustconn/src/dialogs/connection/web.rs:73
 msgid "Required for Custom mode"
-msgstr ""
+msgstr "カスタムモードの場合は必須です"
 
 #: rustconn/src/dialogs/connection/web.rs:81
 msgid "Embedded Browser Settings"
-msgstr ""
+msgstr "埋め込みブラウザの設定"
 
 #: rustconn/src/dialogs/connection/web.rs:82
 msgid "Settings applied when using the embedded browser"
-msgstr ""
+msgstr "埋め込みブラウザーを使用する際に適用される設定"
 
 #: rustconn/src/dialogs/connection/web.rs:91
 msgid "User Agent"
-msgstr ""
+msgstr "ユーザーエージェント"
 
 #: rustconn/src/dialogs/connection/web.rs:105
 msgid "Tunnel Through SSH"
-msgstr ""
+msgstr "SSHトンネル"
 
 #: rustconn/src/dialogs/connection/web.rs:107
 msgid ""
 "Browse via a SOCKS proxy over the chosen SSH connection (embedded or "
 "Chromium browser)"
 msgstr ""
+"選択したSSH接続を経由するSOCKSプロキシを使用してブラウジングする (組み込みブ"
+"ラウザまたはChromiumブラウザで有効)"
 
 #: rustconn/src/dialogs/connection/web.rs:130
 #: rustconn/src/dialogs/settings/monitoring_tab.rs:58
 #: rustconn/src/dialogs/tunnel_builder/step_connection.rs:71
 msgid "General"
-msgstr ""
+msgstr "一般"
 
 #: rustconn/src/dialogs/connection/web.rs:195
 msgid "How the URL is opened"
-msgstr ""
+msgstr "URLを開くときの動作"
 
 #: rustconn/src/dialogs/connection/zerotrust.rs:78
 #: rustconn/src/dialogs/connection_wizard/connection_page.rs:226
 #: rustconn/src/dialogs/template.rs:1349
 msgid "Provider"
-msgstr ""
+msgstr "プロパイダー"
 
 #: rustconn/src/dialogs/connection/zerotrust.rs:82
 #: rustconn/src/dialogs/connection/zerotrust.rs:250
 #: rustconn/src/dialogs/template.rs:1514
 msgid "AWS Session Manager"
-msgstr ""
+msgstr "AWS Systems Manager"
 
+# 公式表記の"GCPのIAP転送"という言い方にしていますが、"GCP IAP転送"などの他の言い方のほうが自然でしたらそちらを採用してください。
 #: rustconn/src/dialogs/connection/zerotrust.rs:83
 #: rustconn/src/dialogs/connection/zerotrust.rs:273
 #: rustconn/src/dialogs/template.rs:1563
 msgid "GCP IAP Tunnel"
-msgstr ""
+msgstr "GCPのIAP転送"
 
 #: rustconn/src/dialogs/connection/zerotrust.rs:84
 #: rustconn/src/dialogs/connection/zerotrust.rs:297
 #: rustconn/src/dialogs/template.rs:1611
 msgid "Azure Bastion"
-msgstr ""
+msgstr "Azure Bastion"
 
 #: rustconn/src/dialogs/connection/zerotrust.rs:85
 #: rustconn/src/dialogs/connection/zerotrust.rs:323
 #: rustconn/src/dialogs/template.rs:1659
 msgid "Azure SSH (AAD)"
-msgstr ""
+msgstr "Azure SSH (旧AAD認証)"
 
 #: rustconn/src/dialogs/connection/zerotrust.rs:86
 #: rustconn/src/dialogs/connection/zerotrust.rs:351
 #: rustconn/src/dialogs/template.rs:1699
 msgid "OCI Bastion"
-msgstr ""
+msgstr "OCI Bastion"
 
 #: rustconn/src/dialogs/connection/zerotrust.rs:87
 #: rustconn/src/dialogs/connection/zerotrust.rs:396
 #: rustconn/src/dialogs/template.rs:1747
 msgid "Cloudflare Access"
-msgstr ""
+msgstr "Cloudflare Access"
 
 #: rustconn/src/dialogs/connection/zerotrust.rs:88
 #: rustconn/src/dialogs/connection/zerotrust.rs:412
 #: rustconn/src/dialogs/template.rs:1771
 msgid "Teleport"
-msgstr ""
+msgstr "Teleport"
 
 #: rustconn/src/dialogs/connection/zerotrust.rs:89
 #: rustconn/src/dialogs/connection/zerotrust.rs:431
 #: rustconn/src/dialogs/template.rs:1807
 msgid "Tailscale SSH"
-msgstr ""
+msgstr "Tailscale SSH"
 
 #: rustconn/src/dialogs/connection/zerotrust.rs:90
 #: rustconn/src/dialogs/connection/zerotrust.rs:449
 #: rustconn/src/dialogs/template.rs:1831
 msgid "HashiCorp Boundary"
-msgstr ""
+msgstr "HashiCorp Boundary"
 
 #: rustconn/src/dialogs/connection/zerotrust.rs:91
 #: rustconn/src/dialogs/connection/zerotrust.rs:470
 #: rustconn/src/dialogs/template.rs:1867
 msgid "Hoop.dev"
-msgstr ""
+msgstr "Hoop.dev"
 
 #: rustconn/src/dialogs/connection/zerotrust.rs:92
 #: rustconn/src/dialogs/connection/zerotrust.rs:494
 #: rustconn/src/dialogs/template.rs:1363 rustconn/src/dialogs/template.rs:1920
 msgid "Generic Command"
-msgstr ""
+msgstr "汎用コマンド"
 
 #: rustconn/src/dialogs/connection/zerotrust.rs:101
 #: rustconn/src/dialogs/template.rs:1370
 msgid "Zero Trust Provider"
-msgstr ""
+msgstr "ゼロトラストプロパイダー"
 
 #: rustconn/src/dialogs/connection/zerotrust.rs:102
 #: rustconn/src/dialogs/template.rs:1371
 msgid "Select your identity-aware proxy service"
-msgstr ""
+msgstr "ID認識型プロキシサービスの選択"
 
 #: rustconn/src/dialogs/connection/zerotrust.rs:200
 msgid "Extra CLI options for the provider command"
-msgstr ""
+msgstr "プロバイダーコマンドの追加引数"
 
 #: rustconn/src/dialogs/connection/zerotrust.rs:251
 msgid "Connect via AWS Systems Manager"
-msgstr ""
+msgstr "AWS Systems Managerを利用して接続"
 
 #: rustconn/src/dialogs/connection/zerotrust.rs:254
 #: rustconn/src/dialogs/template.rs:1523
 msgid "Instance ID"
-msgstr ""
+msgstr "インスタンスID"
 
 #: rustconn/src/dialogs/connection/zerotrust.rs:257
 #: rustconn/src/dialogs/template.rs:1536
 msgid "AWS Profile"
-msgstr ""
+msgstr "AWSプロファイル"
 
 #: rustconn/src/dialogs/connection/zerotrust.rs:261
 #: rustconn/src/dialogs/connection_wizard/connection_page.rs:734
 #: rustconn/src/dialogs/template.rs:1548
 msgid "Region"
-msgstr ""
+msgstr "地域"
 
 #: rustconn/src/dialogs/connection/zerotrust.rs:274
 msgid "Connect via Identity-Aware Proxy"
-msgstr ""
+msgstr "Identity-Aware Proxyを利用して接続"
 
 #: rustconn/src/dialogs/connection/zerotrust.rs:278
 msgid "Instance Name"
-msgstr ""
+msgstr "インスタンス名"
 
 #: rustconn/src/dialogs/connection/zerotrust.rs:282
 #: rustconn/src/dialogs/connection_wizard/connection_page.rs:742
 #: rustconn/src/dialogs/template.rs:1584
 msgid "Zone"
-msgstr ""
+msgstr "ゾーン"
 
 #: rustconn/src/dialogs/connection/zerotrust.rs:285
 #: rustconn/src/dialogs/connection_wizard/connection_page.rs:744
 #: rustconn/src/dialogs/template.rs:1596
 msgid "Project"
-msgstr ""
+msgstr "プロジェクト"
 
 #: rustconn/src/dialogs/connection/zerotrust.rs:298
 msgid "Connect via Azure Bastion service"
-msgstr ""
+msgstr "Azure Bastionを利用して接続"
 
 #: rustconn/src/dialogs/connection/zerotrust.rs:302
 #: rustconn/src/dialogs/template.rs:1620
 msgid "Target Resource ID"
-msgstr ""
+msgstr "ターゲットリソースID"
 
 #: rustconn/src/dialogs/connection/zerotrust.rs:307
 #: rustconn/src/dialogs/connection/zerotrust.rs:331
@@ -3921,131 +3938,131 @@ msgstr ""
 #: rustconn/src/dialogs/connection_wizard/connection_page.rs:758
 #: rustconn/src/dialogs/template.rs:1632 rustconn/src/dialogs/template.rs:1680
 msgid "Resource Group"
-msgstr ""
+msgstr "リソースグループ"
 
 #: rustconn/src/dialogs/connection/zerotrust.rs:311
 #: rustconn/src/dialogs/connection_wizard/connection_page.rs:752
 #: rustconn/src/dialogs/template.rs:1644
 msgid "Bastion Name"
-msgstr ""
+msgstr "Bastion名"
 
 #: rustconn/src/dialogs/connection/zerotrust.rs:324
 msgid "Connect via Azure AD authentication"
-msgstr ""
+msgstr "Azure AD認証を利用して接続"
 
 #: rustconn/src/dialogs/connection/zerotrust.rs:327
 #: rustconn/src/dialogs/connection_wizard/connection_page.rs:756
 #: rustconn/src/dialogs/template.rs:1668
 msgid "VM Name"
-msgstr ""
+msgstr "VM名"
 
 #: rustconn/src/dialogs/connection/zerotrust.rs:352
 msgid "Connect via Oracle Cloud Bastion"
-msgstr ""
+msgstr "Oracle Cloud Bastionを利用して接続"
 
 #: rustconn/src/dialogs/connection/zerotrust.rs:355
 #: rustconn/src/dialogs/template.rs:1708
 msgid "Bastion OCID"
-msgstr ""
+msgstr "Bastion OCID"
 
 #: rustconn/src/dialogs/connection/zerotrust.rs:358
 #: rustconn/src/dialogs/template.rs:1720
 msgid "Target OCID"
-msgstr ""
+msgstr "対象のOCID"
 
 #: rustconn/src/dialogs/connection/zerotrust.rs:361
 #: rustconn/src/dialogs/template.rs:1732
 msgid "Target IP"
-msgstr ""
+msgstr "対象のIP"
 
 #: rustconn/src/dialogs/connection/zerotrust.rs:366
 msgid "SSH Public Key"
-msgstr ""
+msgstr "SSH公開鍵"
 
 #: rustconn/src/dialogs/connection/zerotrust.rs:374
 msgid "Session TTL"
-msgstr ""
+msgstr "セッションの有効期限"
 
 #: rustconn/src/dialogs/connection/zerotrust.rs:375
 msgid "Session duration in seconds (default: 1800)"
-msgstr ""
+msgstr "セッションの有効期限(秒) (デフォルト：1800)"
 
 #: rustconn/src/dialogs/connection/zerotrust.rs:397
 msgid "Connect via Cloudflare Zero Trust"
-msgstr ""
+msgstr "Cloudflare Zero Trustを利用して接続"
 
 #: rustconn/src/dialogs/connection/zerotrust.rs:400
 #: rustconn/src/dialogs/connection_wizard/connection_page.rs:762
 #: rustconn/src/dialogs/template.rs:1756 rustconn/src/monitoring.rs:357
 msgid "Hostname"
-msgstr ""
+msgstr "ホスト名"
 
 #: rustconn/src/dialogs/connection/zerotrust.rs:413
 msgid "Connect via Gravitational Teleport"
-msgstr ""
+msgstr "Gravitational Teleportを利用して接続"
 
 #: rustconn/src/dialogs/connection/zerotrust.rs:416
 msgid "Node Name"
-msgstr ""
+msgstr "ノード名"
 
 #: rustconn/src/dialogs/connection/zerotrust.rs:419
 #: rustconn/src/dialogs/connection_wizard/connection_page.rs:768
 #: rustconn/src/dialogs/template.rs:1792
 msgid "Cluster"
-msgstr ""
+msgstr "クラスター名"
 
 #: rustconn/src/dialogs/connection/zerotrust.rs:432
 msgid "Connect via Tailscale network"
-msgstr ""
+msgstr "Tailscale networkを利用して接続"
 
 #: rustconn/src/dialogs/connection/zerotrust.rs:436
 #: rustconn/src/dialogs/template.rs:1816
 msgid "Tailscale Host"
-msgstr ""
+msgstr "Tailscaleホスト名"
 
 #: rustconn/src/dialogs/connection/zerotrust.rs:450
 msgid "Connect via Boundary proxy"
-msgstr ""
+msgstr "Boundary proxyを利用して接続"
 
 #: rustconn/src/dialogs/connection/zerotrust.rs:453
 #: rustconn/src/dialogs/connection_wizard/connection_page.rs:732
 #: rustconn/src/dialogs/connection_wizard/connection_page.rs:776
 #: rustconn/src/dialogs/template.rs:1840
 msgid "Target ID"
-msgstr ""
+msgstr "ターゲットID"
 
 #: rustconn/src/dialogs/connection/zerotrust.rs:457
 msgid "Controller Address"
-msgstr ""
+msgstr "コントローラーアドレス1"
 
 #: rustconn/src/dialogs/connection/zerotrust.rs:471
 msgid "Connect via Hoop.dev zero-trust gateway"
-msgstr ""
+msgstr "Hoop.dev zero-trust gatewayを利用して接続"
 
 #: rustconn/src/dialogs/connection/zerotrust.rs:475
 #: rustconn/src/dialogs/connection_wizard/connection_page.rs:782
 #: rustconn/src/dialogs/template.rs:1876
 msgid "Connection Name"
-msgstr ""
+msgstr "接続名"
 
 #: rustconn/src/dialogs/connection/zerotrust.rs:479
 #: rustconn/src/dialogs/connection_wizard/connection_page.rs:784
 #: rustconn/src/dialogs/template.rs:1888
 msgid "Gateway URL"
-msgstr ""
+msgstr "ゲートウェイのURL"
 
 #: rustconn/src/dialogs/connection/zerotrust.rs:482
 #: rustconn/src/dialogs/template.rs:1900
 msgid "gRPC URL"
-msgstr ""
+msgstr "gRPCのURL"
 
 #: rustconn/src/dialogs/connection/zerotrust.rs:495
 msgid "Custom command for unsupported providers"
-msgstr ""
+msgstr "サポートされていないプロバイダー向けのコマンド"
 
 #: rustconn/src/dialogs/connection/zerotrust.rs:499
 msgid "Command Template"
-msgstr ""
+msgstr "コマンドテンプレート"
 
 #: rustconn/src/dialogs/connection/zerotrust.rs:502
 #: rustconn/src/dialogs/connection_wizard/connection_page.rs:240
@@ -4054,42 +4071,44 @@ msgid ""
 "tab; ${host}, ${port}, ${username} and ${name} come from the connection "
 "itself"
 msgstr ""
+"${id} などのプレースホルダーはデータ タブのローカル変数から取得され、$"
+"{host}、${port}、${username}、${name} は接続時のデータから取得されます。"
 
 #: rustconn/src/dialogs/connection_wizard/auth_page.rs:68
 #: rustconn/src/dialogs/export.rs:779
 #: rustconn/src/dialogs/tunnel_builder/step_review.rs:74
 msgid "Summary"
-msgstr ""
+msgstr "概要"
 
 #: rustconn/src/dialogs/connection_wizard/auth_page.rs:113
 #: rustconn/src/dialogs/connection_wizard/auth_page.rs:356
 msgid "No file selected"
-msgstr ""
+msgstr "ファイルが選択されていません。"
 
 #: rustconn/src/dialogs/connection_wizard/auth_page.rs:120
 #: rustconn/src/dialogs/connection_wizard/auth_page.rs:122
 msgid "Choose key file"
-msgstr ""
+msgstr "鍵ファイルを選択"
 
 #: rustconn/src/dialogs/connection_wizard/auth_page.rs:135
 #: rustconn/src/dialogs/settings/ui_tab.rs:93
 msgid "Appearance"
-msgstr ""
+msgstr "外観"
 
 #: rustconn/src/dialogs/connection_wizard/auth_page.rs:145
 msgid "Visual color scheme for this connection"
-msgstr ""
+msgstr "この接続につかうターミナルの配色"
 
 #: rustconn/src/dialogs/connection_wizard/auth_page.rs:152
 #: rustconn/src/dialogs/template.rs:520
 msgid "Emoji or icon name (optional)"
-msgstr ""
+msgstr "絵文字またはアイコン名 (任意)"
 
 #: rustconn/src/dialogs/connection_wizard/auth_page.rs:164
 #: rustconn/src/dialogs/connection_wizard/connection_page.rs:409
 #: rustconn/src/dialogs/connection_wizard/protocol_page.rs:202
 msgid "Advanced…"
-msgstr ""
+msgstr "高度な設定…"
 
 #: rustconn/src/dialogs/connection_wizard/auth_page.rs:167
 #: rustconn/src/dialogs/connection_wizard/auth_page.rs:169
@@ -4098,127 +4117,127 @@ msgstr ""
 #: rustconn/src/dialogs/connection_wizard/protocol_page.rs:205
 #: rustconn/src/dialogs/connection_wizard/protocol_page.rs:207
 msgid "Open full connection editor"
-msgstr ""
+msgstr "完全な接続エディターを開く"
 
 #: rustconn/src/dialogs/connection_wizard/auth_page.rs:178
 #: rustconn/src/dialogs/connection_wizard/auth_page.rs:180
 msgid "Save without connecting"
-msgstr ""
+msgstr "保存せずに接続"
 
 #: rustconn/src/dialogs/connection_wizard/auth_page.rs:184
 #: rustconn/src/dialogs/variable_setup.rs:86
 msgid "Save & Connect"
-msgstr ""
+msgstr "保存して接続"
 
 #: rustconn/src/dialogs/connection_wizard/auth_page.rs:186
 #: rustconn/src/dialogs/connection_wizard/auth_page.rs:188
 msgid "Save and connect immediately"
-msgstr ""
+msgstr "保存して直ちに接続"
 
 #: rustconn/src/dialogs/connection_wizard/auth_page.rs:205
 #: rustconn/src/dialogs/connection_wizard/auth_page.rs:390
 msgid "Finish"
-msgstr ""
+msgstr "終了"
 
 #: rustconn/src/dialogs/connection_wizard/auth_page.rs:247
 #: rustconn/src/dialogs/settings/ssh_agent_tab.rs:599
 msgid "Select SSH Key File"
-msgstr ""
+msgstr "SSH鍵ファイルを選択"
 
 #: rustconn/src/dialogs/connection_wizard/connection_page.rs:105
 msgid "Optional — auto-generated if empty"
-msgstr ""
+msgstr "任意 (空欄の場合自動生成されます)"
 
 #: rustconn/src/dialogs/connection_wizard/connection_page.rs:123
 msgid "Default: {}"
-msgstr ""
+msgstr "デフォルト: {}"
 
 #: rustconn/src/dialogs/connection_wizard/connection_page.rs:148
 msgid "Connect via SSH tunnel"
-msgstr ""
+msgstr "SSHトンネルを使用して接続"
 
 #: rustconn/src/dialogs/connection_wizard/connection_page.rs:158
 msgid "Serial Connection"
-msgstr ""
+msgstr "シリアル接続"
 
 #: rustconn/src/dialogs/connection_wizard/connection_page.rs:187
 msgid "Leave empty for current context"
-msgstr ""
+msgstr "現在のコンテキストを使用する場合は空欄にしてください。"
 
 #: rustconn/src/dialogs/connection_wizard/connection_page.rs:200
 msgid "Leave empty for first container"
-msgstr ""
+msgstr "最初のコンテナの場合は空欄のままにしてください"
 
 #: rustconn/src/dialogs/connection_wizard/connection_page.rs:212
 #: rustconn/src/dialogs/connection_wizard/connection_page.rs:673
 #: rustconn/src/dialogs/connection_wizard/connection_page.rs:687
 msgid "Custom Command"
-msgstr ""
+msgstr "カスタムコマンド"
 
 #: rustconn/src/dialogs/connection_wizard/connection_page.rs:227
 msgid "Run any command for connection"
-msgstr ""
+msgstr "接続時に実行する任意のコマンド"
 
 #: rustconn/src/dialogs/connection_wizard/connection_page.rs:256
 msgid "Web Bookmark"
-msgstr ""
+msgstr "Webブックマーク"
 
 #: rustconn/src/dialogs/connection_wizard/connection_page.rs:269
 #: rustconn/src/dialogs/tunnel_builder/step_connection.rs:190
 #: rustconn/src/dialogs/tunnel_builder/step_forwards.rs:219
 msgid "Next"
-msgstr ""
+msgstr "次へ"
 
 #: rustconn/src/dialogs/connection_wizard/connection_page.rs:286
 msgid "Templates"
-msgstr ""
+msgstr "テンプレート"
 
 #: rustconn/src/dialogs/connection_wizard/connection_page.rs:437
 msgid "Connection Details"
-msgstr ""
+msgstr "接続情報"
 
 #: rustconn/src/dialogs/connection_wizard/connection_page.rs:570
 msgid "Uses SSH for handshake, then switches to UDP"
-msgstr ""
+msgstr "ハンドシェイク時にSSHを使用し、その後UDPに切り替え"
 
 #: rustconn/src/dialogs/connection_wizard/connection_page.rs:574
 msgid "File browser over SSH connection"
-msgstr ""
+msgstr "SSH接続を経由してファイルブラウザで開く"
 
 #: rustconn/src/dialogs/connection_wizard/connection_page.rs:658
 msgid "{} Connection"
-msgstr ""
+msgstr "{} 接続"
 
 #: rustconn/src/dialogs/connection_wizard/connection_page.rs:736
 msgid "Profile"
-msgstr ""
+msgstr "プロファイル"
 
 #: rustconn/src/dialogs/connection_wizard/connection_page.rs:740
 #: rustconn/src/dialogs/template.rs:1572
 msgid "Instance"
-msgstr ""
+msgstr "インスタンス"
 
 #: rustconn/src/dialogs/connection_wizard/connection_page.rs:748
 msgid "Resource ID"
-msgstr ""
+msgstr "リソースID"
 
 #: rustconn/src/dialogs/connection_wizard/connection_page.rs:778
 #: rustconn/src/window/copy_field_actions.rs:81
 msgid "Address"
-msgstr ""
+msgstr "アドレス"
 
 #: rustconn/src/dialogs/connection_wizard/connection_page.rs:1000
 msgid "More…"
-msgstr ""
+msgstr "他…"
 
 #: rustconn/src/dialogs/connection_wizard/connection_page.rs:1008
 #: rustconn/src/dialogs/connection_wizard/connection_page.rs:1013
 msgid "Browse all predefined templates"
-msgstr ""
+msgstr "すべての定義済みテンプレートを見る"
 
 #: rustconn/src/dialogs/connection_wizard/connection_page.rs:1064
 msgid "Your Templates"
-msgstr ""
+msgstr "作成したテンプレート"
 
 #: rustconn/src/dialogs/connection_wizard/mod.rs:453
 #: rustconn/src/dialogs/connection_wizard/protocol_page.rs:224
@@ -4226,49 +4245,51 @@ msgstr ""
 #: rustconn/src/sidebar_ui.rs:508 rustconn/src/split_view/bridge.rs:1830
 #: rustconn/src/window/ui.rs:75 rustconn/src/window/ui.rs:269
 msgid "New Connection"
-msgstr ""
+msgstr "新規接続"
 
 #: rustconn/src/dialogs/connection_wizard/mod.rs:846
 msgid "Duplicate Connection"
-msgstr ""
+msgstr "接続を複製"
 
 #: rustconn/src/dialogs/connection_wizard/protocol_page.rs:277
 msgid "{} connection"
-msgstr ""
+msgstr "{} 接続"
 
 #: rustconn/src/dialogs/credential_transfer.rs:77
 msgid "Copy Stored Passwords"
-msgstr ""
+msgstr "保存されたパスワードをコピー"
 
 #: rustconn/src/dialogs/credential_transfer.rs:79
 msgid ""
 "Copies the passwords of every connection, group and secret variable that "
 "uses the password store. The originals are left where they are."
 msgstr ""
+"パスワードストアを使用しているすべての接続、グループ、シークレット変数、パス"
+"ワードをすべてコピーします。コピー元のパスワードは残ります。"
 
 #: rustconn/src/dialogs/credential_transfer.rs:88
 msgid "From"
-msgstr ""
+msgstr "コピー本"
 
 #: rustconn/src/dialogs/credential_transfer.rs:89
 msgid "Where the passwords are now"
-msgstr ""
+msgstr "パスワードのコピー元"
 
 #: rustconn/src/dialogs/credential_transfer.rs:94
 msgid "To"
-msgstr ""
+msgstr "コピー先"
 
 #: rustconn/src/dialogs/credential_transfer.rs:95
 msgid "Where they should also be"
-msgstr ""
+msgstr "パスワードのコピー先"
 
 #: rustconn/src/dialogs/credential_transfer.rs:108
 msgid "Entries to copy"
-msgstr ""
+msgstr "コピーするエントリー数"
 
 #: rustconn/src/dialogs/credential_transfer.rs:119
 msgid "Portable file passphrase"
-msgstr ""
+msgstr "Portable file passphrase"
 
 #: rustconn/src/dialogs/credential_transfer.rs:142
 #: rustconn/src/dialogs/credential_transfer.rs:458
@@ -4277,20 +4298,20 @@ msgstr ""
 #: rustconn/src/sidebar_ui.rs:262 rustconn/src/terminal/config.rs:284
 #: rustconn/src/terminal/tab_menu.rs:952 rustconn/src/terminal/tab_menu.rs:956
 msgid "Copy"
-msgstr ""
+msgstr "コピー"
 
 #: rustconn/src/dialogs/credential_transfer.rs:152
 #: rustconn/src/terminal/playback.rs:264 rustconn/src/window/mod.rs:964
 msgid "Stop"
-msgstr ""
+msgstr "止める"
 
 #: rustconn/src/dialogs/credential_transfer.rs:156
 msgid "Transfer Credentials"
-msgstr ""
+msgstr "資格情報の転送"
 
 #: rustconn/src/dialogs/credential_transfer.rs:201
 msgid "Choose two different password stores"
-msgstr ""
+msgstr "2つの異なるパスワードストアを選択してください。"
 
 #: rustconn/src/dialogs/credential_transfer.rs:223
 msgid ""
@@ -4298,51 +4319,62 @@ msgid ""
 "would overwrite the other. Rename one of them, or choose a destination that "
 "keeps groups apart."
 msgstr ""
+"これらのエントリーは移動先の同じ場所に配置されるため、一方が上書きされてしま"
+"います。どちらか一方の名前を変更するか、グループが重ならないような移動先を選"
+"択してください。"
 
 #: rustconn/src/dialogs/credential_transfer.rs:238
 msgid ""
 "No connection, group or variable is set to use the password store, so there "
 "is nothing to copy."
 msgstr ""
+"パスワードストアを使用するように設定された接続、グループ、変数は存在しないた"
+"め、コピーするものは何もありません。"
 
 #: rustconn/src/dialogs/credential_transfer.rs:279
 msgid "Stopping after the entry in progress…"
-msgstr ""
+msgstr "進行中のエントリーを停止中…"
 
 #: rustconn/src/dialogs/credential_transfer.rs:310
 #: rustconn/src/dialogs/credential_transfer.rs:583
 msgid "Enter the passphrase that protects the portable file"
-msgstr ""
+msgstr "ポータブルファイルを保護するパスフレーズを入力してください"
 
 #: rustconn/src/dialogs/credential_transfer.rs:365
 msgid "Copying… {} of {}"
-msgstr ""
+msgstr "コピー中… {} / {}"
 
 #: rustconn/src/dialogs/credential_transfer.rs:430
 msgid ""
 "{} entries will be read from {} and written to {}. Nothing is removed from "
 "{}."
 msgstr ""
+"{} 個の項目が {} から読み込まれ、{} に書き込まれます。{} からは何も削除されま"
+"せん。"
 
 #: rustconn/src/dialogs/credential_transfer.rs:451
 msgid "Destination file: {}"
-msgstr ""
+msgstr "出力先ファイル: {}"
 
 #: rustconn/src/dialogs/credential_transfer.rs:456
 msgid "Copy stored passwords?"
-msgstr ""
+msgstr "保存されたパスワードをコピーしますか?"
 
 #: rustconn/src/dialogs/credential_transfer.rs:558
 msgid ""
 "The copy did not finish. Some entries may already have been copied; running "
 "it again completes it."
 msgstr ""
+"コピー処理が完了しませんでした。一部の項目は既にコピーされている可能性があり"
+"ます。もう一度実行すると残りの処理が完了します。"
 
 #: rustconn/src/dialogs/credential_transfer.rs:597
 msgid ""
 "There is no portable file at {}. Check the path in Settings, or wait for "
 "your cloud client to deliver it."
 msgstr ""
+"{} にポータブルファイルがありません。設定でパスを確認するか、クラウドクライア"
+"ントによるファイルの同期をお待ちください。"
 
 #: rustconn/src/dialogs/credential_transfer.rs:604
 #: rustconn/src/dialogs/portable_passphrase_change.rs:227
@@ -4350,29 +4382,33 @@ msgid ""
 "That passphrase does not open the portable file. Enter the passphrase the "
 "file was created with."
 msgstr ""
+"そのパスフレーズでは、ポータブルファイルを開くことができません。ファイル作成"
+"時に使用したパスフレーズを入力してください。"
 
 #: rustconn/src/dialogs/credential_transfer.rs:607
 #: rustconn/src/dialogs/settings/secrets_tab/mod.rs:2079
 msgid "Cannot open the portable file: {}"
-msgstr ""
+msgstr "ポータブルファイルを開けません: {}"
 
 #: rustconn/src/dialogs/credential_transfer.rs:620
 msgid "Copied: {}"
-msgstr ""
+msgstr "コピー完了: {}"
 
 #: rustconn/src/dialogs/credential_transfer.rs:624
 msgid "Had no stored password yet: {}"
-msgstr ""
+msgstr "保存済みのパスワードがまだありません: {}"
 
 #: rustconn/src/dialogs/credential_transfer.rs:639
 msgid ""
 "You stopped the copy, so {} entries were not looked at. Everything already "
 "copied stays where it is, and running the copy again finishes the rest."
 msgstr ""
+"コピーを停止したため、{}件の項目は完了しませんでした。一部の項目は既にコピー"
+"されています。もう一度実行すると残りの処理が完了します。"
 
 #: rustconn/src/dialogs/credential_transfer.rs:642
 msgid "Copy Stopped"
-msgstr ""
+msgstr "コピー停止済み"
 
 #: rustconn/src/dialogs/credential_transfer.rs:643
 #: rustconn/src/dialogs/credential_transfer.rs:652
@@ -4386,123 +4422,124 @@ msgstr ""
 #: rustconn/src/dialogs/widgets.rs:598 rustconn/src/terminal/tab_menu.rs:501
 #: rustconn/src/vault_ops.rs:65 rustconn/src/window/mod.rs:3992
 msgid "Close"
-msgstr ""
+msgstr "閉じる"
 
 #: rustconn/src/dialogs/credential_transfer.rs:651
 msgid "Passwords Copied"
-msgstr ""
+msgstr "パスワードがコピーされました"
 
 #: rustconn/src/dialogs/credential_transfer.rs:662
 msgid "Could not be copied: {}"
-msgstr ""
+msgstr "コピーできませんでした: {}"
 
 #: rustconn/src/dialogs/credential_transfer.rs:682
 #: rustconn/src/dialogs/portable_migration.rs:195
 msgid "…and {} more. The full list is in the application log."
-msgstr ""
+msgstr "…および他{}件。完全なリストはアプリケーションログにあります。"
 
 #: rustconn/src/dialogs/credential_transfer.rs:694
 msgid ""
 "These arrived, but the destination has nowhere to keep part of what they "
 "held:"
 msgstr ""
+"これらは送信できましたが、一部の内容を保管する場所が届け先にはありません: "
 
 #: rustconn/src/dialogs/credential_transfer.rs:718
 msgid "Some Passwords Were Not Copied"
-msgstr ""
+msgstr "一部のパスワードはコピーされませんでした"
 
 #: rustconn/src/dialogs/export.rs:93
 msgid "Export Connections"
-msgstr ""
+msgstr "接続のエクスポート"
 
 #: rustconn/src/dialogs/export.rs:101 rustconn/src/dialogs/export.rs:102
 #: rustconn/src/dialogs/shortcuts.rs:166 rustconn/src/dialogs/widgets.rs:601
 msgid "Export"
-msgstr ""
+msgstr "エキスポート"
 
 #: rustconn/src/dialogs/export.rs:187 rustconn/src/dialogs/export.rs:281
 #: rustconn/src/dialogs/export.rs:555
 msgid "All connections"
-msgstr ""
+msgstr "すべての接続"
 
 #: rustconn/src/dialogs/export.rs:244
 msgid "Export Format"
-msgstr ""
+msgstr "フォーマットのエキスポート"
 
 #: rustconn/src/dialogs/export.rs:245
 msgid "Select the format to export your connections to"
-msgstr ""
+msgstr "接続情報をエクスポートする形式を選択してください"
 
 #: rustconn/src/dialogs/export.rs:251 rustconn/src/dialogs/import/sources.rs:52
 msgid "RustConn Native (.rcn)"
-msgstr ""
+msgstr "RustConn Native (.rcn)"
 
 #: rustconn/src/dialogs/export.rs:252 rustconn/src/dialogs/import/sources.rs:58
 #: rustconn/src/dialogs/import/sources.rs:521
 msgid "Ansible Inventory"
-msgstr ""
+msgstr "Ansible Inventory"
 
 #: rustconn/src/dialogs/export.rs:253 rustconn/src/dialogs/import/sources.rs:70
 #: rustconn/src/dialogs/import/sources.rs:251
 msgid "Asbru-CM"
-msgstr ""
+msgstr "Asbru-CM"
 
 #: rustconn/src/dialogs/export.rs:254 rustconn/src/dialogs/export.rs:904
 msgid "CSV (*.csv)"
-msgstr ""
+msgstr "CSV (*.csv)"
 
 #: rustconn/src/dialogs/export.rs:255
 #: rustconn/src/dialogs/import/sources.rs:106
 msgid "MobaXterm (.mxtsessions)"
-msgstr ""
+msgstr "MobaXterm (.mxtsessions)"
 
 #: rustconn/src/dialogs/export.rs:256
 msgid "RDP Files (.rdp)"
-msgstr ""
+msgstr "RDP ファイル (.rdp)"
 
 #: rustconn/src/dialogs/export.rs:257
 #: rustconn/src/dialogs/import/sources.rs:136
 #: rustconn/src/dialogs/import/sources.rs:253
 msgid "Remmina"
-msgstr ""
+msgstr "Remmina"
 
 #: rustconn/src/dialogs/export.rs:258
 msgid "Royal TS (.rtsz)"
-msgstr ""
+msgstr "Royal TS (.rtsz)"
 
 #: rustconn/src/dialogs/export.rs:259
 msgid "SecureCRT (.ini)"
-msgstr ""
+msgstr "SecureCRT (.ini)"
 
 #: rustconn/src/dialogs/export.rs:260 rustconn/src/dialogs/export.rs:878
 #: rustconn/src/dialogs/import/sources.rs:148
 #: rustconn/src/dialogs/import/sources.rs:249
 msgid "SSH Config"
-msgstr ""
+msgstr "SSH設定"
 
 #: rustconn/src/dialogs/export.rs:267
 msgid "Format"
-msgstr ""
+msgstr "フォーマット"
 
 #: rustconn/src/dialogs/export.rs:268
 msgid "Target export format"
-msgstr ""
+msgstr "エキスポートするフォーマット"
 
 #: rustconn/src/dialogs/export.rs:277
 msgid "Export Scope"
-msgstr ""
+msgstr "スコープのエキスポート"
 
 #: rustconn/src/dialogs/export.rs:278
 msgid "Choose which connections to export"
-msgstr ""
+msgstr "エキスポートする接続を選択してください"
 
 #: rustconn/src/dialogs/export.rs:288
 msgid "Export all or a specific group"
-msgstr ""
+msgstr "すべて または 特定のグループをエクスポートする"
 
 #: rustconn/src/dialogs/export.rs:297
 msgid "Output Location"
-msgstr ""
+msgstr "出力する場所"
 
 #: rustconn/src/dialogs/export.rs:304
 msgid ""
@@ -4510,181 +4547,186 @@ msgid ""
 "connection).\n"
 "Other formats export to a single file."
 msgstr ""
+"Remmina, SecureCRT, RDPファイルは、ディレクトリにエキスポートされます (接続ご"
+"とに1つのファイルでエキスポート)。他の形式は、一つのファイルとしてエキスポー"
+"トされます。"
 
 #: rustconn/src/dialogs/export.rs:310
 msgid "Select output file or directory…"
-msgstr ""
+msgstr "出力ファイルまたはディレクトリを選択…"
 
 #: rustconn/src/dialogs/export.rs:316
 msgid "Browse…"
-msgstr ""
+msgstr "参照..."
 
 #: rustconn/src/dialogs/export.rs:322
 msgid "Destination path"
-msgstr ""
+msgstr "保存先のパス"
 
 #: rustconn/src/dialogs/export.rs:332
 #: rustconn/src/dialogs/password_generator.rs:242
 #: rustconn/src/dialogs/tunnel_builder/step_forwards.rs:164
 msgid "Options"
-msgstr ""
+msgstr "オプション"
 
 #: rustconn/src/dialogs/export.rs:337
 msgid "Include group hierarchy"
-msgstr ""
+msgstr "グループの階層を含める"
 
 #: rustconn/src/dialogs/export.rs:338
 msgid "Preserve folder structure"
-msgstr ""
+msgstr "フォルダー構造を保持する"
 
 #: rustconn/src/dialogs/export.rs:348
 msgid "Credentials Storage"
-msgstr ""
+msgstr "認証情報のストレージ"
 
 #: rustconn/src/dialogs/export.rs:349
 msgid ""
 "Passwords are stored in your password manager and not included in exports. "
 "Export your credential structure separately if needed."
 msgstr ""
+"パスワードはパスワードマネージャーに保存されており、エクスポートには含まれま"
+"せん。必要に応じて、認証情報の構造を別途エクスポートしてください。"
 
 #: rustconn/src/dialogs/export.rs:360
 msgid "CSV Options"
-msgstr ""
+msgstr "CSV設定"
 
 #: rustconn/src/dialogs/export.rs:361
 msgid "Configure CSV export settings"
-msgstr ""
+msgstr "CSVのエクスポート設定"
 
 #: rustconn/src/dialogs/export.rs:367
 msgid "Comma"
-msgstr ""
+msgstr "コンマ"
 
 #: rustconn/src/dialogs/export.rs:367
 msgid "Semicolon"
-msgstr ""
+msgstr "セミコロン"
 
 #: rustconn/src/dialogs/export.rs:367
 msgid "Tab"
-msgstr ""
+msgstr "タブ"
 
 #: rustconn/src/dialogs/export.rs:374
 msgid "Delimiter"
-msgstr ""
+msgstr "区切り文字"
 
 #: rustconn/src/dialogs/export.rs:375
 msgid "Field separator character"
-msgstr ""
+msgstr "フィールドを区切る文字"
 
 #: rustconn/src/dialogs/export.rs:461
 msgid "Exporting…"
-msgstr ""
+msgstr "エキスポート中…"
 
 #: rustconn/src/dialogs/export.rs:475
 msgid "Preparing export…"
-msgstr ""
+msgstr "エキスポートを準備中…"
 
 #: rustconn/src/dialogs/export.rs:488
 msgid "Export Complete"
-msgstr ""
+msgstr "エキスポート完了"
 
 #: rustconn/src/dialogs/export.rs:503 rustconn/src/dialogs/import/mod.rs:203
 msgid "Details"
-msgstr ""
+msgstr "詳細"
 
 #: rustconn/src/dialogs/export.rs:741
 msgid "Successfully exported {} connection(s) to {} format."
-msgstr ""
+msgstr "{} 件の接続を {} 形式で正常にエクスポートしました。"
 
 #: rustconn/src/dialogs/export.rs:753
 msgid "{} connection(s) were skipped (unsupported protocol)."
-msgstr ""
+msgstr "{} 件の接続がスキップされました (サポートされていないプロトコル1)"
 
 #: rustconn/src/dialogs/export.rs:770
 msgid "Output files:"
-msgstr ""
+msgstr "出力ファイル: "
 
 #: rustconn/src/dialogs/export.rs:783
 msgid "Exported"
-msgstr ""
+msgstr "エキスポート完了"
 
 #: rustconn/src/dialogs/export.rs:786
 msgid "Skipped"
-msgstr ""
+msgstr "スキップ"
 
 #: rustconn/src/dialogs/export.rs:796 rustconn/src/dialogs/import/mod.rs:463
 msgid "Warnings ({}):"
-msgstr ""
+msgstr "警告 ({}):"
 
 #: rustconn/src/dialogs/export.rs:804
 msgid "No connections were exported."
-msgstr ""
+msgstr "接続はエクスポートされませんでした。"
 
 #: rustconn/src/dialogs/export.rs:841
 msgid "Select Export Directory"
-msgstr ""
+msgstr "エクスポート先のディレクトリを選択"
 
 #: rustconn/src/dialogs/export.rs:859
 msgid "Select Export File"
-msgstr ""
+msgstr "エキスポート先のファイルを選択"
 
 #: rustconn/src/dialogs/export.rs:874
 msgid "Ansible Inventory (*.ini, *.yml)"
-msgstr ""
+msgstr "Ansible Inventory (*.ini, *.yml)"
 
 #: rustconn/src/dialogs/export.rs:883
 msgid "Asbru-CM YAML (*.yml)"
-msgstr ""
+msgstr "Asbru-CM YAML (*.yml)"
 
 #: rustconn/src/dialogs/export.rs:888
 msgid "Remmina (*.remmina)"
-msgstr ""
+msgstr "Remmina (*.remmina)"
 
 #: rustconn/src/dialogs/export.rs:892
 #: rustconn/src/dialogs/import/sources.rs:582
 msgid "RustConn Native (*.rcn)"
-msgstr ""
+msgstr "RustConn Native (*.rcn)"
 
 #: rustconn/src/dialogs/export.rs:896
 msgid "Royal TS (*.rtsz)"
-msgstr ""
+msgstr "Royal TS (*.rtsz)"
 
 #: rustconn/src/dialogs/export.rs:900
 #: rustconn/src/dialogs/import/sources.rs:928
 msgid "MobaXterm Sessions (*.mxtsessions)"
-msgstr ""
+msgstr "MobaXterm Sessions (*.mxtsessions)"
 
 #: rustconn/src/dialogs/export.rs:909
 msgid "SecureCRT Sessions (*.ini)"
-msgstr ""
+msgstr "SecureCRT Sessions (*.ini)"
 
 #: rustconn/src/dialogs/export.rs:914
 #: rustconn/src/dialogs/import/sources.rs:1375
 msgid "RDP Files (*.rdp)"
-msgstr ""
+msgstr "RDP Files (*.rdp)"
 
 #: rustconn/src/dialogs/export.rs:951
 msgid "Select output directory…"
-msgstr ""
+msgstr "出力ディレクトリを選択…"
 
 #: rustconn/src/dialogs/export.rs:953
 msgid "Select output file…"
-msgstr ""
+msgstr "出力ファイルを選択…"
 
 #: rustconn/src/dialogs/export.rs:1014
 msgid "Select an output file or directory"
-msgstr ""
+msgstr "出力ファイルまたはディレクトリを選択してください"
 
 #: rustconn/src/dialogs/export.rs:1070
 msgid "Exporting to {}…"
-msgstr ""
+msgstr "エキスポート中: {}…"
 
 #: rustconn/src/dialogs/export.rs:1125
 msgid "Writing output files…"
-msgstr ""
+msgstr "出力ファイルに書き込み中…"
 
 #: rustconn/src/dialogs/export.rs:1155
 msgid "Export complete"
-msgstr ""
+msgstr "エキスポート完了"
 
 #: rustconn/src/dialogs/export.rs:1166 rustconn/src/dialogs/import/mod.rs:568
 #: rustconn/src/dialogs/import/mod.rs:881
@@ -4705,72 +4747,78 @@ msgstr ""
 #: rustconn/src/dialogs/import/sources.rs:1697
 #: rustconn/src/dialogs/widgets.rs:607
 msgid "Done"
-msgstr ""
+msgstr "完了"
 
 #: rustconn/src/dialogs/export.rs:1171 rustconn/src/dialogs/recording.rs:671
 msgid "Export failed"
-msgstr ""
+msgstr "エキスポート失敗"
 
 #: rustconn/src/dialogs/export.rs:1172
 msgid "Export Failed"
-msgstr ""
+msgstr "エキスポート失敗"
 
 #: rustconn/src/dialogs/export.rs:1174
 msgid ""
 "Could not write the export file: {}. Check destination permissions and free "
 "disk space."
 msgstr ""
+"エキスポートファイルに書き込めませんでした: {}。保存先のアクセス権と空き容量"
+"を確認してください。"
 
 #: rustconn/src/dialogs/flatpak_components.rs:72
 msgid "Components"
-msgstr ""
+msgstr "コンポーネント"
 
 #: rustconn/src/dialogs/flatpak_components.rs:105
 #: rustconn/src/dialogs/flatpak_components.rs:106
 msgid "Update All"
-msgstr ""
+msgstr "全て更新"
 
 #: rustconn/src/dialogs/flatpak_components.rs:147
 msgid ""
 "Showing sandbox-compatible components only.              Downloads are "
 "verified with SHA256 checksums."
 msgstr ""
+"サンドボックス互換のコンポーネントのみを表示します。 ダウンロードは SHA256 "
+"チェックサムで検証されます。"
 
 #: rustconn/src/dialogs/flatpak_components.rs:156
 msgid "Protocol Clients"
-msgstr ""
+msgstr "プロトコルクライアント"
 
 #: rustconn/src/dialogs/flatpak_components.rs:158
 msgid ""
 "Optional for external RDP/VNC/SPICE connections.              Embedded "
 "clients (IronRDP, vnc-rs) are preferred."
 msgstr ""
+"外部RDP/VNC/SPICE接続については任意ですが、組み込みクライアント (IronRDP, "
+"vnc-rs)の使用が推奨されます。"
 
 #: rustconn/src/dialogs/flatpak_components.rs:170
 msgid "Zero Trust CLIs"
-msgstr ""
+msgstr "ゼロトラスト接続のクライアントCLI"
 
 #: rustconn/src/dialogs/flatpak_components.rs:171
 msgid ""
 "Required for Zero Trust connections (AWS SSM, GCP IAP, Azure Bastion, etc.)"
-msgstr ""
+msgstr "ゼロトラスト接続 (AWS SSM, GCP IAP, Azure Bastionなど)に必要です"
 
 #: rustconn/src/dialogs/flatpak_components.rs:181
 msgid "Password Manager CLIs"
-msgstr ""
+msgstr "パスワードマネージャーのCLI"
 
 #: rustconn/src/dialogs/flatpak_components.rs:182
 msgid "Required for Bitwarden and 1Password integration"
-msgstr ""
+msgstr "Bitwardenや1Passwordの統合に必要です"
 
 #: rustconn/src/dialogs/flatpak_components.rs:192
 #: rustconn/src/dialogs/settings/clients_tab.rs:90
 msgid "Container Orchestration"
-msgstr ""
+msgstr "コンテナオーケストレーション"
 
 #: rustconn/src/dialogs/flatpak_components.rs:193
 msgid "Required for Kubernetes pod shell connections"
-msgstr ""
+msgstr "Kubernetes Podへのシェル接続に必要です"
 
 #: rustconn/src/dialogs/flatpak_components.rs:271
 #: rustconn/src/dialogs/flatpak_components.rs:273
@@ -4779,136 +4827,137 @@ msgstr ""
 #: rustconn/src/dialogs/settings/clients_tab.rs:211
 #: rustconn/src/dialogs/settings/clients_tab.rs:216
 msgid "Installed"
-msgstr ""
+msgstr "インストール済み"
 
 #: rustconn/src/dialogs/flatpak_components.rs:304
 msgid "Cancel component operation"
-msgstr ""
+msgstr "コンポーネント操作を停止"
 
 #: rustconn/src/dialogs/flatpak_components.rs:311
 msgid "Update"
-msgstr ""
+msgstr "アップデート"
 
 #: rustconn/src/dialogs/flatpak_components.rs:317
 msgid "Update component"
-msgstr ""
+msgstr "コンポーネントをアップデート"
 
 #: rustconn/src/dialogs/flatpak_components.rs:327
 #: rustconn/src/dialogs/flatpak_components.rs:508 rustconn/src/toast.rs:339
 msgid "Install"
-msgstr ""
+msgstr "インストール"
 
 #: rustconn/src/dialogs/flatpak_components.rs:330
 #: rustconn/src/dialogs/password_generator.rs:380
 msgid "N/A"
-msgstr ""
+msgstr "N/A"
 
 #: rustconn/src/dialogs/flatpak_components.rs:332
 msgid "Not available for download"
-msgstr ""
+msgstr "ダウンロードできません"
 
 #: rustconn/src/dialogs/flatpak_components.rs:521
 #: rustconn/src/dialogs/statistics.rs:169
 #: rustconn/src/dialogs/statistics.rs:269
 msgid "Failed"
-msgstr ""
+msgstr "失敗"
 
 #: rustconn/src/dialogs/history.rs:33 rustconn/src/dialogs/shortcuts.rs:156
 #: rustconn/src/sidebar_ui.rs:1101
 msgid "Connection History"
-msgstr ""
+msgstr "接続履歴"
 
 #: rustconn/src/dialogs/history.rs:46
 msgid "Search history…"
-msgstr ""
+msgstr "履歴を検索"
 
 #: rustconn/src/dialogs/history.rs:53
 msgid "Filter history by name, host, or protocol"
-msgstr ""
+msgstr "名前、ホスト、プロトコルで履歴を絞り込む"
 
 #: rustconn/src/dialogs/history.rs:80
 msgid "No Connection History"
-msgstr ""
+msgstr "接続履歴がありません"
 
 #: rustconn/src/dialogs/history.rs:81
 msgid "Connections you open will appear here"
-msgstr ""
+msgstr "開いた接続がここに表示されます。"
 
 #: rustconn/src/dialogs/history.rs:97
 msgid "Clear History"
-msgstr ""
+msgstr "履歴をクリア"
 
 #: rustconn/src/dialogs/history.rs:194
 msgid "Clear History?"
-msgstr ""
+msgstr "履歴をクリアしますか？"
 
 #: rustconn/src/dialogs/history.rs:196
 msgid "All connection history entries will be permanently removed."
-msgstr ""
+msgstr "すべての接続履歴が完全に削除されます。"
 
 #: rustconn/src/dialogs/history.rs:200 rustconn/src/terminal/playback.rs:255
 #: rustconn/src/window/edit_group.rs:636 rustconn/src/window/edit_group.rs:1103
 msgid "Clear"
-msgstr ""
+msgstr "クリア"
 
 #: rustconn/src/dialogs/history.rs:265
 msgid "Successful connection"
-msgstr ""
+msgstr "接続成功"
 
 #: rustconn/src/dialogs/history.rs:267
 msgid "Failed connection"
-msgstr ""
+msgstr "接続失敗"
 
 #: rustconn/src/dialogs/history.rs:327 rustconn/src/dialogs/history.rs:330
 msgid "Show error details"
-msgstr ""
+msgstr "エラーの詳細を表示"
 
 #: rustconn/src/dialogs/history.rs:337
 msgid "Could not connect to {}"
-msgstr ""
+msgstr "接続できませんでした。接続先: {}"
 
 #: rustconn/src/dialogs/history.rs:355
 msgid "Remove from history"
-msgstr ""
+msgstr "履歴から削除"
 
 #: rustconn/src/dialogs/history.rs:358
 msgid "Remove entry from history"
-msgstr ""
+msgstr "履歴からエントリーを削除"
 
 #: rustconn/src/dialogs/import/mod.rs:53
 msgid "Import Connections"
-msgstr ""
+msgstr "接続をインポート"
 
 #: rustconn/src/dialogs/import/mod.rs:61 rustconn/src/dialogs/import/mod.rs:62
 #: rustconn/src/dialogs/settings/cloud_sync_tab.rs:184
 #: rustconn/src/dialogs/shortcuts.rs:165 rustconn/src/dialogs/widgets.rs:602
 #: rustconn/src/split_view/bridge.rs:1844 rustconn/src/window/edit_group.rs:891
 msgid "Import"
-msgstr ""
+msgstr "インポート"
 
 #: rustconn/src/dialogs/import/mod.rs:163
 msgid "Importing…"
-msgstr ""
+msgstr "インポート中…"
 
 #: rustconn/src/dialogs/import/mod.rs:176
 msgid "Scanning for connections…"
-msgstr ""
+msgstr "接続をスキャン中…"
 
 #: rustconn/src/dialogs/import/mod.rs:188
 msgid "Import Complete"
-msgstr ""
+msgstr "インポート完了"
 
 #: rustconn/src/dialogs/import/mod.rs:339
 msgid "Import failed with {} error(s). No connections were imported."
 msgstr ""
+"インポートが{}件のエラーで失敗しました。接続はインポートできませんでした。"
 
 #: rustconn/src/dialogs/import/mod.rs:351
 msgid "Nothing was imported. See the {} warning(s) below."
-msgstr ""
+msgstr "何もインポートされませんでした。詳細は{}件の警告を参照してください。"
 
 #: rustconn/src/dialogs/import/mod.rs:361
 msgid "Successfully imported {} connection(s) and {} group(s)."
-msgstr ""
+msgstr "{}件の接続および{}件のグループのインポートが完了しました。"
 
 #: rustconn/src/dialogs/import/mod.rs:367
 #: rustconn/src/dialogs/import/sources.rs:343
@@ -4928,59 +4977,73 @@ msgid ""
 "Successfully imported {} connection(s) and {} group(s).\n"
 "Connections will be added to '{} Import' group."
 msgstr ""
+"{}件の接続および{}件のグループのインポートが完了しました。\n"
+"接続は'{} Import'グループに追加されます。"
 
 #: rustconn/src/dialogs/import/mod.rs:384
 msgid ""
 "Passwords were not imported: {} keeps them encrypted inside the document. "
 "The affected connections ask for a password on connect."
 msgstr ""
+"パスワードはインポートされませんでした。{}はパスワードをドキュメント内で暗号"
+"化された状態で保存されます。対象に接続する際にパスワードが求められます。"
 
 #: rustconn/src/dialogs/import/mod.rs:388
 msgid "Inline CA certificate saved to {}"
-msgstr ""
+msgstr "インラインCA証明書を {} に保存しました"
 
 #: rustconn/src/dialogs/import/mod.rs:396
 msgid ""
 "Connection '{}' has {} automation task(s) and {} expect rule(s) — review "
 "before running"
 msgstr ""
+"接続 '{}'には{}の自動化タスクおよび{}件の自動送信ルールがあります。送信前に確"
+"認してください。"
 
 #: rustconn/src/dialogs/import/mod.rs:408
 msgid "Connection '{}': ignored unusable Port '{}', using port {}"
 msgstr ""
+"接続 '{}': 使用不可能なポート '{}'は無視されました。ポート{}が使用されます"
 
 #: rustconn/src/dialogs/import/mod.rs:412
 msgid ""
 "Imported as Cloud Sync group (Import mode). Use Sync Now to keep it updated."
 msgstr ""
+"Cloud Syncグループとしてインポートされました (インポートモード)。最新の状態に"
+"保つには、今すぐ同期 を使用してください。"
 
 #: rustconn/src/dialogs/import/mod.rs:415
 msgid "{} template(s) skipped (not supported in batch import)"
 msgstr ""
+"{}件のテンプレートがスキップされました (一括インポートではサポートされていま"
+"せん。)"
 
 #: rustconn/src/dialogs/import/mod.rs:419
 msgid "{} cluster(s) skipped (not supported in batch import)"
 msgstr ""
+"{}件のクラスターがスキップされました (一括インポートではサポートされていませ"
+"ん。)"
 
 #: rustconn/src/dialogs/import/mod.rs:423
 msgid "{} variable(s) skipped (not supported in batch import)"
 msgstr ""
+"{}件の変数がスキップされました (一括インポートではサポートされていません。)"
 
 #: rustconn/src/dialogs/import/mod.rs:437
 msgid "Imported connections:"
-msgstr ""
+msgstr "インポートされた接続:"
 
 #: rustconn/src/dialogs/import/mod.rs:450
 msgid "Skipped {} entries:"
-msgstr ""
+msgstr "{}件の項目をスキップしました:"
 
 #: rustconn/src/dialogs/import/mod.rs:476
 msgid "Errors ({}):"
-msgstr ""
+msgstr "エラー ({}): "
 
 #: rustconn/src/dialogs/import/mod.rs:484
 msgid "No connections found in the selected source."
-msgstr ""
+msgstr "選択されたソースに接続は見つかりませんでした。"
 
 #: rustconn/src/dialogs/import/mod.rs:541
 #: rustconn/src/dialogs/import/mod.rs:637
@@ -5003,680 +5066,691 @@ msgstr ""
 #: rustconn/src/dialogs/import/sources.rs:1399
 #: rustconn/src/dialogs/import/sources.rs:1490
 msgid "Importing from {}…"
-msgstr ""
+msgstr "{}からインポート中…"
 
 #: rustconn/src/dialogs/import/mod.rs:558
 #: rustconn/src/dialogs/import/mod.rs:870
 #: rustconn/src/dialogs/import/mod.rs:1088
 msgid "Import complete"
-msgstr ""
+msgstr "インポート完了"
 
 #: rustconn/src/dialogs/import/mod.rs:982
 msgid "Starting import from {}…"
-msgstr ""
+msgstr "{}からのインポートを開始中…"
 
 #: rustconn/src/dialogs/import/mod.rs:1076
 msgid "Querying libvirt daemon…"
-msgstr ""
+msgstr "libvirt デーモンに問い合わせ中…"
 
 #: rustconn/src/dialogs/import/sources.rs:29
 msgid "Select Import Source"
-msgstr ""
+msgstr "インポート元を選択"
 
 #: rustconn/src/dialogs/import/sources.rs:36
 msgid "Choose the source from which to import connections:"
-msgstr ""
+msgstr "接続をインポートするソースを選択してください:"
 
 #: rustconn/src/dialogs/import/sources.rs:53
 msgid "Import from a RustConn native export file"
-msgstr ""
+msgstr "RustConn native exportファイルからインポート"
 
 #: rustconn/src/dialogs/import/sources.rs:59
 msgid "Import from Ansible inventory files"
-msgstr ""
+msgstr "Ansible inventoryファイルからインポート"
 
 #: rustconn/src/dialogs/import/sources.rs:64
 msgid "Ansible Inventory File"
-msgstr ""
+msgstr "Ansible Inventoryファイル"
 
 #: rustconn/src/dialogs/import/sources.rs:65
 msgid "Import from a specific Ansible inventory file"
-msgstr ""
+msgstr "特定のAnsible inventoryファイルからインポート"
 
 #: rustconn/src/dialogs/import/sources.rs:71
 msgid "Import from Asbru-CM/PAC Manager config"
-msgstr ""
+msgstr "Asbru-CM/PAC Manager configからインポート"
 
 #: rustconn/src/dialogs/import/sources.rs:76
 msgid "Asbru-CM YAML File"
-msgstr ""
+msgstr "Asbru-CM YAMLファイル"
 
 #: rustconn/src/dialogs/import/sources.rs:77
 msgid "Import from a specific Asbru-CM YAML file"
-msgstr ""
+msgstr "特定のAsbru-CM YAMLファイルからインポート"
 
 #: rustconn/src/dialogs/import/sources.rs:82
 #: rustconn/src/dialogs/import/sources.rs:268
 #: rustconn/src/dialogs/import/sources.rs:1524
 msgid "CSV"
-msgstr ""
+msgstr "CSV"
 
 #: rustconn/src/dialogs/import/sources.rs:83
 msgid "Import connections from a CSV file"
-msgstr ""
+msgstr "CSVファイルからインポート"
 
 #: rustconn/src/dialogs/import/sources.rs:88
 #: rustconn/src/dialogs/import/sources.rs:264
 msgid "Libvirt / GNOME Boxes"
-msgstr ""
+msgstr "Libvirt / GNOME Boxes"
 
 #: rustconn/src/dialogs/import/sources.rs:89
 msgid "Import VMs from libvirt domain XML files"
-msgstr ""
+msgstr "libvirt ドメイン XMLファイルから VMをインポート"
 
 #: rustconn/src/dialogs/import/sources.rs:94
 msgid "Libvirt Daemon (virsh)"
-msgstr ""
+msgstr "Libvirt Daemon (virsh)"
 
 #: rustconn/src/dialogs/import/sources.rs:95
 msgid "Query running libvirtd for VMs (requires virsh)"
-msgstr ""
+msgstr "稼働中の libvirtd から VM 情報を取得する (virsh コマンドが必要)"
 
 #: rustconn/src/dialogs/import/sources.rs:100
 msgid "Libvirt XML File"
-msgstr ""
+msgstr "Libvirt XMLファイル"
 
 #: rustconn/src/dialogs/import/sources.rs:101
 msgid "Import from a libvirt domain XML or virsh dumpxml output"
-msgstr ""
+msgstr "libvirt ドメイン XML または virsh dumpxml の出力からインポートする"
 
 #: rustconn/src/dialogs/import/sources.rs:107
 msgid "Import from a MobaXterm session export file"
-msgstr ""
+msgstr "MobaXtermセッションのエクスポートファイルからインポートする"
 
 #: rustconn/src/dialogs/import/sources.rs:112
 msgid "PuTTY (.reg)"
-msgstr ""
+msgstr "PuTTY (.reg)"
 
 #: rustconn/src/dialogs/import/sources.rs:113
 msgid "Import from a PuTTY/KiTTY registry export file"
-msgstr ""
+msgstr "PuTTY/KiTTYのレジストリエクスポートファイルからインポート"
 
 #: rustconn/src/dialogs/import/sources.rs:118
 msgid "mRemoteNG (confCons.xml)"
-msgstr ""
+msgstr "mRemoteNG (confCons.xml)"
 
 #: rustconn/src/dialogs/import/sources.rs:119
 msgid "Import from an mRemoteNG connections file"
-msgstr ""
+msgstr "mRemoteNG接続ファイルからインポート"
 
 #: rustconn/src/dialogs/import/sources.rs:124
 msgid "RDP File (.rdp)"
-msgstr ""
+msgstr "RDP File (.rdp)"
 
 #: rustconn/src/dialogs/import/sources.rs:125
 msgid "Import RDP connection from a Microsoft .rdp file"
-msgstr ""
+msgstr "RDPMicrosoft .rdp ファイルから RDP 接続をインポート"
 
 #: rustconn/src/dialogs/import/sources.rs:130
 msgid "Remote Desktop Manager (JSON)"
-msgstr ""
+msgstr "Remote Desktop Manager (JSON)"
 
 #: rustconn/src/dialogs/import/sources.rs:131
 msgid "Import from a Remote Desktop Manager JSON export file"
-msgstr ""
+msgstr "Remote Desktop ManagerのJSONエクスポートファイルからインポート"
 
 #: rustconn/src/dialogs/import/sources.rs:137
 msgid "Import from Remmina connection files"
-msgstr ""
+msgstr "Remmina接続ファイルからインポート"
 
 #: rustconn/src/dialogs/import/sources.rs:142
 msgid "Royal TS (.rtsz, .rtsx)"
-msgstr ""
+msgstr "Royal TS (.rtsz, .rtsx)"
 
 #: rustconn/src/dialogs/import/sources.rs:143
 msgid "Import from a Royal TS export file"
-msgstr ""
+msgstr "Royal TSエキスポートファイルからインポート"
 
 #: rustconn/src/dialogs/import/sources.rs:149
 msgid "Import from ~/.ssh/config"
-msgstr ""
+msgstr "~/.ssh/config からインポート"
 
 #: rustconn/src/dialogs/import/sources.rs:154
 #: rustconn/src/dialogs/import/sources.rs:250
 #: rustconn/src/dialogs/import/sources.rs:333
 msgid "SSH Config File"
-msgstr ""
+msgstr "SSH 設定ファイル"
 
 #: rustconn/src/dialogs/import/sources.rs:155
 msgid "Import from a specific SSH config file"
-msgstr ""
+msgstr "特定のSSH設定ファイルからインポート"
 
 #: rustconn/src/dialogs/import/sources.rs:160
 msgid "Virt-Viewer (.vv)"
-msgstr ""
+msgstr "Virt-Viewer (.vv)"
 
 #: rustconn/src/dialogs/import/sources.rs:161
 msgid "Import SPICE/VNC connection from a virt-viewer file"
-msgstr ""
+msgstr "virt-viewerファイルからSPICE/VNC接続をインポート"
 
 #: rustconn/src/dialogs/import/sources.rs:166
 msgid "Multiple Files (batch)"
-msgstr ""
+msgstr "複数ファイル（一括処理）"
 
 #: rustconn/src/dialogs/import/sources.rs:167
 msgid "Import connections from multiple files at once"
-msgstr ""
+msgstr "複数のファイルから接続を一括でインポート"
 
 #: rustconn/src/dialogs/import/sources.rs:229
 msgid "Available"
-msgstr ""
+msgstr "利用可能"
 
 #: rustconn/src/dialogs/import/sources.rs:234
 msgid "Not Found"
-msgstr ""
+msgstr "未検出 "
 
 #: rustconn/src/dialogs/import/sources.rs:252
 #: rustconn/src/dialogs/import/sources.rs:425
 msgid "Asbru-CM File"
-msgstr ""
+msgstr "Asbru-CMファイル"
 
 #: rustconn/src/dialogs/import/sources.rs:254
 msgid "Ansible"
-msgstr ""
+msgstr "Ansible"
 
 #: rustconn/src/dialogs/import/sources.rs:255
 msgid "Ansible File"
-msgstr ""
+msgstr "Ansibleファイル"
 
 #: rustconn/src/dialogs/import/sources.rs:256
 #: rustconn/src/dialogs/import/sources.rs:624
 msgid "RustConn Native"
-msgstr ""
+msgstr "RustConn Native"
 
 #: rustconn/src/dialogs/import/sources.rs:257
 #: rustconn/src/dialogs/import/sources.rs:781
 msgid "Royal TS"
-msgstr ""
+msgstr "Royal TS"
 
 #: rustconn/src/dialogs/import/sources.rs:258
 msgid "Remote Desktop Manager"
-msgstr ""
+msgstr "Remote Desktop Manager"
 
 #: rustconn/src/dialogs/import/sources.rs:259
 #: rustconn/src/dialogs/import/sources.rs:962
 msgid "MobaXterm"
-msgstr ""
+msgstr "MobaXterm"
 
 #: rustconn/src/dialogs/import/sources.rs:260
 #: rustconn/src/dialogs/import/sources.rs:1052
 msgid "PuTTY"
-msgstr ""
+msgstr "PuTTY"
 
 #: rustconn/src/dialogs/import/sources.rs:261
 #: rustconn/src/dialogs/import/sources.rs:1141
 msgid "mRemoteNG"
-msgstr ""
+msgstr "mRemoteNG"
 
 #: rustconn/src/dialogs/import/sources.rs:262
 #: rustconn/src/dialogs/import/sources.rs:1320
 msgid "Virt-Viewer"
-msgstr ""
+msgstr "Virt-Viewer"
 
 #: rustconn/src/dialogs/import/sources.rs:263
 #: rustconn/src/dialogs/import/sources.rs:1663
 msgid "Multiple Files"
-msgstr ""
+msgstr "複数ファイル"
 
 #: rustconn/src/dialogs/import/sources.rs:265
 #: rustconn/src/dialogs/import/sources.rs:1232
 msgid "Libvirt XML"
-msgstr ""
+msgstr "Libvirt XML"
 
 #: rustconn/src/dialogs/import/sources.rs:266
 msgid "Libvirt Daemon"
-msgstr ""
+msgstr "Libvirtデーモン"
 
 #: rustconn/src/dialogs/import/sources.rs:267
 #: rustconn/src/dialogs/import/sources.rs:1406
 msgid "RDP File"
-msgstr ""
+msgstr "RDPファイル"
 
 #: rustconn/src/dialogs/import/sources.rs:269
 #: rustconn/src/dialogs/settings/secrets_tab/detection.rs:715
 msgid "Unknown"
-msgstr ""
+msgstr "不明"
 
 #: rustconn/src/dialogs/import/sources.rs:289
 msgid "Select SSH Config File"
-msgstr ""
+msgstr "SSH設定ファイルを選択"
 
 #: rustconn/src/dialogs/import/sources.rs:298
 msgid "SSH config files"
-msgstr ""
+msgstr "SSH設定ファイル"
 
 #: rustconn/src/dialogs/import/sources.rs:383
 msgid "Select Asbru-CM YAML File"
-msgstr ""
+msgstr "Asbru-CM YAML Fileを選択"
 
 #: rustconn/src/dialogs/import/sources.rs:391
 msgid "YAML files"
-msgstr ""
+msgstr "YAML files"
 
 #: rustconn/src/dialogs/import/sources.rs:475
 msgid "Select Ansible Inventory File"
-msgstr ""
+msgstr "Ansible Inventoryファイルを選択"
 
 #: rustconn/src/dialogs/import/sources.rs:487
 msgid "Ansible inventory files"
-msgstr ""
+msgstr "Ansible inventoryファイルを選択"
 
 #: rustconn/src/dialogs/import/sources.rs:575
 msgid "Select RustConn Native File"
-msgstr ""
+msgstr "RustConn Nativeファイルを選択"
 
 #: rustconn/src/dialogs/import/sources.rs:678
 #: rustconn/src/dialogs/settings/cloud_sync_tab.rs:38
 #: rustconn/src/window/edit_group.rs:893 rustconn/src/window/edit_group.rs:944
 #: rustconn/src/window/edit_group.rs:1488
 msgid "Cloud Sync"
-msgstr ""
+msgstr "クラウド同期"
 
 #: rustconn/src/dialogs/import/sources.rs:689
 msgid ""
 "Imported {} connection(s) from Cloud Sync file '{}'\n"
 "Group '{}' will be created in Import mode."
 msgstr ""
+"{}件の接続をクラウド同期ファイル '{}'からインポートされました。\n"
+"インポートモードでグループ '{}'が作成されます。"
 
 #: rustconn/src/dialogs/import/sources.rs:704
 #: rustconn/src/window/connection_dialogs.rs:1165
 msgid "Import Failed"
-msgstr ""
+msgstr "インポート失敗"
 
 #: rustconn/src/dialogs/import/sources.rs:705
 msgid "Error: {}"
-msgstr ""
+msgstr "エラー: {}"
 
 #: rustconn/src/dialogs/import/sources.rs:741
 msgid "Select Royal TS File"
-msgstr ""
+msgstr "Royal TSファイルを選択"
 
 #: rustconn/src/dialogs/import/sources.rs:748
 msgid "Royal TS files (*.rtsz, *.rtsx)"
-msgstr ""
+msgstr "Royal TS files (*.rtsz, *.rtsx)"
 
 #: rustconn/src/dialogs/import/sources.rs:831
 msgid "Select RDM JSON File"
-msgstr ""
+msgstr "RDM JSONファイルを選択"
 
 #: rustconn/src/dialogs/import/sources.rs:837
 msgid "JSON files"
-msgstr ""
+msgstr "JSON files"
 
 #: rustconn/src/dialogs/import/sources.rs:871
 msgid "RDM JSON"
-msgstr ""
+msgstr "RDM JSON"
 
 #: rustconn/src/dialogs/import/sources.rs:922
 msgid "Select MobaXterm Session File"
-msgstr ""
+msgstr "MobaXtermセッションファイルを選択"
 
 #: rustconn/src/dialogs/import/sources.rs:1013
 msgid "Select PuTTY Registry Export File"
-msgstr ""
+msgstr "PuTTY レジストリエキスポートファイル"
 
 #: rustconn/src/dialogs/import/sources.rs:1019
 msgid "PuTTY Registry Export (*.reg)"
-msgstr ""
+msgstr "PuTTY Registry Export (*.reg)"
 
 #: rustconn/src/dialogs/import/sources.rs:1102
 msgid "Select mRemoteNG Connections File"
-msgstr ""
+msgstr "mRemoteNG 接続ファイルを選択"
 
 #: rustconn/src/dialogs/import/sources.rs:1108
 msgid "mRemoteNG Connections (*.xml)"
-msgstr ""
+msgstr "mRemoteNG Connections (*.xml)"
 
 #: rustconn/src/dialogs/import/sources.rs:1191
 msgid "Select Libvirt Domain XML File"
-msgstr ""
+msgstr "Libvirt ドメイン XMLファイルを選択"
 
 #: rustconn/src/dialogs/import/sources.rs:1197
 msgid "XML files (*.xml)"
-msgstr ""
+msgstr "XML files (*.xml)"
 
 #: rustconn/src/dialogs/import/sources.rs:1200
 msgid "All files"
-msgstr ""
+msgstr "All files"
 
 #: rustconn/src/dialogs/import/sources.rs:1281
 msgid "Select Virt-Viewer File"
-msgstr ""
+msgstr "Virt-Viewerファイルを選択"
 
 #: rustconn/src/dialogs/import/sources.rs:1287
 msgid "Virt-Viewer files (*.vv)"
-msgstr ""
+msgstr "Virt-Viewer files (*.vv)"
 
 #: rustconn/src/dialogs/import/sources.rs:1369
 msgid "Select RDP File"
-msgstr ""
+msgstr "RDPファイルを選択"
 
 #: rustconn/src/dialogs/import/sources.rs:1459
 msgid "Select CSV File"
-msgstr ""
+msgstr "CSVファイルを選択"
 
 #: rustconn/src/dialogs/import/sources.rs:1466
 msgid "CSV files (*.csv, *.tsv)"
-msgstr ""
+msgstr "CSV files (*.csv, *.tsv)"
 
 #: rustconn/src/dialogs/import/sources.rs:1575
 msgid "Select Files to Import"
-msgstr ""
+msgstr "インポートするファイルを選択"
 
 #: rustconn/src/dialogs/import/sources.rs:1594
 msgid "All supported formats"
-msgstr ""
+msgstr "All supported formats"
 
 #: rustconn/src/dialogs/import/sources.rs:1633
 msgid "Importing from {} files…"
-msgstr ""
+msgstr "{} ファイルからインポート中…"
 
 #: rustconn/src/dialogs/import/sources.rs:1651
 msgid "Importing {}…"
-msgstr ""
+msgstr "{}をインポート中…"
 
 #: rustconn/src/dialogs/import/sources.rs:1672
 msgid ""
 "Imported {} connection(s) and {} group(s) from {} files ({} errors).\n"
 "Connections will be added to 'Multiple Files Import' group."
 msgstr ""
+"{}件の接続と{}件のグループを{}個のファイルからインポートされました({}件のエ"
+"ラー)。\n"
+"接続は'Multiple Files Import'グループに追加されます。"
 
 #: rustconn/src/dialogs/import/sources.rs:1682
 msgid ""
 "Imported {} connection(s) and {} group(s) from {} files.\n"
 "Connections will be added to 'Multiple Files Import' group."
 msgstr ""
+"{}件の接続と{}件のグループを{}個のファイルからインポートされました。\n"
+"接続は'Multiple Files Import'グループに追加されます。"
 
 #: rustconn/src/dialogs/kdbx_unlock.rs:60
 msgid "KeePass database is locked"
-msgstr ""
+msgstr "KeePassデータベースがロックされています"
 
 #: rustconn/src/dialogs/kdbx_unlock.rs:68
 msgid ""
 "Enter the master password to unlock '{}'.\n"
 "The password will be kept in memory for this session only."
 msgstr ""
+"'{}'のロックを解除するには、マスターパスワードを入力してください。\n"
+"このパスワードは、このセッションの間のみメモリに保管されます。"
 
 #: rustconn/src/dialogs/kdbx_unlock.rs:80
 #: rustconn/src/dialogs/settings/secrets_tab/mod.rs:2178
 msgid "Database password"
-msgstr ""
+msgstr "データベースパスワード"
 
 #: rustconn/src/dialogs/kdbx_unlock.rs:90
 msgid "Touch your YubiKey when it blinks to complete the unlock."
-msgstr ""
+msgstr "Yubikeygatennemtusitara、それに触れてロックの解除を完了してください。"
 
 #: rustconn/src/dialogs/kdbx_unlock.rs:113
 #: rustconn/src/dialogs/portable_unlock.rs:94
 msgid "Unlock & Connect"
-msgstr ""
+msgstr "ロック解除 & 接続"
 
 #: rustconn/src/dialogs/kdbx_unlock.rs:147
 #: rustconn/src/dialogs/portable_unlock.rs:130
 msgid "Verifying…"
-msgstr ""
+msgstr "認証中…"
 
 #: rustconn/src/dialogs/kdbx_unlock.rs:188
 #: rustconn/src/dialogs/portable_unlock.rs:166
 #: rustconn/src/dialogs/settings/secrets_tab/mod.rs:2685
 msgid "Verification failed"
-msgstr ""
+msgstr "認証失敗"
 
 #: rustconn/src/dialogs/log_viewer.rs:39 rustconn/src/dialogs/log_viewer.rs:134
 msgid "Session Logs"
-msgstr ""
+msgstr "セッションログ"
 
 #: rustconn/src/dialogs/log_viewer.rs:139
 #: rustconn/src/dialogs/log_viewer.rs:141
 msgid "Refresh log list"
-msgstr ""
+msgstr "ログリストをリフレッシュ"
 
 #: rustconn/src/dialogs/log_viewer.rs:154
 #: rustconn/src/dialogs/log_viewer.rs:158
 msgid "Show log file list"
-msgstr ""
+msgstr "リグファイルリストを表示"
 
 #: rustconn/src/dialogs/log_viewer.rs:190
 msgid "No log files found"
-msgstr ""
+msgstr "ログファイルがありません"
 
 #: rustconn/src/dialogs/log_viewer.rs:233
 msgid "Log Files"
-msgstr ""
+msgstr "ログファイル"
 
 #: rustconn/src/dialogs/log_viewer.rs:248
 msgid "Log Content"
-msgstr ""
+msgstr "ログの内容"
 
 #: rustconn/src/dialogs/log_viewer.rs:353
 #: rustconn/src/split_view/adapter.rs:1641
 msgid "Loading…"
-msgstr ""
+msgstr "読み込み中…"
 
 #: rustconn/src/dialogs/log_viewer.rs:368
 msgid ""
 "Could not read the log file: {}. The file may have been moved or deleted."
 msgstr ""
+"ログファイルを読み込めませんでした: {}。ファイルが移動されたか削除されている"
+"可能性があります。"
 
 #: rustconn/src/dialogs/mod.rs:14
 msgid "Do not play"
-msgstr ""
+msgstr "再生しない"
 
 #: rustconn/src/dialogs/mod.rs:15
 msgid "Play on this computer"
-msgstr ""
+msgstr "このコンピューターで再生する"
 
 #: rustconn/src/dialogs/mod.rs:16
 msgid "Play on the remote computer"
-msgstr ""
+msgstr "リモートコンピューター上で再生する"
 
 #: rustconn/src/dialogs/password.rs:58
 msgid "Authentication Required"
-msgstr ""
+msgstr "認証が必要です"
 
 #: rustconn/src/dialogs/password.rs:84
 msgid "Enter credentials for this connection:"
-msgstr ""
+msgstr "この接続の資格情報を入力してください:"
 
 #: rustconn/src/dialogs/password.rs:97 rustconn/src/dialogs/password.rs:363
 msgid "Resolving credentials…"
-msgstr ""
+msgstr "資格情報を解決中…"
 
 #: rustconn/src/dialogs/password.rs:152
 msgid "Domain:"
-msgstr ""
+msgstr "ドメイン: "
 
 #: rustconn/src/dialogs/password.rs:157 rustconn/src/window/edit_dialogs.rs:838
 #: rustconn/src/window/edit_dialogs.rs:849
 msgid "(optional)"
-msgstr ""
+msgstr "(任意)"
 
 #: rustconn/src/dialogs/password.rs:168
 msgid "Username:"
-msgstr ""
+msgstr "ユーザー名: "
 
 #: rustconn/src/dialogs/password.rs:173
 msgid "username"
-msgstr ""
+msgstr "ユーザー名"
 
 #: rustconn/src/dialogs/password.rs:184
 msgid "Password:"
-msgstr ""
+msgstr "パスワード: "
 
 #: rustconn/src/dialogs/password.rs:200
 msgid "Save Credentials"
-msgstr ""
+msgstr "資格情報を保存"
 
 #: rustconn/src/dialogs/password.rs:207
 msgid "Save to KeePass"
-msgstr ""
+msgstr "KeePassへ保存"
 
 #: rustconn/src/dialogs/password.rs:208
 msgid "Migrate credentials from system keyring to KeePass"
-msgstr ""
+msgstr "システムキーリングからKeePassへ資格情報を移行"
 
 #: rustconn/src/dialogs/password.rs:302
 msgid "Connect to {}"
-msgstr ""
+msgstr "{}に接続"
 
 #: rustconn/src/dialogs/password_generator.rs:24
 #: rustconn/src/dialogs/shortcuts.rs:158
 msgid "Password Generator"
-msgstr ""
+msgstr "パスワードジェネレーター"
 
 #: rustconn/src/dialogs/password_generator.rs:32
 #: rustconn/src/dialogs/password_generator.rs:34
 msgid "Copy to Clipboard"
-msgstr ""
+msgstr "クリップボードにコピー"
 
 #: rustconn/src/dialogs/password_generator.rs:69
 msgid "Generated Password"
-msgstr ""
+msgstr "生成されたパスワード"
 
 #: rustconn/src/dialogs/password_generator.rs:84
 #: rustconn/src/dialogs/password_generator.rs:88
 msgid "Generate new password"
-msgstr ""
+msgstr "新しいパスワードを生成"
 
 #: rustconn/src/dialogs/password_generator.rs:98
 msgid "Strength Analysis"
-msgstr ""
+msgstr "強度評価"
 
 #: rustconn/src/dialogs/password_generator.rs:115
 msgid "Strong"
-msgstr ""
+msgstr "強固"
 
 #: rustconn/src/dialogs/password_generator.rs:121
 msgid "Strength"
-msgstr ""
+msgstr "強度"
 
 #: rustconn/src/dialogs/password_generator.rs:128
 #: rustconn/src/dialogs/password_generator.rs:379
 msgid "0 bits"
-msgstr ""
+msgstr "0 ビット"
 
 #: rustconn/src/dialogs/password_generator.rs:134
 msgid "Entropy"
-msgstr ""
+msgstr "エントロピー"
 
 #: rustconn/src/dialogs/password_generator.rs:135
 msgid "Measure of randomness"
-msgstr ""
+msgstr "ランダム性を示す度合い"
 
 #: rustconn/src/dialogs/password_generator.rs:142
 msgid "instant"
-msgstr ""
+msgstr "一瞬"
 
 #: rustconn/src/dialogs/password_generator.rs:148
 msgid "Crack time"
-msgstr ""
+msgstr "解析時間"
 
 #: rustconn/src/dialogs/password_generator.rs:149
 msgid "At 10 billion guesses/sec"
-msgstr ""
+msgstr "毎秒100億回の推測をする場合"
 
 #: rustconn/src/dialogs/password_generator.rs:158
 msgid "Length"
-msgstr ""
+msgstr "強度"
 
 #: rustconn/src/dialogs/password_generator.rs:184
 msgid "Characters"
-msgstr ""
+msgstr "文字数"
 
 #: rustconn/src/dialogs/password_generator.rs:185
 msgid "Recommended: 16+ for important accounts"
-msgstr ""
+msgstr "推奨: 重要なアカウントは16文字以上にする"
 
 #: rustconn/src/dialogs/password_generator.rs:194
 msgid "Character Sets"
-msgstr ""
+msgstr "使用する文字"
 
 #: rustconn/src/dialogs/password_generator.rs:195
 msgid "Select which characters to include"
-msgstr ""
+msgstr "含める文字を選択"
 
 #: rustconn/src/dialogs/password_generator.rs:200
 msgid "Lowercase"
-msgstr ""
+msgstr "英小文字"
 
 #: rustconn/src/dialogs/password_generator.rs:208
 msgid "Uppercase"
-msgstr ""
+msgstr "英大文字"
 
 #: rustconn/src/dialogs/password_generator.rs:216
 msgid "Digits"
-msgstr ""
+msgstr "数値"
 
 #: rustconn/src/dialogs/password_generator.rs:232
 msgid "Extended"
-msgstr ""
+msgstr "拡張"
 
 #: rustconn/src/dialogs/password_generator.rs:247
 msgid "Exclude ambiguous"
-msgstr ""
+msgstr "見た目が似ている文字を除外"
 
 #: rustconn/src/dialogs/password_generator.rs:248
 msgid "Avoid 0O, 1lI to prevent confusion"
-msgstr ""
+msgstr "0Oや、1lIなどの紛らわしい文字を使用しない"
 
 #: rustconn/src/dialogs/password_generator.rs:257
 msgid "Security Tips"
-msgstr ""
+msgstr "セキュリティのヒント"
 
 #: rustconn/src/dialogs/password_generator.rs:262
 msgid "Use 16+ characters"
-msgstr ""
+msgstr "16文字以上にする"
 
 #: rustconn/src/dialogs/password_generator.rs:263
 msgid "For critical accounts like banking, email"
-msgstr ""
+msgstr "銀行やメールなどの重要なアカウントなどの場合はこれもおすすめします。"
 
 #: rustconn/src/dialogs/password_generator.rs:266
 msgid "Never reuse passwords"
-msgstr ""
+msgstr "パスワードを使い回さない"
 
 #: rustconn/src/dialogs/password_generator.rs:267
 msgid "Each service should have unique password"
-msgstr ""
+msgstr "各サービスには固有のパスワードを設定してください"
 
 #: rustconn/src/dialogs/password_generator.rs:270
 msgid "Use password manager"
-msgstr ""
+msgstr "パスワードマネージャーを使う"
 
 #: rustconn/src/dialogs/password_generator.rs:271
 msgid "Don't store in plain text files"
-msgstr ""
+msgstr "プレーンテキストに直接保存しないでください"
 
 #: rustconn/src/dialogs/password_generator.rs:274
 msgid "Enable 2FA"
-msgstr ""
+msgstr "二段階認証をする"
 
 #: rustconn/src/dialogs/password_generator.rs:275
 msgid "Add extra layer of security when available"
-msgstr ""
+msgstr "利用可能な場合は、保護層を追加してセキュリティをさらに強化してください"
 
 #: rustconn/src/dialogs/password_generator.rs:348
 msgid "{} bits"
-msgstr ""
+msgstr "{} ビット"
 
 #: rustconn/src/dialogs/password_generator.rs:395
 #: rustconn/src/window/copy_field_actions.rs:277
 msgid "Password copied (auto-clears in 30s)"
-msgstr ""
+msgstr "パスワードをコピーしました (30秒でクリップボードから自動消去されます)"
 
 #: rustconn/src/dialogs/portable_migration.rs:46
 msgid "Copy credentials to the portable file?"
-msgstr ""
+msgstr "ポータブルファイルに資格情報をコピーしますか?"
 
 #: rustconn/src/dialogs/portable_migration.rs:52
 msgid ""
@@ -5686,90 +5760,106 @@ msgid ""
 "\n"
 "The originals are kept, so nothing is lost if you change your mind."
 msgstr ""
+"保存されている{}件のパスワードは、現在このコンピューターでのみ動作する鍵で保"
+"護されています。ポータブルファイルにコピーすると、パスフレーズを使って再暗号"
+"化されるため、他のデバイスでも開けるようになります。\n"
+"\n"
+"下のデータはそのまま残るため、気がわかってもデータが失われることはありませ"
+"ん。"
 
 #: rustconn/src/dialogs/portable_migration.rs:59
 #: rustconn/src/dialogs/settings/secrets_tab/mod.rs:1983
 msgid "Copy Credentials"
-msgstr ""
+msgstr "資格情報をコピー"
 
 #: rustconn/src/dialogs/portable_migration.rs:125
 msgid "Copied {} credentials to the portable file"
-msgstr ""
+msgstr "{}件の資格情報をポータブルファイルにコピーしました"
 
 #: rustconn/src/dialogs/portable_migration.rs:137
 #: rustconn/src/dialogs/portable_migration.rs:146
 msgid "Could Not Copy Credentials"
-msgstr ""
+msgstr "資格情報をコピーできませんでした。"
 
 #: rustconn/src/dialogs/portable_migration.rs:138
 msgid "The transfer did not start: {}"
-msgstr ""
+msgstr "転送が開始されませんでした: {}"
 
 #: rustconn/src/dialogs/portable_migration.rs:148
 msgid ""
 "The transfer did not finish. The portable file may hold only some of your "
 "credentials; run the copy again to complete it."
 msgstr ""
+"転送が完了しませんでした。ポータブルファイルには一部の資格情報しか含まれてい"
+"ない可能性があります。コピーを再度実行して完了させてください。"
 
 #: rustconn/src/dialogs/portable_migration.rs:182
 msgid ""
 "Copied {} credentials. {} could not be read and were left in the machine-"
 "bound file:"
 msgstr ""
+"{}件の資格情報をコピーしました。{}件の資格情報は読み取れなかったため、マシン"
+"固有のファイルに残されました:"
 
 #: rustconn/src/dialogs/portable_migration.rs:201
 msgid ""
 "These connections still work on this computer. To use them on another "
 "device, open each one and save its password again."
 msgstr ""
+"{}件の資格情報をコピーしました。{}件の資格情報は読み取れなかったため、マシン"
+"固有のファイルに残されました:これらの接続は、このコンピューター上では引き続き"
+"利用可能です。他のデバイスで使用するには、それぞれの接続を開き、パスワードを"
+"再保存してください。"
 
 #: rustconn/src/dialogs/portable_migration.rs:214
 msgid "Some Credentials Were Not Copied"
-msgstr ""
+msgstr "一部の資格情報はコピーされませんでした。"
 
 #: rustconn/src/dialogs/portable_passphrase_change.rs:54
 #: rustconn/src/dialogs/portable_passphrase_change.rs:96
 msgid "Change Passphrase"
-msgstr ""
+msgstr "パスフレーズを変更"
 
 #: rustconn/src/dialogs/portable_passphrase_change.rs:56
 msgid ""
 "Every password in the file is encrypted again under the new passphrase. "
 "There is still no way to recover it, so it is asked for twice."
 msgstr ""
+"ファイル内のすべてのパスワードは、新しいパスフレーズで再度暗号化されます。復"
+"元する方法は存在しないため、パスフレーズの入力が二回求められます。"
 
 #: rustconn/src/dialogs/portable_passphrase_change.rs:61
 msgid "Current passphrase"
-msgstr ""
+msgstr "現在のパスフレーズ"
 
 #: rustconn/src/dialogs/portable_passphrase_change.rs:64
 msgid "New passphrase"
-msgstr ""
+msgstr "新しいパスフレーズ"
 
 #: rustconn/src/dialogs/portable_passphrase_change.rs:67
 msgid "Confirm new passphrase"
-msgstr ""
+msgstr "新しいパスフレーズの再入力"
 
 #: rustconn/src/dialogs/portable_passphrase_change.rs:91
 msgid "Change"
-msgstr ""
+msgstr "変更"
 
 #: rustconn/src/dialogs/portable_passphrase_change.rs:129
 #: rustconn/src/dialogs/portable_passphrase_change.rs:330
 msgid "The two new passphrases do not match"
-msgstr ""
+msgstr "新しいパスフレーズが一致していません。"
 
 #: rustconn/src/dialogs/portable_passphrase_change.rs:176
 msgid "Changing the passphrase…"
-msgstr ""
+msgstr "パスフレーズを変更中…"
 
 #: rustconn/src/dialogs/portable_passphrase_change.rs:233
 msgid "Could not change the passphrase: {}"
-msgstr ""
+msgstr "パスフレーズを変更できませんでした: {}"
 
 #: rustconn/src/dialogs/portable_passphrase_change.rs:238
 msgid "Could not change the passphrase. The file was not modified."
-msgstr ""
+msgstr "パスフレーズを変更できませんでした。ファイルは変更されませんでした。"
 
 #: rustconn/src/dialogs/portable_passphrase_change.rs:284
 #: rustconn/src/dialogs/settings/secrets_tab/mod.rs:909
@@ -5778,6 +5868,9 @@ msgid ""
 "copied to your other computers, so the passphrase is the only thing "
 "protecting it."
 msgstr ""
+"これほど短いパスフレーズは、すぐに推測されてしまう可能性があります。このファ"
+"イルは他のコンピュータにもコピーして使用することを想定しているため、パスフ"
+"レーズだけが唯一の保護手段となります。"
 
 #: rustconn/src/dialogs/portable_passphrase_change.rs:288
 #: rustconn/src/dialogs/settings/secrets_tab/mod.rs:913
@@ -5785,157 +5878,169 @@ msgid ""
 "This passphrase would not take long to guess. Several unrelated words make a "
 "much stronger one, and are easier to remember than symbols."
 msgstr ""
+"このパスフレーズは、すぐに推測されてしまうでしょう。互いに関連のない単語をい"
+"くつか組み合わせる方がはるかに強固なものになりますし、記号を使うよりも覚えや"
+"すいものです。"
 
 #: rustconn/src/dialogs/portable_passphrase_change.rs:312
 msgid "Enter the passphrase the file is protected with now"
-msgstr ""
+msgstr "そのファイルが保護されているパスフレーズを今すぐ入力してください。"
 
 #: rustconn/src/dialogs/portable_passphrase_change.rs:319
 msgid "Enter a new passphrase"
-msgstr ""
+msgstr "新しいパスフレーズを入力してください"
 
 #: rustconn/src/dialogs/portable_passphrase_change.rs:342
 msgid "The new passphrase is the same as the current one"
-msgstr ""
+msgstr "新しいパスフレーズは、すでに既存のパスワードと同じです。"
 
 #: rustconn/src/dialogs/portable_passphrase_change.rs:365
 msgid "Passwords encrypted again under the new passphrase: {}"
-msgstr ""
+msgstr "新しいパスフレーズでパスワードを再暗号化しました: {}"
 
 #: rustconn/src/dialogs/portable_passphrase_change.rs:371
 msgid ""
 "Save your settings so the copy of the passphrase kept on this computer is "
 "updated too. Until then this computer still remembers the old one."
 msgstr ""
+"設定を保存して、このコンピュータに保存されているパスフレーズのコピーも更新さ"
+"れるようにしてください。そうしないと、このコンピュータは古いパスフレーズを記"
+"憶したままになってしまいます。"
 
 #: rustconn/src/dialogs/portable_passphrase_change.rs:375
 msgid "Passphrase Changed"
-msgstr ""
+msgstr "パスフレーズの変更完了"
 
 #: rustconn/src/dialogs/portable_unlock.rs:55
 msgid "Portable credential file is locked"
-msgstr ""
+msgstr "ポータブル資格情報ファイルがロックされています。"
 
 #: rustconn/src/dialogs/portable_unlock.rs:63
 msgid ""
 "Enter the passphrase to unlock '{}'.\n"
 "The passphrase will be kept in memory for this session only."
 msgstr ""
+"'{}'のロックを解除するには、パスフレーズを入力してください。\n"
+"入力されたパスフレーズは、このセッションの間のみメモリに保持されます。"
 
 #: rustconn/src/dialogs/portable_unlock.rs:75
 #: rustconn/src/dialogs/settings/secrets_tab/mod.rs:1712
 #: rustconn/src/dialogs/settings/secrets_tab/mod.rs:1972
 msgid "Passphrase"
-msgstr ""
+msgstr "パスフレーズ"
 
 #: rustconn/src/dialogs/portable_unlock.rs:211
 msgid "Incorrect passphrase"
-msgstr ""
+msgstr "パスフレーズが間違っています"
 
 #: rustconn/src/dialogs/portable_unlock.rs:212
 msgid "Cannot open the file: {}"
-msgstr ""
+msgstr "ファイルを開けません: {}"
 
 #: rustconn/src/dialogs/recording.rs:83
 msgid "Recordings"
-msgstr ""
+msgstr "録画"
 
 #: rustconn/src/dialogs/recording.rs:95 rustconn/src/dialogs/recording.rs:97
 msgid "Import recording"
-msgstr ""
+msgstr "録画をインポート"
 
 #: rustconn/src/dialogs/recording.rs:105 rustconn/src/terminal/playback.rs:289
 msgid "Search recordings…"
-msgstr ""
+msgstr "録画を検索"
 
 #: rustconn/src/dialogs/recording.rs:112
 msgid "Filter recordings by name"
-msgstr ""
+msgstr "録画を名前でフィルター"
 
 #: rustconn/src/dialogs/recording.rs:139
 msgid "No Recordings"
-msgstr ""
+msgstr "録画がありません"
 
 #: rustconn/src/dialogs/recording.rs:141
 msgid ""
 "Session recordings will appear here. Use the context menu to start recording "
 "a session."
 msgstr ""
+"セッションの録画はここに表示されます。コンテキストメニューを利用し、セッショ"
+"ンの記録を開始してください。"
 
 #: rustconn/src/dialogs/recording.rs:362 rustconn/src/dialogs/recording.rs:365
 #: rustconn/src/terminal/playback.rs:261
 msgid "Play recording"
-msgstr ""
+msgstr "録画を再生"
 
 #: rustconn/src/dialogs/recording.rs:371 rustconn/src/dialogs/recording.rs:374
 msgid "Rename recording"
-msgstr ""
+msgstr "録画の名前を変更"
 
 #: rustconn/src/dialogs/recording.rs:380 rustconn/src/dialogs/recording.rs:383
 msgid "Delete recording"
-msgstr ""
+msgstr "録画を削除"
 
 #: rustconn/src/dialogs/recording.rs:389 rustconn/src/dialogs/recording.rs:392
 msgid "Export recording"
-msgstr ""
+msgstr "録画をエクスポート"
 
 #: rustconn/src/dialogs/recording.rs:504
 msgid "Rename Recording"
 msgstr ""
+"録画\n"
+"をの名前を変更"
 
 #: rustconn/src/dialogs/recording.rs:505
 msgid "Enter a new display name for this recording."
-msgstr ""
+msgstr "この録画の新しい表示名を入力してください。"
 
 #: rustconn/src/dialogs/recording.rs:509 rustconn/src/dialogs/workspace.rs:126
 #: rustconn/src/dialogs/workspace.rs:237 rustconn/src/sidebar_ui.rs:339
 #: rustconn/src/sidebar_ui.rs:390 rustconn/src/window/edit_dialogs.rs:318
 msgid "Rename"
-msgstr ""
+msgstr "名前を変更"
 
 #: rustconn/src/dialogs/recording.rs:570
 msgid "Delete Recording?"
-msgstr ""
+msgstr "録画を削除しますか？"
 
 #: rustconn/src/dialogs/recording.rs:574
 msgid "This will permanently remove the recording files from disk."
-msgstr ""
+msgstr "録画ファイルがディスクから完全に削除されます。"
 
 #: rustconn/src/dialogs/recording.rs:627
 msgid "Export Recording"
-msgstr ""
+msgstr "録画をエクスポート"
 
 #: rustconn/src/dialogs/recording.rs:653 rustconn/src/dialogs/recording.rs:770
 msgid "Cannot determine recordings directory."
-msgstr ""
+msgstr "録画ディレクトリを特定できません。"
 
 #: rustconn/src/dialogs/recording.rs:665
 msgid "Recording exported successfully"
-msgstr ""
+msgstr "録画の書き出しが完了しました。"
 
 #: rustconn/src/dialogs/recording.rs:690
 msgid "Data files"
-msgstr ""
+msgstr "データファイル"
 
 #: rustconn/src/dialogs/recording.rs:698
 msgid "Select Data File"
-msgstr ""
+msgstr "データファイルを選択"
 
 #: rustconn/src/dialogs/recording.rs:724
 msgid "Timing files"
-msgstr ""
+msgstr "タイミングファイル"
 
 #: rustconn/src/dialogs/recording.rs:732
 msgid "Select Timing File"
-msgstr ""
+msgstr "タイミングファイルを選択"
 
 #: rustconn/src/dialogs/recording.rs:784
 msgid "Recording imported successfully"
-msgstr ""
+msgstr "録画のインポートに成功しました"
 
 #: rustconn/src/dialogs/recording.rs:792
 msgid "Import failed"
-msgstr ""
+msgstr "インポートに失敗しました"
 
 #: rustconn/src/dialogs/recording.rs:801 rustconn/src/dialogs/recording.rs:813
 #: rustconn/src/dialogs/settings/ssh_agent_tab.rs:285 rustconn/src/toast.rs:73
@@ -5946,31 +6051,31 @@ msgstr ""
 #: rustconn/src/window/edit_dialogs.rs:495
 #: rustconn/src/window/edit_group.rs:1816
 msgid "Error"
-msgstr ""
+msgstr "エラー"
 
 #: rustconn/src/dialogs/settings/clients_tab.rs:35
 msgid "Clients"
-msgstr ""
+msgstr "クライアント"
 
 #: rustconn/src/dialogs/settings/clients_tab.rs:41
 msgid "Core Clients"
-msgstr ""
+msgstr "コアクライアント"
 
 #: rustconn/src/dialogs/settings/clients_tab.rs:42
 msgid "Essential connection clients"
-msgstr ""
+msgstr "必須の接続クライアント"
 
 #: rustconn/src/dialogs/settings/clients_tab.rs:62
 msgid "Zero Trust Clients"
-msgstr ""
+msgstr "ゼロトラストクライアント"
 
 #: rustconn/src/dialogs/settings/clients_tab.rs:63
 msgid "Cloud provider CLI tools"
-msgstr ""
+msgstr "クラウドプロバイダーのCLIツール"
 
 #: rustconn/src/dialogs/settings/clients_tab.rs:91
 msgid "Kubernetes CLI tools"
-msgstr ""
+msgstr "KubernetesのCLIツール"
 
 #: rustconn/src/dialogs/settings/clients_tab.rs:154
 #: rustconn/src/dialogs/settings/secrets_tab/detection.rs:77
@@ -5980,7 +6085,7 @@ msgstr ""
 #: rustconn/src/dialogs/settings/ssh_agent_tab.rs:41
 #: rustconn/src/dialogs/settings/ssh_agent_tab.rs:191
 msgid "Checking…"
-msgstr ""
+msgstr "チェック中…"
 
 #: rustconn/src/dialogs/settings/clients_tab.rs:186
 msgid "Using embedded {} (external not found)"
@@ -6317,8 +6422,9 @@ msgid "Every connection already follows the global monitoring switch."
 msgstr ""
 
 #: rustconn/src/dialogs/settings/mod.rs:909
+#, fuzzy
 msgid "Reset Per-Connection Overrides?"
-msgstr "接続ごとの上書きをリセットしますか？"
+msgstr "接続情報を入力してください"
 
 #: rustconn/src/dialogs/settings/mod.rs:911
 msgid ""
@@ -6400,8 +6506,9 @@ msgid "Seconds between metric updates"
 msgstr ""
 
 #: rustconn/src/dialogs/settings/monitoring_tab.rs:83
+#, fuzzy
 msgid "Reset Per-Connection Overrides"
-msgstr "接続でグローバル設定を上書きされた設定をリセット"
+msgstr "接続情報を入力してください"
 
 #: rustconn/src/dialogs/settings/monitoring_tab.rs:85
 msgid ""
@@ -6410,8 +6517,9 @@ msgid ""
 msgstr ""
 
 #: rustconn/src/dialogs/settings/monitoring_tab.rs:89
+#, fuzzy
 msgid "Reset…"
-msgstr "リセット…"
+msgstr "リセット"
 
 #: rustconn/src/dialogs/settings/monitoring_tab.rs:100
 msgid "Visible Metrics"
@@ -10848,8 +10956,9 @@ msgid "Sign-in expired"
 msgstr ""
 
 #: rustconn/src/terminal/session_lifecycle.rs:587
+#, fuzzy
 msgid "Log In to {}"
-msgstr "{}へログインしました"
+msgstr "入力をログに保存"
 
 #: rustconn/src/terminal/session_lifecycle.rs:591
 msgid "Run “{}” to sign in again in the browser"
@@ -10932,8 +11041,9 @@ msgid "Move to New Window"
 msgstr ""
 
 #: rustconn/src/terminal/tab_menu.rs:926
+#, fuzzy
 msgid "Edit Connection…"
-msgstr "接続を編集…"
+msgstr "接続を編集"
 
 #: rustconn/src/terminal/tab_menu.rs:964
 msgid "Close Others"
@@ -11308,12 +11418,14 @@ msgid "Imported {} connections to '{}' group"
 msgstr ""
 
 #: rustconn/src/window/copy_field_actions.rs:80
+#, fuzzy
 msgid "Port ({})"
-msgstr "ポート ({})"
+msgstr "エラー ({}): "
 
 #: rustconn/src/window/copy_field_actions.rs:190
+#, fuzzy
 msgid "Copied (auto-clears in {}s)"
-msgstr ""
+msgstr "パスワードをコピーしました (30秒でクリップボードから自動消去されます)"
 
 #: rustconn/src/window/copy_field_actions.rs:251
 msgid "No username configured"
@@ -11655,8 +11767,9 @@ msgstr ""
 #: rustconn/src/window/edit_group.rs:685 rustconn/src/window/edit_group.rs:710
 #: rustconn/src/window/edit_group.rs:818 rustconn/src/window/edit_group.rs:831
 #: rustconn/src/window/edit_group.rs:847
+#, fuzzy
 msgid "Inherited from a parent group: {}"
-msgstr "親グループから継承: {}"
+msgstr "親グループから継承"
 
 #: rustconn/src/window/edit_group.rs:691
 msgid "SSH Key Path"
@@ -11667,8 +11780,9 @@ msgid "Select SSH key file"
 msgstr ""
 
 #: rustconn/src/window/edit_group.rs:817
+#, fuzzy
 msgid "(unknown connection)"
-msgstr "(不明な接続)"
+msgstr "接続数: {}"
 
 #: rustconn/src/window/edit_group.rs:825
 msgid "SSH Proxy Jump"
@@ -12658,7 +12772,7 @@ msgstr "統計…"
 
 #: rustconn/src/window/ui.rs:315
 msgid "Recordings…"
-msgstr "記録…"
+msgstr "録画…"
 
 #: rustconn/src/window/ui.rs:316
 msgid "Session Logs…"
@@ -12733,9 +12847,5 @@ msgid "RustConn"
 msgstr "RustConn"
 
 #: rustconn/assets/io.github.totoshko88.RustConn.desktop:15
-msgid ""
-"ssh;rdp;vnc;spice;mosh;telnet;zerotrust;connection;terminal;remote;kubernetes;"
-"k8s;serial;sftp;"
-msgstr ""
-"ssh;rdp;vnc;spice;mosh;telnet;zerotrust;connection;terminal;remote;kubernetes;"
-"k8s;serial;sftp;"
+msgid "ssh;rdp;vnc;spice;mosh;telnet;zerotrust;connection;terminal;remote;kubernetes;k8s;serial;sftp;"
+msgstr "ssh;rdp;vnc;spice;mosh;telnet;zerotrust;connection;terminal;remote;kubernetes;k8s;serial;sftp;"
